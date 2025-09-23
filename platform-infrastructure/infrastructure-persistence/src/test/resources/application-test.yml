@@ -1,0 +1,72 @@
+# Test configuration for infrastructure-persistence module
+spring:
+  profiles:
+    active: test
+
+  # DataSource configuration (will be overridden by TestContainers)
+  datasource:
+    url: jdbc:postgresql://localhost:5432/bist_trading_test
+    username: test
+    password: test
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 5
+      minimum-idle: 1
+      connection-timeout: 20000
+      idle-timeout: 300000
+      max-lifetime: 600000
+      pool-name: BistTradingTestPool
+
+  # JPA configuration for tests
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+        use_sql_comments: true
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        jdbc:
+          batch_size: 10
+          fetch_size: 50
+        cache:
+          use_second_level_cache: false
+          use_query_cache: false
+        generate_statistics: false
+
+  # Flyway configuration for tests
+  flyway:
+    enabled: false # Disabled for tests using create-drop
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+    validate-on-migrate: false
+
+  # Test transaction management
+  transaction:
+    default-timeout: 30
+    rollback-on-commit-failure: true
+
+# Security configuration for tests
+bist:
+  security:
+    encryption:
+      key: "dGVzdC1lbmNyeXB0aW9uLWtleS1mb3ItdW5pdC10ZXN0cw==" # Base64 encoded test key
+
+# Logging configuration for tests
+logging:
+  level:
+    com.bisttrading.infrastructure.persistence: DEBUG
+    org.hibernate.SQL: DEBUG
+    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
+    org.springframework.orm.jpa: DEBUG
+    org.springframework.transaction: DEBUG
+    org.testcontainers: INFO
+    com.zaxxer.hikari: WARN
+  pattern:
+    console: "%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
+
+# TestContainers configuration
+testcontainers:
+  reuse:
+    enable: true

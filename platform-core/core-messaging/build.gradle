@@ -1,0 +1,45 @@
+plugins {
+    id 'java-library'
+}
+
+dependencies {
+    api project(':platform-core:core-common')
+    api project(':platform-core:core-domain')
+
+    // Spring Kafka
+    api 'org.springframework.kafka:spring-kafka'
+    api 'org.apache.kafka:kafka-clients'
+
+    // Spring Cloud Stream (optional for advanced messaging patterns)
+    api 'org.springframework.cloud:spring-cloud-starter-stream-kafka'
+
+    // Redis for caching and session management
+    api 'org.springframework.boot:spring-boot-starter-data-redis'
+    api 'redis.clients:jedis'
+
+    // Event sourcing support
+    api 'org.springframework:spring-messaging'
+    api 'org.springframework:spring-context-support'
+
+    // Async processing
+    api 'org.springframework.boot:spring-boot-starter-web'
+
+    // Lombok
+    compileOnly 'org.projectlombok:lombok'
+    annotationProcessor 'org.projectlombok:lombok'
+
+    // MapStruct
+    api 'org.mapstruct:mapstruct'
+    annotationProcessor 'org.mapstruct:mapstruct-processor'
+
+    // Testing
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    testImplementation 'org.springframework.kafka:spring-kafka-test'
+    testImplementation 'org.testcontainers:kafka'
+    testImplementation 'org.testcontainers:junit-jupiter'
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+    testImplementation 'org.assertj:assertj-core'
+    testImplementation 'org.mockito:mockito-core'
+    testImplementation 'org.mockito:mockito-junit-jupiter'
+}
+

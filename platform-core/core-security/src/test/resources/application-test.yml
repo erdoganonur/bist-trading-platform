@@ -1,0 +1,86 @@
+# Test configuration for core-security module
+spring:
+  profiles:
+    active: test
+
+  # Redis configuration for tests
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      password:
+      database: 1
+      timeout: 2000ms
+      jedis:
+        pool:
+          max-active: 8
+          max-wait: -1ms
+          max-idle: 8
+          min-idle: 0
+
+  # Disable auto-configuration that might interfere with tests
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.security.servlet.UserDetailsServiceAutoConfiguration
+
+# JWT configuration for tests
+bist:
+  security:
+    jwt:
+      secret: "test-jwt-secret-key-for-unit-and-integration-tests-that-is-long-enough-for-hmac-sha256"
+      access-token-expiry: PT15M  # 15 minutes
+      refresh-token-expiry: P7D   # 7 days
+      issuer: "bist-trading-test"
+      audience: "bist-trading-test-users"
+      header-name: "Authorization"
+      token-prefix: "Bearer "
+      clock-skew: PT2M  # 2 minutes
+      max-refresh-attempts-per-hour: 10
+      enable-blacklist: true
+      blacklist-cleanup-interval: PT1H  # 1 hour
+      token-length: 32
+      include-user-details-in-token: false
+
+      claims:
+        include-roles: true
+        include-permissions: false
+        include-profile: false
+        include-last-login: false
+        custom-claim-prefix: "bist_"
+
+      rate-limit:
+        enabled: true
+        requests-per-window: 5
+        window-duration: PT1M  # 1 minute
+        login-requests-per-window: 3
+        login-window-duration: PT5M  # 5 minutes
+        registration-requests-per-window: 2
+        registration-window-duration: PT10M  # 10 minutes
+
+    encryption:
+      key: "dGVzdC1lbmNyeXB0aW9uLWtleS1mb3ItdW5pdC10ZXN0cw=="  # Base64 encoded test key
+
+# Logging configuration for tests
+logging:
+  level:
+    com.bisttrading.core.security: DEBUG
+    org.springframework.security: DEBUG
+    org.springframework.data.redis: WARN
+    io.lettuce: WARN
+  pattern:
+    console: "%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
+
+# Management endpoints for tests
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    health:
+      show-details: always
+
+# Test-specific configurations
+testcontainers:
+  reuse:
+    enable: true

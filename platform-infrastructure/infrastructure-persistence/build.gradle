@@ -1,0 +1,56 @@
+plugins {
+    id 'java-library'
+}
+
+dependencies {
+    // Core modules
+    api project(':platform-core:core-common')
+    api project(':platform-core:core-domain')
+
+    // Spring Data JPA
+    api 'org.springframework.boot:spring-boot-starter-data-jpa'
+
+    // Database connectivity
+    api 'org.postgresql:postgresql'
+    api 'com.zaxxer:HikariCP'
+
+    // Flyway migrations
+    api 'org.flywaydb:flyway-core'
+    api 'org.flywaydb:flyway-database-postgresql'
+
+    // TimescaleDB extension
+    api 'com.timescale:timescaledb-jdbc:2.13.0'
+
+    // JSON processing for JSONB
+    api 'com.fasterxml.jackson.core:jackson-core'
+    api 'com.fasterxml.jackson.core:jackson-databind'
+    api 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310'
+    api 'com.fasterxml.jackson.module:jackson-module-parameter-names'
+
+    // Validation
+    api 'org.springframework.boot:spring-boot-starter-validation'
+
+    // Hibernate types for PostgreSQL
+    api 'io.hypersistence:hypersistence-utils-hibernate-63:3.7.3'
+
+    // Encryption utilities
+    api 'org.bouncycastle:bcprov-jdk18on:1.78.1'
+
+    // Auditing
+    api 'org.springframework.data:spring-data-envers'
+
+    // Lombok
+    compileOnly 'org.projectlombok:lombok'
+    annotationProcessor 'org.projectlombok:lombok'
+
+    // Testing
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    testImplementation 'org.springframework.boot:spring-boot-testcontainers'
+    testImplementation 'org.testcontainers:junit-jupiter'
+    testImplementation 'org.testcontainers:postgresql'
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+    testImplementation 'org.assertj:assertj-core'
+    testImplementation 'org.mockito:mockito-core'
+    testImplementation 'org.mockito:mockito-junit-jupiter'
+    testImplementation 'com.github.database-rider:rider-junit5:1.41.0'
+}

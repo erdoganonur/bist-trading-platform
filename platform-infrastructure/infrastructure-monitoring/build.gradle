@@ -1,0 +1,41 @@
+plugins {
+    id 'java-library'
+}
+
+dependencies {
+    api project(':platform-core:core-common')
+
+    // Spring Boot Actuator
+    api 'org.springframework.boot:spring-boot-starter-actuator'
+
+    // Metrics and monitoring
+    api 'io.micrometer:micrometer-core'
+    api 'io.micrometer:micrometer-registry-prometheus'
+    api 'io.micrometer:micrometer-tracing-bridge-otel'
+
+    // Distributed tracing (commented out problematic dependencies)
+    // api 'io.opentelemetry:opentelemetry-api'
+    // api 'io.opentelemetry:opentelemetry-exporter-jaeger'
+    // api 'io.opentelemetry:opentelemetry-extension-annotations'
+
+    // Logging
+    api 'net.logstash.logback:logstash-logback-encoder:7.4'
+
+    // Health checks
+    api 'org.springframework.boot:spring-boot-starter-web'
+
+    // Custom metrics
+    api 'org.aspectj:aspectjweaver'
+
+    // Lombok
+    compileOnly 'org.projectlombok:lombok'
+    annotationProcessor 'org.projectlombok:lombok'
+
+    // Testing
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+    testImplementation 'org.assertj:assertj-core'
+    testImplementation 'org.mockito:mockito-core'
+    testImplementation 'org.mockito:mockito-junit-jupiter'
+}
+

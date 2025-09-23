@@ -1,0 +1,132 @@
+# Test configuration for user-management-service
+spring:
+  profiles:
+    active: test
+
+  # Test DataSource configuration (will be overridden by TestContainers)
+  datasource:
+    url: jdbc:postgresql://localhost:5432/bist_trading_test
+    username: test
+    password: test
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 5
+      minimum-idle: 1
+      connection-timeout: 20000
+      idle-timeout: 300000
+      max-lifetime: 600000
+      pool-name: UserManagementTestPool
+
+  # Test JPA configuration
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+        use_sql_comments: true
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        jdbc:
+          batch_size: 10
+          fetch_size: 50
+        cache:
+          use_second_level_cache: false
+          use_query_cache: false
+        generate_statistics: false
+
+  # Test Flyway configuration
+  flyway:
+    enabled: false # Disabled for tests using create-drop
+
+  # Test Security
+  security:
+    require-ssl: false
+
+  # Test transaction management
+  transaction:
+    default-timeout: 30
+    rollback-on-commit-failure: true
+
+# Test logging configuration
+logging:
+  level:
+    com.bisttrading.user: DEBUG
+    com.bisttrading.core.security: INFO
+    com.bisttrading.infrastructure.persistence: DEBUG
+    org.springframework.security: WARN
+    org.springframework.web: INFO
+    org.hibernate.SQL: DEBUG
+    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
+    org.testcontainers: INFO
+    com.zaxxer.hikari: WARN
+  pattern:
+    console: "%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
+
+# TestContainers configuration
+testcontainers:
+  reuse:
+    enable: true
+
+# Test BIST Configuration
+bist:
+  # Test security configuration
+  security:
+    jwt:
+      public-key-location: classpath:test-keys/jwt-public.pem
+      private-key-location: classpath:test-keys/jwt-private.pem
+      access-token-expiration: 900 # 15 minutes
+      refresh-token-expiration: 604800 # 7 days
+      issuer: bist-trading-platform-test
+      audience: bist-trading-users-test
+
+    cors:
+      allowed-origins: "*"
+      allowed-methods: "*"
+      allowed-headers: "*"
+      allow-credentials: true
+      max-age: 3600
+
+    rate-limiting:
+      enabled: false # Disabled for tests
+
+  # Test validation configuration
+  validation:
+    tc-kimlik:
+      enabled: true
+      strict-mode: false # Relaxed for testing
+    phone:
+      country-code: "+90"
+      require-mobile: true
+    password:
+      min-length: 8
+      require-uppercase: true
+      require-lowercase: true
+      require-digit: true
+      require-special-char: false
+      turkish-chars-allowed: true
+
+  # Test notifications (disabled)
+  notifications:
+    email:
+      enabled: false
+      provider: mock
+      from-address: test@bisttrading.com
+      from-name: BIST Trading Test
+    sms:
+      enabled: false
+      provider: mock
+      sender-name: BISTTEST
+
+  # Test session management
+  session:
+    max-concurrent-sessions: 10
+    session-timeout: 1800 # 30 minutes
+    cleanup-interval: 300 # 5 minutes
+
+  # Test account security
+  account:
+    max-failed-login-attempts: 5
+    account-lock-duration: 3600 # 1 hour
+    password-expiry-days: 90
+    verification-code-expiry: 900 # 15 minutes

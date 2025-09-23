@@ -1,0 +1,46 @@
+plugins {
+    id 'java-library'
+}
+
+dependencies {
+    api 'org.springframework.boot:spring-boot-starter'
+    api 'org.springframework.boot:spring-boot-starter-validation'
+    api 'org.springframework.boot:spring-boot-starter-web'
+    api 'org.springframework.boot:spring-boot-starter-data-jpa'
+    api 'org.springframework.boot:spring-boot-starter-security'
+    api 'org.springframework:spring-context'
+    api 'org.springframework:spring-core'
+
+    // JSON Processing
+    api 'com.fasterxml.jackson.core:jackson-core'
+    api 'com.fasterxml.jackson.core:jackson-databind'
+    api 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310'
+    api 'com.fasterxml.jackson.datatype:jackson-datatype-jdk8'
+
+    // Validation
+    api 'org.hibernate.validator:hibernate-validator'
+    api 'jakarta.validation:jakarta.validation-api'
+
+    // Logging
+    api 'org.slf4j:slf4j-api'
+    api 'ch.qos.logback:logback-classic'
+
+    // Lombok
+    compileOnly 'org.projectlombok:lombok'
+    annotationProcessor 'org.projectlombok:lombok'
+
+    // MapStruct
+    api 'org.mapstruct:mapstruct'
+    annotationProcessor 'org.mapstruct:mapstruct-processor'
+
+    // Apache Commons
+    api 'org.apache.commons:commons-lang3:3.14.0'
+    api 'org.apache.commons:commons-collections4:4.4'
+
+    // Testing
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+    testImplementation 'org.assertj:assertj-core'
+    testImplementation 'org.mockito:mockito-core'
+    testImplementation 'org.mockito:mockito-junit-jupiter'
+}

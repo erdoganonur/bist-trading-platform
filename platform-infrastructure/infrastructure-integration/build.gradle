@@ -1,0 +1,57 @@
+plugins {
+    id 'java-library'
+}
+
+dependencies {
+    api project(':platform-core:core-common')
+    api project(':platform-core:core-domain')
+    api project(':platform-core:core-messaging')
+
+    // Spring Web & REST
+    api 'org.springframework.boot:spring-boot-starter-web'
+    api 'org.springframework.boot:spring-boot-starter-webflux'
+
+    // HTTP Client
+    api 'org.springframework.boot:spring-boot-starter-webflux'
+    api 'org.springframework.cloud:spring-cloud-starter-openfeign'
+
+    // Circuit breaker and resilience
+    api 'io.github.resilience4j:resilience4j-spring-boot3'
+    api 'io.github.resilience4j:resilience4j-circuitbreaker'
+    api 'io.github.resilience4j:resilience4j-retry'
+    api 'io.github.resilience4j:resilience4j-bulkhead'
+    api 'io.github.resilience4j:resilience4j-ratelimiter'
+
+    // External API integration
+    api 'org.springframework.integration:spring-integration-core'
+    api 'org.springframework.integration:spring-integration-http'
+    api 'org.springframework.integration:spring-integration-kafka'
+
+    // Observability
+    api 'io.micrometer:micrometer-core'
+    api 'io.micrometer:micrometer-registry-prometheus'
+
+    // JSON processing
+    api 'com.fasterxml.jackson.core:jackson-core'
+    api 'com.fasterxml.jackson.core:jackson-databind'
+    api 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310'
+
+    // Lombok
+    compileOnly 'org.projectlombok:lombok'
+    annotationProcessor 'org.projectlombok:lombok'
+
+    // MapStruct
+    api 'org.mapstruct:mapstruct'
+    annotationProcessor 'org.mapstruct:mapstruct-processor'
+
+    // Testing
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    testImplementation 'org.springframework.cloud:spring-cloud-contract-wiremock'
+    testImplementation 'com.github.tomakehurst:wiremock-jre8:3.0.1'
+    testImplementation 'org.testcontainers:junit-jupiter'
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+    testImplementation 'org.assertj:assertj-core'
+    testImplementation 'org.mockito:mockito-core'
+    testImplementation 'org.mockito:mockito-junit-jupiter'
+}
+

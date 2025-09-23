@@ -1,0 +1,71 @@
+spring:
+  # Development Database Configuration
+  datasource:
+    url: jdbc:postgresql://localhost:5432/bist_trading_dev
+    username: bist_user
+    password: bist_password
+
+  # JPA Configuration for Development
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+        generate_statistics: true
+
+  # Development Cache Configuration
+  cache:
+    type: caffeine
+
+  # Development Redis Configuration
+  data:
+    redis:
+      host: localhost
+      port: 6379
+
+# Development Server Configuration
+server:
+  port: 8080
+
+# Development Logging
+logging:
+  level:
+    com.bisttrading: DEBUG
+    org.springframework.web: DEBUG
+    org.springframework.security: DEBUG
+    org.hibernate.SQL: DEBUG
+    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
+    org.springframework.kafka: DEBUG
+
+# Development Management Configuration
+management:
+  endpoints:
+    web:
+      exposure:
+        include: "*"
+  endpoint:
+    health:
+      show-details: always
+
+# Development Security (Less restrictive)
+security:
+  jwt:
+    secret: dev-secret-key-for-development-only
+    expiration: 3600000  # 1 hour for development
+
+# Development OpenAPI
+springdoc:
+  swagger-ui:
+    enabled: true
+    path: /swagger-ui.html
+  api-docs:
+    enabled: true
+
+# Development Feature Flags
+app:
+  features:
+    real-time-trading: true
+    advanced-analytics: true
+    debug-mode: true

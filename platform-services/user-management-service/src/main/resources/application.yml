@@ -1,0 +1,370 @@
+# BIST Trading Platform - User Management Service Configuration
+# Port: 8081
+
+server:
+  port: 8081
+  servlet:
+    context-path: /
+    encoding:
+      charset: UTF-8
+      enabled: true
+      force: true
+  compression:
+    enabled: true
+    mime-types: application/json,application/xml,text/html,text/xml,text/plain,text/css,application/javascript
+  http2:
+    enabled: true
+  error:
+    include-message: always
+    include-binding-errors: always
+    include-stacktrace: on_param
+    include-exception: false
+
+spring:
+  application:
+    name: user-management-service
+
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:dev}
+
+  # Database Configuration
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/bist_trading}
+    username: ${DB_USERNAME:bist_trading_user}
+    password: ${DB_PASSWORD:bist_trading_pass}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 20
+      minimum-idle: 5
+      connection-timeout: 20000
+      idle-timeout: 300000
+      max-lifetime: 600000
+      pool-name: UserManagementHikariPool
+      leak-detection-threshold: 60000
+      connection-test-query: SELECT 1
+
+  # JPA Configuration
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: true
+        use_sql_comments: false
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        jdbc:
+          batch_size: 20
+          fetch_size: 50
+        cache:
+          use_second_level_cache: false
+          use_query_cache: false
+        generate_statistics: false
+    open-in-view: false
+
+  # Flyway Configuration
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+    validate-on-migrate: true
+    out-of-order: false
+    table: flyway_schema_history
+
+  # Security Configuration
+  security:
+    require-ssl: false
+
+  # Jackson Configuration
+  jackson:
+    serialization:
+      write-dates-as-timestamps: false
+      indent-output: false
+    deserialization:
+      fail-on-unknown-properties: false
+    time-zone: Europe/Istanbul
+    locale: tr_TR
+
+  # Async Configuration
+  task:
+    execution:
+      pool:
+        core-size: 5
+        max-size: 20
+        queue-capacity: 100
+        keep-alive: 60s
+      thread-name-prefix: user-mgmt-task-
+    scheduling:
+      pool:
+        size: 5
+      thread-name-prefix: user-mgmt-scheduler-
+
+  # Cache Configuration
+  cache:
+    type: caffeine
+    caffeine:
+      spec: maximumSize=1000,expireAfterWrite=300s
+
+# Management & Monitoring
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus,env,configprops,loggers
+      base-path: /actuator
+      cors:
+        allowed-origins: "*"
+        allowed-methods: GET,POST
+  endpoint:
+    health:
+      show-details: when_authorized
+      probes:
+        enabled: true
+    info:
+      enabled: true
+    metrics:
+      enabled: true
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+    tags:
+      service: user-management-service
+      environment: ${spring.profiles.active}
+
+# Application Info
+info:
+  app:
+    name: ${spring.application.name}
+    description: BIST Trading Platform User Management Service
+    version: 1.0.0
+    encoding: ${server.servlet.encoding.charset}
+    java:
+      version: ${java.version}
+      vendor: ${java.vendor}
+
+# Logging Configuration
+logging:
+  level:
+    com.bisttrading.user: INFO
+    com.bisttrading.core.security: INFO
+    com.bisttrading.infrastructure.persistence: INFO
+    org.springframework.security: WARN
+    org.springframework.web: INFO
+    org.hibernate.SQL: WARN
+    org.hibernate.type.descriptor.sql.BasicBinder: WARN
+    org.flywaydb: INFO
+    com.zaxxer.hikari: WARN
+  pattern:
+    console: "%clr(%d{yyyy-MM-dd HH:mm:ss.SSS}){faint} %clr(%5p) %clr(${PID:- }){magenta} %clr(---){faint} %clr([%15.15t]){faint} %clr(%-40.40logger{39}){cyan} %clr(:){faint} %m%n%wEx"
+    file: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
+  file:
+    name: logs/user-management-service.log
+  logback:
+    rollingpolicy:
+      max-file-size: 100MB
+      max-history: 30
+      total-size-cap: 3GB
+
+# OpenAPI Documentation
+springdoc:
+  api-docs:
+    path: /api-docs
+    enabled: true
+  swagger-ui:
+    path: /swagger-ui.html
+    enabled: true
+    tags-sorter: alpha
+    operations-sorter: alpha
+    display-request-duration: true
+    display-operation-id: false
+    default-models-expand-depth: 3
+    default-model-expand-depth: 3
+    doc-expansion: none
+    filter: false
+    show-extensions: false
+    show-common-extensions: false
+  show-actuator: false
+  group-configs:
+    - group: user-management
+      display-name: User Management API
+      paths-to-match: /api/v1/**
+
+# BIST Trading Platform Configuration
+bist:
+  # Security Configuration
+  security:
+    jwt:
+      public-key-location: ${JWT_PUBLIC_KEY_LOCATION:classpath:keys/jwt-public.pem}
+      private-key-location: ${JWT_PRIVATE_KEY_LOCATION:classpath:keys/jwt-private.pem}
+      access-token-expiration: ${JWT_ACCESS_TOKEN_EXPIRATION:900} # 15 minutes
+      refresh-token-expiration: ${JWT_REFRESH_TOKEN_EXPIRATION:604800} # 7 days
+      issuer: ${JWT_ISSUER:bist-trading-platform}
+      audience: ${JWT_AUDIENCE:bist-trading-users}
+
+    cors:
+      allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000,http://localhost:8080}
+      allowed-methods: GET,POST,PUT,DELETE,OPTIONS,PATCH
+      allowed-headers: "*"
+      allow-credentials: true
+      max-age: 3600
+
+    rate-limiting:
+      enabled: ${RATE_LIMITING_ENABLED:true}
+      requests-per-minute: ${RATE_LIMIT_RPM:60}
+      burst-capacity: ${RATE_LIMIT_BURST:20}
+
+  # Turkish Validation Configuration
+  validation:
+    tc-kimlik:
+      enabled: ${TC_KIMLIK_VALIDATION_ENABLED:true}
+      strict-mode: ${TC_KIMLIK_STRICT_MODE:true}
+    phone:
+      country-code: "+90"
+      require-mobile: true
+    password:
+      min-length: 8
+      require-uppercase: true
+      require-lowercase: true
+      require-digit: true
+      require-special-char: false
+      turkish-chars-allowed: true
+
+  # Notification Configuration
+  notifications:
+    email:
+      enabled: ${EMAIL_NOTIFICATIONS_ENABLED:true}
+      provider: ${EMAIL_PROVIDER:smtp}
+      from-address: ${EMAIL_FROM_ADDRESS:noreply@bisttrading.com}
+      from-name: ${EMAIL_FROM_NAME:BIST Trading Platform}
+    sms:
+      enabled: ${SMS_NOTIFICATIONS_ENABLED:true}
+      provider: ${SMS_PROVIDER:turkcell}
+      sender-name: ${SMS_SENDER_NAME:BISTRADE}
+
+  # Session Management
+  session:
+    max-concurrent-sessions: ${MAX_CONCURRENT_SESSIONS:5}
+    session-timeout: ${SESSION_TIMEOUT:1800} # 30 minutes
+    cleanup-interval: ${SESSION_CLEANUP_INTERVAL:300} # 5 minutes
+
+  # Account Security
+  account:
+    max-failed-login-attempts: ${MAX_FAILED_LOGIN_ATTEMPTS:5}
+    account-lock-duration: ${ACCOUNT_LOCK_DURATION:3600} # 1 hour
+    password-expiry-days: ${PASSWORD_EXPIRY_DAYS:90}
+    verification-code-expiry: ${VERIFICATION_CODE_EXPIRY:900} # 15 minutes
+
+---
+# Development Profile
+spring:
+  config:
+    activate:
+      on-profile: dev
+
+  # Development Database
+  datasource:
+    url: jdbc:postgresql://localhost:5432/bist_trading_dev
+    username: bist_dev_user
+    password: bist_dev_pass
+
+  # Development JPA
+  jpa:
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+        use_sql_comments: true
+
+# Development Logging
+logging:
+  level:
+    com.bisttrading: DEBUG
+    org.springframework.security: DEBUG
+    org.hibernate.SQL: DEBUG
+    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
+
+# Development Notifications (disabled)
+bist:
+  notifications:
+    email:
+      enabled: false
+    sms:
+      enabled: false
+
+---
+# Test Profile
+spring:
+  config:
+    activate:
+      on-profile: test
+
+  # Test Database (will be overridden by TestContainers)
+  datasource:
+    url: jdbc:postgresql://localhost:5432/bist_trading_test
+    username: test
+    password: test
+
+  # Test JPA
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: true
+
+  # Test Flyway
+  flyway:
+    enabled: false
+
+# Test Logging
+logging:
+  level:
+    com.bisttrading: DEBUG
+    org.testcontainers: INFO
+    com.zaxxer.hikari: WARN
+
+# Test Configuration
+bist:
+  security:
+    rate-limiting:
+      enabled: false
+  notifications:
+    email:
+      enabled: false
+    sms:
+      enabled: false
+
+---
+# Production Profile
+spring:
+  config:
+    activate:
+      on-profile: prod
+
+  # Production JPA
+  jpa:
+    show-sql: false
+    properties:
+      hibernate:
+        generate_statistics: true
+
+# Production Logging
+logging:
+  level:
+    root: WARN
+    com.bisttrading: INFO
+    org.springframework: WARN
+  file:
+    name: /var/log/bist-trading/user-management-service.log
+
+# Production Management
+management:
+  endpoint:
+    health:
+      show-details: never
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
