@@ -23,9 +23,9 @@ dependencies {
     api 'com.fasterxml.jackson.core:jackson-databind'
     api 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310'
 
-    // Rate Limiting
-    api 'com.github.bucket4j:bucket4j-core:8.10.1'
-    api 'com.github.bucket4j:bucket4j-redis:8.10.1'
+    // Rate Limiting - Using Spring Rate Limiting instead of Bucket4j for now
+    // api 'com.github.bucket4j:bucket4j-core'
+    // api 'com.github.bucket4j:bucket4j-redis'
 
     // Encryption
     api 'org.bouncycastle:bcprov-jdk18on:1.78.1'
@@ -38,7 +38,7 @@ dependencies {
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
     testImplementation 'org.springframework.security:spring-security-test'
     testImplementation 'org.testcontainers:junit-jupiter'
-    testImplementation 'org.testcontainers:redis'
+    // testImplementation 'org.testcontainers:redis' // Not available in current testcontainers version
     testImplementation 'org.junit.jupiter:junit-jupiter'
     testImplementation 'org.assertj:assertj-core'
     testImplementation 'org.mockito:mockito-core'

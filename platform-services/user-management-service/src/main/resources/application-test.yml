@@ -1,56 +1,108 @@
+# BIST Trading Platform - Test Environment Configuration
+# Bu dosya test ortamı için özel ayarları içerir (TestContainers ile çalışır)
+
+server:
+  port: 0  # Random port for tests
+
 spring:
-  # Test Database Configuration (H2 in-memory)
+  # Test Database Configuration (PostgreSQL with TestContainers)
   datasource:
-    url: jdbc:h2:mem:testdb;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH
-    driver-class-name: org.h2.Driver
-    username: sa
-    password:
+    # This will be overridden by TestContainers
+    url: jdbc:postgresql://localhost:5432/bist_trading_test
+    username: test
+    password: test
+    driver-class-name: org.postgresql.Driver
     hikari:
       maximum-pool-size: 5
+      minimum-idle: 1
+      connection-timeout: 5000
+      idle-timeout: 30000
+      max-lifetime: 60000
+      leak-detection-threshold: 10000
 
   # Test JPA Configuration
   jpa:
     hibernate:
       ddl-auto: create-drop
-    show-sql: false
+    show-sql: false  # Keep logs clean during tests
     properties:
       hibernate:
-        dialect: org.hibernate.dialect.H2Dialect
+        dialect: org.hibernate.dialect.PostgreSQLDialect
         format_sql: false
-
-  # Test Cache Configuration
-  cache:
-    type: simple
-
-  # Test Redis Configuration (Embedded)
-  data:
-    redis:
-      host: localhost
-      port: 6370
-
-  # Test Kafka Configuration (Embedded)
-  kafka:
-    bootstrap-servers: ${spring.embedded.kafka.brokers}
-    consumer:
-      group-id: test-group
-    producer:
-      retries: 0
+        generate_statistics: false
+        jdbc:
+          batch_size: 10
+        cache:
+          use_second_level_cache: false
+          use_query_cache: false
+    open-in-view: false
 
   # Test Flyway Configuration
   flyway:
-    enabled: false
+    enabled: false  # Use JPA schema generation for tests
 
-# Test Server Configuration
-server:
-  port: 0  # Random port for tests
+  # Test Redis Configuration (TestContainers)
+  data:
+    redis:
+      host: localhost
+      port: 6379  # Will be overridden by TestContainers
+      password:
+      database: 0
+      timeout: 1000ms
+      lettuce:
+        pool:
+          max-active: 3
+          max-idle: 2
+          min-idle: 1
 
-# Test Logging
+  # Test Kafka Configuration (Embedded)
+  kafka:
+    bootstrap-servers: ${spring.embedded.kafka.brokers:localhost:9092}
+    consumer:
+      group-id: test-user-management-group
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: "com.bisttrading.*"
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      retries: 0
+      batch-size: 1  # Immediate sending for tests
+      linger-ms: 0
+    properties:
+      security.protocol: PLAINTEXT
+
+  # Test Cache Configuration
+  cache:
+    type: caffeine  # In-memory cache for tests
+    caffeine:
+      spec: maximumSize=100,expireAfterWrite=30s
+
+  # Test Jackson Configuration
+  jackson:
+    serialization:
+      write-dates-as-timestamps: false
+    time-zone: Europe/Istanbul
+    locale: tr_TR
+
+# Test Logging Configuration
 logging:
   level:
     com.bisttrading: DEBUG
-    org.springframework.test: DEBUG
+    com.bisttrading.user: DEBUG
+    com.bisttrading.core.security: INFO
+    com.bisttrading.infrastructure.persistence: INFO
+    org.springframework.test: INFO
+    org.springframework.kafka.test: INFO
     org.testcontainers: INFO
-    org.springframework.kafka.test: DEBUG
+    org.hibernate.SQL: WARN  # Keep SQL logs minimal
+    org.hibernate.type.descriptor.sql.BasicBinder: WARN
+    com.zaxxer.hikari: WARN
+    org.flywaydb: WARN
+  pattern:
+    console: "%clr(%d{HH:mm:ss.SSS}){faint} %clr(%5p) %clr([%15.15t]){faint} %clr(%-40.40logger{39}){cyan} %clr(:){faint} %m%n%wEx"
 
 # Test Management Configuration
 management:
@@ -58,23 +110,168 @@ management:
     web:
       exposure:
         include: health,info,metrics
+  endpoint:
+    health:
+      show-details: when_authorized
+  metrics:
+    export:
+      prometheus:
+        enabled: false  # Disable metrics export in tests
 
-# Test Security Configuration
-security:
-  jwt:
-    secret: test-secret-key-for-testing-only
-    expiration: 60000  # 1 minute for tests
-
-# Test OpenAPI
+# Test OpenAPI Configuration
 springdoc:
   api-docs:
-    enabled: false
+    enabled: false  # Disable API docs in tests
   swagger-ui:
-    enabled: false
+    enabled: false  # Disable Swagger UI in tests
 
-# Test Feature Flags
-app:
+# Test BIST Configuration
+bist:
+  # Test Security Configuration
+  security:
+    jwt:
+      public-key-location: classpath:keys/test-jwt-public.pem
+      private-key-location: classpath:keys/test-jwt-private.pem
+      access-token-expiration: 60  # 1 minute for tests
+      refresh-token-expiration: 300  # 5 minutes for tests
+      issuer: bist-trading-test
+      audience: test-users
+    cors:
+      allowed-origins: "*"  # Allow all origins in tests
+      allowed-headers: "*"
+      allow-credentials: false
+    rate-limiting:
+      enabled: false  # Disable rate limiting in tests
+
+  # Test Validation Configuration
+  validation:
+    tc-kimlik:
+      enabled: true
+      strict-mode: false  # Allow any TC Kimlik in tests
+    phone:
+      country-code: "+90"
+      require-mobile: false
+    password:
+      min-length: 4  # Shorter passwords for tests
+      require-uppercase: false
+      require-lowercase: false
+      require-digit: false
+      require-special-char: false
+      turkish-chars-allowed: true
+
+  # Test Notifications (disabled)
+  notifications:
+    email:
+      enabled: false
+      provider: mock
+    sms:
+      enabled: false
+      provider: mock
+
+  # Test Session Management
+  session:
+    max-concurrent-sessions: 100  # No limit for tests
+    session-timeout: 3600  # 1 hour for tests
+    cleanup-interval: 30  # 30 seconds
+    cookie:
+      name: TEST_SESSION_ID
+      http-only: true
+      secure: false
+      same-site: none
+
+  # Test Account Security (relaxed)
+  account:
+    max-failed-login-attempts: 100  # No lockout in tests
+    account-lock-duration: 1  # 1 second
+    password-expiry-days: 0  # No expiry
+    verification-code-expiry: 3600  # 1 hour
+
+  # Test AlgoLab Integration (mocked)
+  integration:
+    algolab:
+      enabled: false  # Disable real integration in tests
+      base-url: http://mock-algolab-api.test
+      api-key: test-api-key
+      api-secret: test-api-secret
+      timeout:
+        connect: 1000
+        read: 2000
+      retry:
+        max-attempts: 1
+
+  # Test Broker Integrations (mocked)
+  brokers:
+    denizbank:
+      enabled: false
+      base-url: http://mock-denizbank-api.test
+    garanti:
+      enabled: false
+      base-url: http://mock-garanti-api.test
+
+  # Test Event Publishing
+  events:
+    kafka:
+      enabled: true  # Test event publishing
+      topics:
+        user-created: test.user.events.created
+        user-updated: test.user.events.updated
+        user-deleted: test.user.events.deleted
+        user-login: test.user.events.login
+        user-logout: test.user.events.logout
+      retry:
+        attempts: 1  # No retries in tests
+
+  # Test Turkish Locale
+  locale:
+    default-locale: tr_TR
+    timezone: Europe/Istanbul
+    currency: TRY
+
+  # Test Feature Flags
   features:
-    real-time-trading: false
-    advanced-analytics: false
-    debug-mode: true
+    two-factor-auth:
+      enabled: true
+      mandatory-for-professional: false
+    kyc-verification:
+      enabled: true
+      auto-verify-test-users: true  # Auto-verify for tests
+    email-verification:
+      enabled: true
+      required-for-trading: false
+    phone-verification:
+      enabled: true
+      required-for-trading: false
+    password-complexity:
+      enabled: false  # Simplified for tests
+    user-activity-tracking:
+      enabled: false  # Disable tracking in tests
+    gdpr-compliance:
+      enabled: false  # Simplified for tests
+
+# Test-specific Configuration
+test:
+  containers:
+    postgresql:
+      image: postgres:15-alpine
+      database: bist_trading_test
+      username: test
+      password: test
+    redis:
+      image: redis:7-alpine
+
+  mock-data:
+    enabled: true
+    turkish-test-data:
+      tc-numbers:
+        - "11111111110"
+        - "22222222220"
+        - "33333333330"
+      phone-numbers:
+        - "5551234567"
+        - "5559876543"
+      ibans:
+        - "TR330006100519786457841326"
+
+  performance:
+    max-response-time-ms: 1000  # 1 second max response time
+    max-database-query-time-ms: 500  # 500ms max query time

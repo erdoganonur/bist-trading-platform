@@ -37,19 +37,21 @@ public class FieldEncryptionConverter implements AttributeConverter<String, Stri
     public FieldEncryptionConverter(@Value("${bist.security.encryption.key:}") String encryptionKey) {
         this.secureRandom = new SecureRandom();
 
+        SecretKey tempKey;
         if (encryptionKey == null || encryptionKey.trim().isEmpty()) {
             log.warn("Veritabanı şifreleme anahtarı tanımlanmamış, yeni anahtar oluşturuluyor");
-            this.secretKey = generateKey();
+            tempKey = generateKey();
         } else {
             try {
                 byte[] keyBytes = Base64.getDecoder().decode(encryptionKey);
-                this.secretKey = new SecretKeySpec(keyBytes, ALGORITHM);
+                tempKey = new SecretKeySpec(keyBytes, ALGORITHM);
                 log.info("Veritabanı şifreleme anahtarı yüklendi");
             } catch (Exception e) {
                 log.error("Şifreleme anahtarı yüklenemedi, yeni anahtar oluşturuluyor: {}", e.getMessage());
-                this.secretKey = generateKey();
+                tempKey = generateKey();
             }
         }
+        this.secretKey = tempKey;
     }
 
     /**

@@ -40,19 +40,21 @@ public class EncryptionUtil {
     public EncryptionUtil(@Value("${bist.security.encryption.key:}") String encryptionKey) {
         this.secureRandom = new SecureRandom();
 
+        SecretKey tempKey;
         if (encryptionKey == null || encryptionKey.trim().isEmpty()) {
             log.warn("Şifreleme anahtarı tanımlanmamış, yeni anahtar oluşturuluyor");
-            this.secretKey = generateKey();
+            tempKey = generateKey();
         } else {
             try {
                 byte[] keyBytes = Base64.getDecoder().decode(encryptionKey);
-                this.secretKey = new SecretKeySpec(keyBytes, ALGORITHM);
+                tempKey = new SecretKeySpec(keyBytes, ALGORITHM);
                 log.info("Şifreleme anahtarı başarıyla yüklendi");
             } catch (Exception e) {
                 log.error("Şifreleme anahtarı yüklenemedi, yeni anahtar oluşturuluyor: {}", e.getMessage());
-                this.secretKey = generateKey();
+                tempKey = generateKey();
             }
         }
+        this.secretKey = tempKey;
     }
 
     /**

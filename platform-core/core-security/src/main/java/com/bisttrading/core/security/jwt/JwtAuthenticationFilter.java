@@ -117,10 +117,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 // Set additional details
                 authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
 
-                // Store the JWT token in authentication details for later use
-                if (authentication.getDetails() instanceof WebAuthenticationDetailsSource.WebAuthenticationDetails details) {
-                    // We can store additional info here if needed
-                }
+                // JWT token is now available through the authentication principal
 
                 // Set authentication in security context
                 SecurityContextHolder.getContext().setAuthentication(authentication);

@@ -59,7 +59,7 @@ public class JsonbConverter implements AttributeConverter<Map<String, Object>, S
      * @return Entity attribute value (Map)
      */
     @Override
-    public String convertToEntityAttribute(String dbData) {
+    public Map<String, Object> convertToEntityAttribute(String dbData) {
         if (dbData == null || dbData.trim().isEmpty()) {
             return null;
         }

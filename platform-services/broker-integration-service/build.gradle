@@ -1,0 +1,93 @@
+plugins {
+    id 'org.springframework.boot'
+    id 'io.spring.dependency-management'
+    id 'java'
+}
+
+// Configuration inherited from root project
+
+dependencies {
+    // Spring Boot Starters
+    implementation 'org.springframework.boot:spring-boot-starter-web'
+    implementation 'org.springframework.boot:spring-boot-starter-webflux'
+    implementation 'org.springframework.boot:spring-boot-starter-actuator'
+    implementation 'org.springframework.boot:spring-boot-starter-validation'
+
+    // Resilience4j for Circuit Breaker
+    implementation 'io.github.resilience4j:resilience4j-spring-boot3'
+    implementation 'io.github.resilience4j:resilience4j-reactor'
+
+    // Jackson for JSON processing
+    implementation 'com.fasterxml.jackson.core:jackson-databind'
+    implementation 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310'
+
+    // Lombok for reducing boilerplate code
+    compileOnly 'org.projectlombok:lombok'
+    annotationProcessor 'org.projectlombok:lombok'
+
+    // Micrometer for metrics
+    implementation 'io.micrometer:micrometer-registry-prometheus'
+
+    // Spring Boot Configuration Processor
+    annotationProcessor 'org.springframework.boot:spring-boot-configuration-processor'
+
+    // Development tools
+    developmentOnly 'org.springframework.boot:spring-boot-devtools'
+
+    // Test Dependencies
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    testImplementation 'io.projectreactor:reactor-test'
+    testImplementation 'com.squareup.okhttp3:mockwebserver'
+    testImplementation 'com.github.tomakehurst:wiremock-jre8:2.35.0'
+    testImplementation 'org.testcontainers:junit-jupiter'
+    testImplementation 'org.awaitility:awaitility'
+}
+
+// Additional test configuration
+tasks.named('test') {
+    // TestContainer configuration
+    systemProperty 'testcontainers.reuse.enable', 'true'
+
+    // JVM options for tests
+    jvmArgs = [
+        '--add-opens=java.base/java.lang=ALL-UNNAMED'
+    ]
+}
+
+// Spring Boot configuration
+springBoot {
+    buildInfo()
+}
+
+// Jar configuration
+jar {
+    archiveBaseName = 'broker-integration-service'
+    archiveVersion = version
+    enabled = false
+}
+
+bootJar {
+    archiveBaseName = 'broker-integration-service'
+    archiveVersion = version
+    enabled = true
+
+    // Exclude Lombok from the fat JAR
+    exclude '**/lombok/**'
+}
+
+// Code quality and analysis
+tasks.register('checkCode') {
+    group = 'verification'
+    description = 'Run all code quality checks'
+    dependsOn tasks.test
+}
+
+// Development profile
+tasks.register('bootRunDev') {
+    group = 'application'
+    description = 'Run the application with dev profile'
+    doFirst {
+        bootRun.systemProperty 'spring.profiles.active', 'dev'
+    }
+    finalizedBy bootRun
+}

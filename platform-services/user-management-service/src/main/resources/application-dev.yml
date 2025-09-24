@@ -1,71 +1,249 @@
+# BIST Trading Platform - Development Environment Configuration
+# Bu dosya development ortamı için özel ayarları içerir
+
+server:
+  port: 8081
+
 spring:
   # Development Database Configuration
   datasource:
     url: jdbc:postgresql://localhost:5432/bist_trading_dev
-    username: bist_user
-    password: bist_password
+    username: ${DB_USERNAME:bist_dev_user}
+    password: ${DB_PASSWORD:bist_dev_pass}
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 2
+      connection-timeout: 10000
+      leak-detection-threshold: 30000
 
-  # JPA Configuration for Development
+  # Development JPA Configuration
   jpa:
     hibernate:
-      ddl-auto: update
+      ddl-auto: validate
     show-sql: true
     properties:
       hibernate:
         format_sql: true
-        generate_statistics: true
-
-  # Development Cache Configuration
-  cache:
-    type: caffeine
+        use_sql_comments: true
+        generate_statistics: false
 
   # Development Redis Configuration
   data:
     redis:
       host: localhost
       port: 6379
+      password:
+      database: 1
+      timeout: 2000ms
+      lettuce:
+        pool:
+          max-active: 5
+          max-idle: 3
+          min-idle: 1
 
-# Development Server Configuration
-server:
-  port: 8080
+  # Development Kafka Configuration
+  kafka:
+    bootstrap-servers: localhost:9092
+    consumer:
+      group-id: user-management-dev-group
+      auto-offset-reset: latest
+    producer:
+      properties:
+        enable.idempotence: false
+    properties:
+      security.protocol: PLAINTEXT
 
-# Development Logging
+  # Development Cache Configuration
+  cache:
+    redis:
+      time-to-live: 60000ms # 1 minute for testing
+      key-prefix: "bist:dev:user-mgmt:"
+
+# Development Logging Configuration
 logging:
   level:
     com.bisttrading: DEBUG
-    org.springframework.web: DEBUG
+    com.bisttrading.user: DEBUG
+    com.bisttrading.core.security: DEBUG
+    com.bisttrading.infrastructure.persistence: DEBUG
     org.springframework.security: DEBUG
+    org.springframework.kafka: DEBUG
+    org.springframework.data.redis: DEBUG
     org.hibernate.SQL: DEBUG
     org.hibernate.type.descriptor.sql.BasicBinder: TRACE
-    org.springframework.kafka: DEBUG
+    org.flywaydb: INFO
+    com.zaxxer.hikari: DEBUG
+  pattern:
+    console: "%clr(%d{yyyy-MM-dd HH:mm:ss.SSS}){faint} %clr(%5p) %clr(${PID:- }){magenta} %clr(---){faint} %clr([%15.15t]){faint} %clr(%-40.40logger{39}){cyan} %clr(:){faint} %m%n%wEx"
+  file:
+    name: logs/dev/user-management-service.log
 
-# Development Management Configuration
+# Development Management & Monitoring
 management:
   endpoints:
     web:
       exposure:
-        include: "*"
+        include: "*"  # Expose all endpoints in development
+      cors:
+        allowed-origins: "http://localhost:3000,http://localhost:8080"
   endpoint:
     health:
       show-details: always
+    shutdown:
+      enabled: true
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+      simple:
+        enabled: true
 
-# Development Security (Less restrictive)
-security:
-  jwt:
-    secret: dev-secret-key-for-development-only
-    expiration: 3600000  # 1 hour for development
-
-# Development OpenAPI
+# Development OpenAPI Configuration
 springdoc:
   swagger-ui:
     enabled: true
-    path: /swagger-ui.html
+    try-it-out-enabled: true
+    filter: false
+    display-operation-id: true
   api-docs:
     enabled: true
 
-# Development Feature Flags
-app:
+# Development BIST Configuration
+bist:
+  # Development Security
+  security:
+    jwt:
+      access-token-expiration: 3600  # 1 hour for development
+      refresh-token-expiration: 86400  # 1 day for development
+    cors:
+      allowed-origins: "http://localhost:3000,http://localhost:8080,http://localhost:4200"
+      allowed-headers: "*"
+      allow-credentials: true
+    rate-limiting:
+      enabled: false  # Disable rate limiting in development
+
+  # Development Validation (relaxed)
+  validation:
+    tc-kimlik:
+      enabled: true
+      strict-mode: false  # Allow test TC numbers
+    phone:
+      require-mobile: false  # Allow landline for testing
+    password:
+      min-length: 6  # Shorter for testing
+      require-special-char: false
+
+  # Development Notifications (disabled/mocked)
+  notifications:
+    email:
+      enabled: false  # Disable real emails in development
+      provider: mock
+      mock-delivery-delay: 1000  # 1 second mock delay
+    sms:
+      enabled: false  # Disable real SMS in development
+      provider: mock
+      mock-delivery-delay: 500  # 0.5 second mock delay
+
+  # Development Session Management (relaxed)
+  session:
+    max-concurrent-sessions: 10  # Allow more sessions for testing
+    session-timeout: 7200  # 2 hours
+    cleanup-interval: 60  # 1 minute
+    cookie:
+      secure: false  # HTTP allowed in development
+      same-site: lax
+
+  # Development Account Security (relaxed)
+  account:
+    max-failed-login-attempts: 10  # More attempts for development
+    account-lock-duration: 300  # 5 minutes lock
+    password-expiry-days: 0  # No expiry in development
+    verification-code-expiry: 3600  # 1 hour for easier testing
+
+  # Development AlgoLab Integration
+  integration:
+    algolab:
+      enabled: true
+      base-url: https://sandbox-api.algolab.com.tr  # Sandbox environment
+      api-key: dev-api-key-12345
+      api-secret: dev-api-secret-67890
+      timeout:
+        connect: 5000  # Shorter timeout for development
+        read: 10000
+      rate-limit:
+        requests-per-minute: 10000  # No real limiting in dev
+      retry:
+        max-attempts: 1  # Fail fast in development
+      security:
+        ssl-verification: false  # Allow self-signed certs in dev
+
+  # Development Broker Integrations (sandbox)
+  brokers:
+    denizbank:
+      enabled: true
+      base-url: https://sandbox-api.denizbank.com/investment
+      timeout:
+        connect: 5000
+        read: 15000
+    garanti:
+      enabled: true
+      base-url: https://sandbox-api.garantibbva.com.tr/trading
+      timeout:
+        connect: 5000
+        read: 20000
+
+  # Development Event Publishing
+  events:
+    kafka:
+      enabled: true
+      topics:
+        user-created: dev.user.events.created
+        user-updated: dev.user.events.updated
+        user-deleted: dev.user.events.deleted
+        user-login: dev.user.events.login
+        user-logout: dev.user.events.logout
+
+  # Development Feature Flags
   features:
-    real-time-trading: true
-    advanced-analytics: true
-    debug-mode: true
+    two-factor-auth:
+      enabled: true
+      mandatory-for-professional: false  # Not mandatory in dev
+    kyc-verification:
+      enabled: true
+      auto-verify-test-users: true  # Auto-verify for faster testing
+    email-verification:
+      enabled: true
+      required-for-trading: false  # Not required in dev
+    phone-verification:
+      enabled: true
+      required-for-trading: false  # Not required in dev
+    password-complexity:
+      enabled: false  # Disabled for easier testing
+    user-activity-tracking:
+      enabled: true
+      track-ip-changes: false  # Don't track IP changes in dev
+    gdpr-compliance:
+      enabled: false  # Simplified for development
+
+# Development Database Health Check
+health:
+  datasource:
+    enabled: true
+    validation-query: SELECT 1
+
+# Development Turkish Test Data
+test-data:
+  enabled: true
+  turkish:
+    test-tc-numbers:
+      - "11111111110"  # Valid test TC Kimlik
+      - "22222222220"  # Valid test TC Kimlik
+      - "33333333330"  # Valid test TC Kimlik
+    test-phone-numbers:
+      - "5551234567"   # Test mobile number
+      - "5559876543"   # Test mobile number
+    test-ibans:
+      - "TR330006100519786457841326"  # Test IBAN
+
+# Development Debugging
+debug: true

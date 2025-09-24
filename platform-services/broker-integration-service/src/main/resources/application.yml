@@ -1,0 +1,116 @@
+# Broker Integration Service - AlgoLab Client Configuration
+
+server:
+  port: 8082
+  servlet:
+    context-path: /api/broker
+
+spring:
+  application:
+    name: broker-integration-service
+
+  # Jackson JSON konfigürasyonu
+  jackson:
+    default-property-inclusion: non_null
+    serialization:
+      write-dates-as-timestamps: false
+    deserialization:
+      fail-on-unknown-properties: false
+
+# AlgoLab API konfigürasyonu
+algolab:
+  api:
+    base-url: "https://api.algolab.com.tr"
+    api-key: "${ALGOLAB_API_KEY:}"
+    secret-key: "${ALGOLAB_SECRET_KEY:}"
+    timeout:
+      connect: 30s
+      read: 60s
+      write: 30s
+    session:
+      keep-alive: true
+      keep-alive-interval: 5m
+      auto-refresh: true
+    rate-limit:
+      enabled: true
+      request-delay: 5s
+      max-concurrent-requests: 1
+
+# Resilience4j konfigürasyonu
+resilience4j:
+  circuitbreaker:
+    instances:
+      algolab-api:
+        register-health-indicator: true
+        sliding-window-size: 10
+        minimum-number-of-calls: 5
+        permitted-number-of-calls-in-half-open-state: 3
+        wait-duration-in-open-state: 30s
+        failure-rate-threshold: 50
+        slow-call-rate-threshold: 50
+        slow-call-duration-threshold: 10s
+        record-exceptions:
+          - org.springframework.web.reactive.function.client.WebClientResponseException
+          - java.util.concurrent.TimeoutException
+          - java.net.ConnectException
+        ignore-exceptions:
+          - java.lang.IllegalArgumentException
+
+  retry:
+    instances:
+      algolab-api:
+        max-attempts: 3
+        wait-duration: 2s
+        exponential-backoff-multiplier: 2
+        retry-exceptions:
+          - org.springframework.web.reactive.function.client.WebClientResponseException$InternalServerError
+          - org.springframework.web.reactive.function.client.WebClientResponseException$BadGateway
+          - org.springframework.web.reactive.function.client.WebClientResponseException$ServiceUnavailable
+          - org.springframework.web.reactive.function.client.WebClientResponseException$GatewayTimeout
+          - org.springframework.web.reactive.function.client.WebClientResponseException$TooManyRequests
+          - java.util.concurrent.TimeoutException
+          - java.net.ConnectException
+        ignore-exceptions:
+          - org.springframework.web.reactive.function.client.WebClientResponseException$Unauthorized
+          - org.springframework.web.reactive.function.client.WebClientResponseException$Forbidden
+          - java.lang.IllegalArgumentException
+
+  timelimiter:
+    instances:
+      algolab-api:
+        timeout-duration: 30s
+        cancel-running-future: true
+
+# Logging konfigürasyonu
+logging:
+  level:
+    com.bisttrading.broker: DEBUG
+    org.springframework.web.reactive.function.client: DEBUG
+    io.github.resilience4j: DEBUG
+  pattern:
+    console: "%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
+
+# Management ve Actuator
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,circuitbreakers,retries
+  endpoint:
+    health:
+      show-details: always
+  health:
+    circuitbreakers:
+      enabled: true
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+    tags:
+      service: broker-integration-service
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+      percentiles:
+        http.server.requests: 0.50, 0.90, 0.95, 0.99

@@ -1,0 +1,172 @@
+# Market Data Service Configuration
+
+server:
+  port: 8083
+  servlet:
+    context-path: /api/market-data
+
+spring:
+  application:
+    name: market-data-service
+
+  # Jackson JSON konfigürasyonu
+  jackson:
+    default-property-inclusion: non_null
+    serialization:
+      write-dates-as-timestamps: false
+    deserialization:
+      fail-on-unknown-properties: false
+
+  # PostgreSQL / TimescaleDB konfigürasyonu
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:bist_trading}
+    username: ${DB_USERNAME:postgres}
+    password: ${DB_PASSWORD:postgres}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 20
+      minimum-idle: 5
+      idle-timeout: 300000
+      connection-timeout: 20000
+      leak-detection-threshold: 60000
+
+  # JPA konfigürasyonu
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+        use_sql_comments: false
+        jdbc:
+          batch_size: 50
+          batch_versioned_data: true
+        order_inserts: true
+        order_updates: true
+
+  # Redis konfigürasyonu
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      timeout: 2000ms
+      lettuce:
+        pool:
+          max-active: 20
+          max-idle: 10
+          min-idle: 5
+          max-wait: 2000ms
+      database: ${REDIS_DATABASE:0}
+
+# AlgoLab WebSocket konfigürasyonu
+algolab:
+  websocket:
+    url: "wss://www.algolab.com.tr/api/ws"
+    hostname: "www.algolab.com.tr"
+    api-key: "${ALGOLAB_API_KEY:}"
+    connection:
+      timeout: 30s
+      ping-interval: 30s
+      max-frame-size: 65536
+    reconnection:
+      enabled: true
+      initial-delay: 1s
+      max-delay: 30s
+      multiplier: 2.0
+      max-attempts: -1 # Unlimited
+    heartbeat:
+      enabled: true
+      interval: 30s
+      timeout: 10s
+  subscription:
+    symbols:
+      - "ALL" # Tüm semboller için varsayılan
+    types:
+      - "T" # Tick data
+      - "D" # Depth data
+      - "O" # Order status
+
+# Redis channel konfigürasyonu
+redis:
+  channels:
+    prices: "prices:{symbol}"
+    orderbook: "orderbook:{symbol}"
+    trades: "trades:{symbol}"
+    heartbeat: "marketdata:heartbeat"
+  ttl:
+    market-data: 300s # 5 dakika
+    orderbook: 60s # 1 dakika
+
+# TimescaleDB konfigürasyonu
+timescaledb:
+  tables:
+    market-ticks: "market_ticks"
+    order-book-snapshots: "order_book_snapshots"
+  batch:
+    size: 1000
+    flush-interval: 5s
+  hypertable:
+    chunk-time-interval: "1 day"
+
+# Resilience4j konfigürasyonu
+resilience4j:
+  circuitbreaker:
+    instances:
+      algolab-websocket:
+        register-health-indicator: true
+        sliding-window-size: 10
+        minimum-number-of-calls: 5
+        permitted-number-of-calls-in-half-open-state: 3
+        wait-duration-in-open-state: 30s
+        failure-rate-threshold: 50
+        slow-call-rate-threshold: 50
+        slow-call-duration-threshold: 10s
+
+  retry:
+    instances:
+      algolab-websocket:
+        max-attempts: 3
+        wait-duration: 2s
+        exponential-backoff-multiplier: 2
+
+# Logging konfigürasyonu
+logging:
+  level:
+    com.bisttrading.marketdata: DEBUG
+    org.java_websocket: INFO
+    org.springframework.data.redis: INFO
+    org.hibernate.SQL: WARN
+  pattern:
+    console: "%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
+
+# Management ve Actuator
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,websockets,redis,prometheus
+  endpoint:
+    health:
+      show-details: always
+  health:
+    redis:
+      enabled: true
+    db:
+      enabled: true
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+    tags:
+      service: market-data-service
+    distribution:
+      percentiles-histogram:
+        websocket.connections: true
+        redis.operations: true
+      percentiles:
+        websocket.connections: 0.50, 0.90, 0.95, 0.99
+        redis.operations: 0.50, 0.90, 0.95, 0.99

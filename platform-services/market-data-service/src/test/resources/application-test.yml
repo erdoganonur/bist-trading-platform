@@ -1,0 +1,125 @@
+# Test configuration for Market Data Service
+
+spring:
+  application:
+    name: market-data-service-test
+
+  # Test datasource (overridden by TestContainers)
+  datasource:
+    url: jdbc:postgresql://localhost:5432/testdb
+    driver-class-name: org.postgresql.Driver
+    username: test
+    password: test
+    hikari:
+      maximum-pool-size: 5
+      minimum-idle: 1
+
+  # Test JPA configuration
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: false
+        jdbc:
+          time_zone: UTC
+
+  # Test Redis configuration (overridden by TestContainers)
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      timeout: 1000ms
+      lettuce:
+        pool:
+          max-active: 5
+          max-idle: 2
+          min-idle: 1
+
+# Test-specific AlgoLab configuration
+algolab:
+  websocket:
+    url: "wss://test.example.com/ws"
+    hostname: "test.example.com"
+    api-key: "test-api-key"
+    connection:
+      timeout: 2s
+      ping-interval: 5s
+    reconnection:
+      enabled: true
+      initial-delay: 100ms
+      max-delay: 1s
+      multiplier: 1.5
+      max-attempts: 3
+    heartbeat:
+      enabled: true
+      interval: 5s
+      timeout: 2s
+  subscription:
+    symbols:
+      - "TEST"
+    types:
+      - "T"
+
+# Test Redis channels
+redis:
+  channels:
+    prices: "test:prices:{symbol}"
+    orderbook: "test:orderbook:{symbol}"
+    trades: "test:trades:{symbol}"
+    heartbeat: "test:heartbeat"
+  ttl:
+    market-data: 60s
+    orderbook: 30s
+
+# Test TimescaleDB configuration
+timescaledb:
+  batch:
+    tick-batch-size: 5
+    orderbook-batch-size: 3
+    flush-interval: 1s
+    queue-capacity: 100
+
+# Test-specific batch processing configuration
+batch:
+  processing:
+    enabled: true
+    tick-batch-size: 5
+    orderbook-batch-size: 3
+    flush-interval-ms: 1000
+    queue-capacity: 100
+
+# Test Resilience4j configuration
+resilience4j:
+  circuitbreaker:
+    instances:
+      algolab-websocket:
+        register-health-indicator: false
+        sliding-window-size: 3
+        minimum-number-of-calls: 2
+        wait-duration-in-open-state: 1s
+        failure-rate-threshold: 50
+
+  retry:
+    instances:
+      algolab-websocket:
+        max-attempts: 2
+        wait-duration: 100ms
+
+# Test logging
+logging:
+  level:
+    com.bisttrading.marketdata: DEBUG
+    org.java_websocket: WARN
+    org.springframework.data.redis: WARN
+    org.hibernate.SQL: WARN
+    org.testcontainers: WARN
+  pattern:
+    console: "%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
+
+# Disable management endpoints in tests
+management:
+  endpoints:
+    enabled-by-default: false

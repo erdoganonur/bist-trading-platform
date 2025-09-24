@@ -28,8 +28,8 @@ dependencies {
     runtimeOnly 'org.postgresql:postgresql'
     implementation 'org.flywaydb:flyway-core'
 
-    // Development tools
-    developmentOnly 'org.springframework.boot:spring-boot-starter-devtools'
+    // Development tools - commented out due to resolution issue
+    // developmentOnly 'org.springframework.boot:spring-boot-starter-devtools'
 
     // Lombok
     compileOnly 'org.projectlombok:lombok'

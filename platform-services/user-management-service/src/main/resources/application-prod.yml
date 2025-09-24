@@ -1,16 +1,58 @@
+# BIST Trading Platform - Production Environment Configuration
+# Bu dosya production ortamı için güvenlik ve performans odaklı ayarlar içerir
+
+server:
+  port: ${SERVER_PORT:8081}
+  servlet:
+    context-path: /
+    encoding:
+      charset: UTF-8
+      enabled: true
+      force: true
+  tomcat:
+    max-threads: ${SERVER_TOMCAT_MAX_THREADS:200}
+    min-spare-threads: ${SERVER_TOMCAT_MIN_THREADS:20}
+    accept-count: ${SERVER_TOMCAT_ACCEPT_COUNT:100}
+    max-connections: ${SERVER_TOMCAT_MAX_CONNECTIONS:8192}
+  compression:
+    enabled: true
+    mime-types: application/json,application/xml,text/html,text/xml,text/plain,text/css,application/javascript
+    min-response-size: 2048
+  ssl:
+    enabled: ${SSL_ENABLED:true}
+    key-store: ${SSL_KEY_STORE:/etc/ssl/bist-trading/keystore.p12}
+    key-store-password: ${SSL_KEY_STORE_PASSWORD}
+    key-store-type: PKCS12
+    key-alias: ${SSL_KEY_ALIAS:bist-trading}
+
 spring:
-  # Production Database Configuration
+  # Production Database Configuration - TimescaleDB Support
   datasource:
-    url: jdbc:postgresql://${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}
-    username: ${POSTGRES_USER}
-    password: ${POSTGRES_PASSWORD}
+    url: jdbc:postgresql://${DB_HOST:prod-db.bisttrading.com}:${DB_PORT:5432}/${DB_NAME:bist_trading_prod}?sslmode=require&prepareThreshold=0
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+    driver-class-name: org.postgresql.Driver
     hikari:
-      maximum-pool-size: 50
-      minimum-idle: 10
-      connection-timeout: 30000
-      idle-timeout: 600000
-      max-lifetime: 1800000
-      leak-detection-threshold: 60000
+      pool-name: UserManagementProdHikariPool
+      maximum-pool-size: ${DB_HIKARI_MAX_POOL_SIZE:50}
+      minimum-idle: ${DB_HIKARI_MIN_IDLE:10}
+      connection-timeout: ${DB_HIKARI_CONNECTION_TIMEOUT:30000}
+      idle-timeout: ${DB_HIKARI_IDLE_TIMEOUT:600000}
+      max-lifetime: ${DB_HIKARI_MAX_LIFETIME:1800000}
+      leak-detection-threshold: ${DB_HIKARI_LEAK_DETECTION:60000}
+      connection-test-query: SELECT 1
+      validation-timeout: 5000
+      data-source-properties:
+        cachePrepStmts: true
+        prepStmtCacheSize: 250
+        prepStmtCacheSqlLimit: 2048
+        useServerPrepStmts: true
+        useLocalSessionState: true
+        rewriteBatchedStatements: true
+        cacheResultSetMetadata: true
+        cacheServerConfiguration: true
+        elideSetAutoCommits: true
+        maintainTimeStats: false
 
   # Production JPA Configuration
   jpa:
@@ -22,88 +64,381 @@ spring:
         dialect: org.hibernate.dialect.PostgreSQLDialect
         jdbc:
           batch_size: 50
+          fetch_size: 100
         order_inserts: true
         order_updates: true
-        generate_statistics: false
+        generate_statistics: true
+        cache:
+          use_second_level_cache: true
+          use_query_cache: true
+          region:
+            factory_class: org.hibernate.cache.jcache.JCacheRegionFactory
+        query:
+          in_clause_parameter_padding: true
+    open-in-view: false
+
+  # Production Redis Configuration - Cluster Support
+  data:
+    redis:
+      host: ${REDIS_HOST:prod-redis.bisttrading.com}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD}
+      database: ${REDIS_DATABASE:0}
+      ssl:
+        enabled: ${REDIS_SSL_ENABLED:true}
+      timeout: ${REDIS_TIMEOUT:5000ms}
+      connect-timeout: ${REDIS_CONNECT_TIMEOUT:3000ms}
+      lettuce:
+        pool:
+          max-active: ${REDIS_POOL_MAX_ACTIVE:20}
+          max-idle: ${REDIS_POOL_MAX_IDLE:10}
+          min-idle: ${REDIS_POOL_MIN_IDLE:5}
+          max-wait: ${REDIS_POOL_MAX_WAIT:2000ms}
+        shutdown-timeout: 200ms
+      cluster:
+        nodes: ${REDIS_CLUSTER_NODES:}
+        max-redirects: 3
+      sentinel:
+        master: ${REDIS_SENTINEL_MASTER:}
+        nodes: ${REDIS_SENTINEL_NODES:}
+
+  # Production Kafka Configuration - Cluster Support
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:prod-kafka1.bisttrading.com:9092,prod-kafka2.bisttrading.com:9092,prod-kafka3.bisttrading.com:9092}
+    client-id: user-management-service-prod
+    consumer:
+      group-id: ${KAFKA_CONSUMER_GROUP:user-management-prod-group}
+      auto-offset-reset: latest
+      enable-auto-commit: false
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      max-poll-records: ${KAFKA_CONSUMER_MAX_POLL_RECORDS:500}
+      fetch-max-wait: ${KAFKA_CONSUMER_FETCH_MAX_WAIT:500}
+      properties:
+        spring.json.trusted.packages: "com.bisttrading.*"
+        session.timeout.ms: 30000
+        heartbeat.interval.ms: 3000
+        max.poll.interval.ms: 300000
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      acks: all
+      retries: ${KAFKA_PRODUCER_RETRIES:3}
+      batch-size: ${KAFKA_PRODUCER_BATCH_SIZE:16384}
+      linger-ms: ${KAFKA_PRODUCER_LINGER_MS:10}
+      buffer-memory: ${KAFKA_PRODUCER_BUFFER_MEMORY:33554432}
+      compression-type: ${KAFKA_PRODUCER_COMPRESSION:snappy}
+    properties:
+      security.protocol: ${KAFKA_SECURITY_PROTOCOL:SASL_SSL}
+      sasl.mechanism: ${KAFKA_SASL_MECHANISM:SCRAM-SHA-512}
+      sasl.jaas.config: ${KAFKA_SASL_JAAS_CONFIG}
+      ssl.truststore.location: ${KAFKA_SSL_TRUSTSTORE_LOCATION:/etc/ssl/kafka/truststore.jks}
+      ssl.truststore.password: ${KAFKA_SSL_TRUSTSTORE_PASSWORD}
+      ssl.keystore.location: ${KAFKA_SSL_KEYSTORE_LOCATION:/etc/ssl/kafka/keystore.jks}
+      ssl.keystore.password: ${KAFKA_SSL_KEYSTORE_PASSWORD}
+      ssl.key.password: ${KAFKA_SSL_KEY_PASSWORD}
 
   # Production Cache Configuration
   cache:
     type: redis
-
-  # Production Redis Configuration
-  data:
     redis:
-      host: ${REDIS_HOST}
-      port: ${REDIS_PORT}
-      password: ${REDIS_PASSWORD}
-      timeout: 5000ms
-      lettuce:
-        pool:
-          max-active: 20
-          max-idle: 10
-          min-idle: 5
-        shutdown-timeout: 100ms
+      cache-null-values: false
+      time-to-live: ${CACHE_TTL:1800000ms} # 30 minutes
+      key-prefix: "bist:prod:user-mgmt:"
+      use-key-prefix: true
 
-# Production Server Configuration
-server:
-  port: ${SERVER_PORT:8080}
-  tomcat:
-    max-threads: 200
-    min-spare-threads: 10
-    accept-count: 100
-  compression:
-    enabled: true
-    mime-types: text/html,text/xml,text/plain,text/css,text/javascript,application/javascript,application/json
-    min-response-size: 1024
+  # Production Task Configuration
+  task:
+    execution:
+      pool:
+        core-size: ${TASK_EXECUTION_CORE_SIZE:10}
+        max-size: ${TASK_EXECUTION_MAX_SIZE:50}
+        queue-capacity: ${TASK_EXECUTION_QUEUE_CAPACITY:1000}
+        keep-alive: 60s
+      thread-name-prefix: user-mgmt-prod-task-
+    scheduling:
+      pool:
+        size: ${TASK_SCHEDULING_POOL_SIZE:10}
+      thread-name-prefix: user-mgmt-prod-scheduler-
 
-# Production Logging
+# Production Logging Configuration
 logging:
   level:
+    root: WARN
     com.bisttrading: INFO
+    com.bisttrading.user.controller: INFO
+    com.bisttrading.user.service: INFO
+    com.bisttrading.core.security: WARN
+    com.bisttrading.infrastructure.persistence: WARN
     org.springframework: WARN
+    org.springframework.security: ERROR
     org.hibernate: WARN
+    org.hibernate.SQL: ERROR
     org.apache.kafka: WARN
+    org.flywaydb: INFO
+    com.zaxxer.hikari: WARN
   pattern:
-    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{50} - %msg%n"
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level [%X{traceId:-},%X{spanId:-}] %logger{50} - %msg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level [%X{traceId:-},%X{spanId:-}] %logger{50} - %msg%n"
   file:
-    name: /var/log/bist-trading/user-management-service.log
-    max-size: 100MB
-    max-history: 30
+    name: ${LOG_FILE_PATH:/var/log/bist-trading/user-management-service.log}
+  logback:
+    rollingpolicy:
+      max-file-size: ${LOG_MAX_FILE_SIZE:200MB}
+      max-history: ${LOG_MAX_HISTORY:60}  # 60 days
+      total-size-cap: ${LOG_TOTAL_SIZE_CAP:10GB}
+      clean-history-on-start: true
 
-# Production Management Configuration
+# Production Management & Monitoring
 management:
   endpoints:
     web:
       exposure:
         include: health,info,metrics,prometheus
+      base-path: /actuator
   endpoint:
     health:
       show-details: never
+      cache:
+        time-to-live: 10s
+      probes:
+        enabled: true
+    info:
+      enabled: true
     metrics:
       enabled: true
   metrics:
     export:
       prometheus:
-        enabled: true
+        enabled: ${PROMETHEUS_ENABLED:true}
+        step: ${PROMETHEUS_STEP:30s}
+        descriptions: false
+      datadog:
+        enabled: ${DATADOG_ENABLED:false}
+        api-key: ${DATADOG_API_KEY:}
         step: 30s
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+    tags:
+      service: user-management-service
+      environment: production
+      version: ${app.version:1.0.0}
+  health:
+    redis:
+      enabled: true
+    db:
+      enabled: true
+    kafka:
+      enabled: true
 
-# Production Security Configuration
-security:
-  jwt:
-    secret: ${JWT_SECRET}
-    expiration: ${JWT_EXPIRATION:86400000}  # 24 hours
-    refresh-expiration: ${JWT_REFRESH_EXPIRATION:604800000}  # 7 days
-
-# Production OpenAPI
+# Production OpenAPI Configuration (Disabled)
 springdoc:
   api-docs:
     enabled: false
   swagger-ui:
     enabled: false
 
-# Production Feature Flags
-app:
+# Production BIST Configuration
+bist:
+  # Production Security Configuration
+  security:
+    jwt:
+      public-key-location: ${JWT_PUBLIC_KEY_LOCATION:file:/etc/ssl/bist-trading/jwt-public.pem}
+      private-key-location: ${JWT_PRIVATE_KEY_LOCATION:file:/etc/ssl/bist-trading/jwt-private.pem}
+      access-token-expiration: ${JWT_ACCESS_TOKEN_EXPIRATION:900} # 15 minutes
+      refresh-token-expiration: ${JWT_REFRESH_TOKEN_EXPIRATION:604800} # 7 days
+      issuer: ${JWT_ISSUER:bist-trading-platform-prod}
+      audience: ${JWT_AUDIENCE:bist-trading-users-prod}
+    cors:
+      allowed-origins: ${CORS_ALLOWED_ORIGINS:https://app.bisttrading.com,https://admin.bisttrading.com}
+      allowed-methods: GET,POST,PUT,DELETE,OPTIONS
+      allowed-headers: Authorization,Content-Type,Accept,Origin,X-Requested-With
+      allow-credentials: true
+      max-age: 86400  # 24 hours
+    rate-limiting:
+      enabled: ${RATE_LIMITING_ENABLED:true}
+      requests-per-minute: ${RATE_LIMIT_RPM:100}
+      burst-capacity: ${RATE_LIMIT_BURST:50}
+
+  # Production Validation (Strict)
+  validation:
+    tc-kimlik:
+      enabled: ${TC_KIMLIK_VALIDATION_ENABLED:true}
+      strict-mode: ${TC_KIMLIK_STRICT_MODE:true}
+    phone:
+      country-code: "+90"
+      require-mobile: true
+    password:
+      min-length: 12
+      require-uppercase: true
+      require-lowercase: true
+      require-digit: true
+      require-special-char: true
+      turkish-chars-allowed: true
+
+  # Production Notifications
+  notifications:
+    email:
+      enabled: ${EMAIL_NOTIFICATIONS_ENABLED:true}
+      provider: ${EMAIL_PROVIDER:aws-ses}
+      from-address: ${EMAIL_FROM_ADDRESS:noreply@bisttrading.com}
+      from-name: ${EMAIL_FROM_NAME:BIST Trading Platform}
+      aws:
+        region: ${AWS_SES_REGION:eu-west-1}
+        access-key: ${AWS_SES_ACCESS_KEY}
+        secret-key: ${AWS_SES_SECRET_KEY}
+    sms:
+      enabled: ${SMS_NOTIFICATIONS_ENABLED:true}
+      provider: ${SMS_PROVIDER:turkcell}
+      sender-name: ${SMS_SENDER_NAME:BISTRADE}
+      api-url: ${SMS_API_URL}
+      api-key: ${SMS_API_KEY}
+      api-secret: ${SMS_API_SECRET}
+
+  # Production Session Management
+  session:
+    max-concurrent-sessions: ${MAX_CONCURRENT_SESSIONS:3}
+    session-timeout: ${SESSION_TIMEOUT:1800} # 30 minutes
+    cleanup-interval: ${SESSION_CLEANUP_INTERVAL:300} # 5 minutes
+    redis-key-prefix: "prod:session:"
+    cookie:
+      name: BIST_SESSION_ID
+      http-only: true
+      secure: true
+      same-site: strict
+      domain: ${SESSION_COOKIE_DOMAIN:.bisttrading.com}
+
+  # Production Account Security
+  account:
+    max-failed-login-attempts: ${MAX_FAILED_LOGIN_ATTEMPTS:5}
+    account-lock-duration: ${ACCOUNT_LOCK_DURATION:7200} # 2 hours
+    password-expiry-days: ${PASSWORD_EXPIRY_DAYS:90}
+    verification-code-expiry: ${VERIFICATION_CODE_EXPIRY:300} # 5 minutes
+
+  # Production AlgoLab Integration
+  integration:
+    algolab:
+      enabled: ${ALGOLAB_INTEGRATION_ENABLED:true}
+      base-url: ${ALGOLAB_BASE_URL:https://api.algolab.com.tr}
+      api-key: ${ALGOLAB_API_KEY}
+      api-secret: ${ALGOLAB_API_SECRET}
+      version: ${ALGOLAB_API_VERSION:v2.0}
+      timeout:
+        connect: ${ALGOLAB_CONNECT_TIMEOUT:15000}
+        read: ${ALGOLAB_READ_TIMEOUT:30000}
+      rate-limit:
+        requests-per-minute: ${ALGOLAB_RATE_LIMIT:1000}
+        burst-capacity: ${ALGOLAB_BURST_CAPACITY:100}
+      retry:
+        max-attempts: ${ALGOLAB_MAX_RETRIES:3}
+        backoff-delay: ${ALGOLAB_BACKOFF_DELAY:2000}
+      security:
+        ssl-verification: true
+        certificate-path: ${ALGOLAB_CERT_PATH:/etc/ssl/algolab/client.crt}
+      circuit-breaker:
+        enabled: true
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 30000
+        sliding-window-size: 20
+
+  # Production Broker Integrations
+  brokers:
+    denizbank:
+      enabled: ${DENIZBANK_INTEGRATION_ENABLED:true}
+      base-url: ${DENIZBANK_BASE_URL:https://api.denizbank.com/investment}
+      api-key: ${DENIZBANK_API_KEY}
+      api-secret: ${DENIZBANK_API_SECRET}
+      timeout:
+        connect: 20000
+        read: 45000
+      rate-limit:
+        requests-per-minute: 500
+    garanti:
+      enabled: ${GARANTI_INTEGRATION_ENABLED:true}
+      base-url: ${GARANTI_BASE_URL:https://api.garantibbva.com.tr/trading}
+      api-key: ${GARANTI_API_KEY}
+      api-secret: ${GARANTI_API_SECRET}
+      timeout:
+        connect: 25000
+        read: 60000
+      rate-limit:
+        requests-per-minute: 750
+
+  # Production Event Publishing
+  events:
+    kafka:
+      enabled: ${KAFKA_EVENTS_ENABLED:true}
+      topics:
+        user-created: ${KAFKA_TOPIC_USER_CREATED:bist.user.events.created}
+        user-updated: ${KAFKA_TOPIC_USER_UPDATED:bist.user.events.updated}
+        user-deleted: ${KAFKA_TOPIC_USER_DELETED:bist.user.events.deleted}
+        user-login: ${KAFKA_TOPIC_USER_LOGIN:bist.user.events.login}
+        user-logout: ${KAFKA_TOPIC_USER_LOGOUT:bist.user.events.logout}
+      retry:
+        attempts: 3
+        backoff-delay: 2000
+
+  # Production Feature Flags
   features:
-    real-time-trading: ${FEATURE_REAL_TIME_TRADING:true}
-    advanced-analytics: ${FEATURE_ADVANCED_ANALYTICS:true}
-    debug-mode: false
+    two-factor-auth:
+      enabled: ${FEATURE_2FA_ENABLED:true}
+      mandatory-for-professional: ${FEATURE_2FA_MANDATORY_PRO:true}
+    kyc-verification:
+      enabled: ${FEATURE_KYC_ENABLED:true}
+      auto-verify-test-users: false
+    email-verification:
+      enabled: ${FEATURE_EMAIL_VERIFICATION_ENABLED:true}
+      required-for-trading: ${FEATURE_EMAIL_REQUIRED_TRADING:true}
+    phone-verification:
+      enabled: ${FEATURE_PHONE_VERIFICATION_ENABLED:true}
+      required-for-trading: ${FEATURE_PHONE_REQUIRED_TRADING:true}
+    password-complexity:
+      enabled: ${FEATURE_PASSWORD_COMPLEXITY_ENABLED:true}
+      check-common-passwords: ${FEATURE_CHECK_COMMON_PASSWORDS:true}
+    user-activity-tracking:
+      enabled: ${FEATURE_USER_ACTIVITY_TRACKING:true}
+      track-ip-changes: ${FEATURE_TRACK_IP_CHANGES:true}
+    gdpr-compliance:
+      enabled: ${FEATURE_GDPR_ENABLED:true}
+      data-retention-days: ${FEATURE_DATA_RETENTION_DAYS:2555} # 7 years
+
+# Production Monitoring & Alerting
+monitoring:
+  health-checks:
+    database:
+      enabled: true
+      timeout: 5s
+      interval: 30s
+    redis:
+      enabled: true
+      timeout: 3s
+      interval: 30s
+    kafka:
+      enabled: true
+      timeout: 10s
+      interval: 60s
+    external-apis:
+      enabled: true
+      timeout: 15s
+      interval: 300s
+  alerts:
+    memory-usage-threshold: 85
+    cpu-usage-threshold: 80
+    response-time-threshold: 2000
+    error-rate-threshold: 5
+    database-connection-threshold: 80
+
+# Production Info
+info:
+  app:
+    name: ${spring.application.name}
+    description: BIST Trading Platform User Management Service - Production
+    version: ${BUILD_VERSION:1.0.0}
+    build-time: ${BUILD_TIME:unknown}
+    git-commit: ${GIT_COMMIT:unknown}
+  java:
+    version: ${java.version}
+    vendor: ${java.vendor}
+  system:
+    timezone: ${user.timezone:Europe/Istanbul}

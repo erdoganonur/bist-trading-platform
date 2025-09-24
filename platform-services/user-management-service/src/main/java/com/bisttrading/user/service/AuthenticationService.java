@@ -1,12 +1,12 @@
 package com.bisttrading.user.service;
 
 import com.bisttrading.core.security.dto.*;
-import com.bisttrading.core.security.service.JwtTokenProvider;
+import com.bisttrading.core.security.jwt.JwtTokenProvider;
 import com.bisttrading.core.security.service.TokenBlacklistService;
 import com.bisttrading.infrastructure.persistence.entity.UserEntity;
 import com.bisttrading.infrastructure.persistence.entity.UserSessionEntity;
 import com.bisttrading.infrastructure.persistence.repository.UserRepository;
-import com.bisttrading.infrastructure.persistence.repository.UserSessionRepository;
+import com.bisttrading.infrastructure.persistence.repository.SessionRepository;
 import com.bisttrading.user.exception.UserServiceException;
 import com.bisttrading.user.util.TurkishValidationUtil;
 import lombok.RequiredArgsConstructor;
@@ -34,7 +34,7 @@ import java.util.UUID;
 public class AuthenticationService {
 
     private final UserRepository userRepository;
-    private final UserSessionRepository sessionRepository;
+    private final SessionRepository sessionRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider jwtTokenProvider;
     private final TokenBlacklistService tokenBlacklistService;

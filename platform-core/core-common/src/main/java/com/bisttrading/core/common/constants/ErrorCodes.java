@@ -90,6 +90,8 @@ public enum ErrorCodes {
     BANK_API_ERROR("BIST_8002", "Banka API bağlantı hatası."),
     SMS_SERVICE_ERROR("BIST_8003", "SMS servisi hatası."),
     EMAIL_SERVICE_ERROR("BIST_8004", "E-posta servisi hatası."),
+    ENCRYPTION_ERROR("BIST_8005", "Şifreleme hatası oluştu."),
+    DECRYPTION_ERROR("BIST_8006", "Şifre çözme hatası oluştu."),
 
     // Business Logic Errors (9000-9999)
     TRADING_HOURS_VIOLATION("BIST_9000", "İşlem saatleri dışında emir verilemez."),

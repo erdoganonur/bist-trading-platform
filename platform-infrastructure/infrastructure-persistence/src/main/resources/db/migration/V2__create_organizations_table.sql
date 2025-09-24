@@ -1,5 +1,5 @@
--- Create organizations table
--- This table stores organization information for trading entities
+-- Kuruluşlar tablosu - Çok kiracılı mimari ve abonelik katmanları
+-- Bu tablo trading kuruluşları için organizasyon bilgilerini saklar
 
 CREATE TABLE organizations (
     id VARCHAR(36) NOT NULL PRIMARY KEY,
@@ -23,8 +23,30 @@ CREATE TABLE organizations (
     license_issued_at TIMESTAMP,
     license_expires_at TIMESTAMP,
     trading_enabled BOOLEAN NOT NULL DEFAULT FALSE,
+
+    -- Abonelik katmanları (Subscription Tiers)
+    subscription_tier VARCHAR(20) NOT NULL DEFAULT 'BASIC' CHECK (subscription_tier IN ('BASIC', 'PROFESSIONAL', 'ENTERPRISE', 'PREMIUM')),
+    subscription_starts_at TIMESTAMP,
+    subscription_ends_at TIMESTAMP,
+    subscription_auto_renew BOOLEAN NOT NULL DEFAULT TRUE,
+    billing_cycle VARCHAR(20) DEFAULT 'MONTHLY' CHECK (billing_cycle IN ('MONTHLY', 'QUARTERLY', 'YEARLY')),
+
+    -- Kullanıcı limitleri
     max_users INTEGER CHECK (max_users > 0),
     current_users INTEGER NOT NULL DEFAULT 0 CHECK (current_users >= 0),
+
+    -- İşlem limitleri (günlük)
+    max_daily_orders INTEGER,
+    current_daily_orders INTEGER NOT NULL DEFAULT 0,
+    max_daily_volume DECIMAL(19,4),
+    current_daily_volume DECIMAL(19,4) NOT NULL DEFAULT 0,
+
+    -- API limitleri
+    max_api_calls_per_minute INTEGER DEFAULT 60,
+    max_concurrent_connections INTEGER DEFAULT 10,
+
+    -- Özellik bayrakları
+    features JSONB DEFAULT '{"real_time_data": false, "advanced_analytics": false, "api_access": false, "priority_support": false}'::jsonb,
     contact_person VARCHAR(255),
     contact_email VARCHAR(255),
     contact_phone VARCHAR(500), -- Encrypted field
@@ -127,7 +149,22 @@ SELECT
     CASE
         WHEN o.max_users IS NULL THEN 0
         ELSE ROUND((o.current_users::DECIMAL / o.max_users::DECIMAL) * 100, 2)
-    END as capacity_percentage
+    END as capacity_percentage,
+
+    -- Abonelik durumu
+    CASE
+        WHEN o.subscription_ends_at IS NULL THEN 'NO_SUBSCRIPTION'
+        WHEN o.subscription_ends_at > CURRENT_TIMESTAMP THEN 'ACTIVE'
+        WHEN o.subscription_ends_at > CURRENT_TIMESTAMP - INTERVAL '7 days' THEN 'EXPIRED_RECENTLY'
+        ELSE 'EXPIRED'
+    END as subscription_status,
+
+    -- Günlük limit kullanımı
+    CASE
+        WHEN o.max_daily_orders IS NULL THEN 0
+        ELSE ROUND((o.current_daily_orders::DECIMAL / o.max_daily_orders::DECIMAL) * 100, 2)
+    END as daily_orders_usage_percentage
+
 FROM organizations o
 WHERE o.status = 'ACTIVE' AND o.deleted_at IS NULL;
 

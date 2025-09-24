@@ -91,7 +91,7 @@ public class FlywayConfig {
             .cleanDisabled(cleanDisabled)
             .mixed(mixed)
             .group(group)
-            .repairOnMigrate(repairOnMigrate);
+            .sqlMigrationSuffixes(".sql");
 
         // Add custom placeholders
         configuration.placeholders(getPlaceholders());
@@ -99,8 +99,7 @@ public class FlywayConfig {
         // Configure callbacks for logging and monitoring
         configuration.callbacks(new FlywayMigrationCallback());
 
-        // Set migration resolver for custom migration handling
-        configuration.resolvers(new CustomMigrationResolver());
+        // Custom migration resolver disabled for compatibility
 
         Flyway flyway = configuration.load();
 
@@ -247,7 +246,7 @@ public class FlywayConfig {
                 case AFTER_VALIDATE:
                     log.debug("Migration validation tamamlandı");
                     break;
-                case MIGRATE_FAILED:
+                case AFTER_MIGRATE_ERROR:
                     log.error("Migration başarısız: {}",
                         context.getMigrationInfo() != null ?
                         context.getMigrationInfo().getDescription() : "Unknown");
@@ -266,17 +265,20 @@ public class FlywayConfig {
 
     /**
      * Custom migration resolver for handling special migration cases.
+     * Note: Disabled for compatibility with newer Flyway versions
      */
+    /*
     public static class CustomMigrationResolver implements org.flywaydb.core.api.resolver.MigrationResolver {
 
         @Override
         public java.util.Collection<org.flywaydb.core.api.resolver.ResolvedMigration> resolveMigrations(
-                org.flywaydb.core.api.resolver.Context context) {
+                org.flywaydb.core.api.Configuration configuration) {
             // Custom migration resolution logic can be added here
             // For now, return empty collection to use default resolution
             return java.util.Collections.emptyList();
         }
     }
+    */
 
     /**
      * Gets migration information.

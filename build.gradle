@@ -27,7 +27,8 @@ ext {
     mapstructVersion = '1.5.5.Final'
     flywayVersion = '10.15.0'
     timescaledbVersion = '42.7.3'
-    testcontainersVersion = '1.19.8'
+    bucket4jVersion = '7.6.0'
+    testcontainersVersion = '1.19.7'
     junitVersion = '5.10.3'
     mockitoVersion = '5.12.0'
     assertjVersion = '3.26.0'
@@ -64,6 +65,11 @@ subprojects {
             mavenBom "org.testcontainers:testcontainers-bom:${testcontainersVersion}"
         }
 
+        // Spring Boot dependencies are managed by the BOM above, but let's ensure devtools is available
+        dependencies {
+            // This is handled by the Spring Boot BOM, no need to explicitly declare version
+        }
+
         dependencies {
             dependency "org.postgresql:postgresql:${postgresqlVersion}"
             dependency "redis.clients:jedis:${jedisVersion}"
@@ -73,7 +79,8 @@ subprojects {
             dependency "org.mapstruct:mapstruct-processor:${mapstructVersion}"
             dependency "org.flywaydb:flyway-core:${flywayVersion}"
             dependency "org.flywaydb:flyway-database-postgresql:${flywayVersion}"
-            dependency "com.timescale:timescaledb-jdbc:${timescaledbVersion}"
+            // dependency "com.github.bucket4j:bucket4j-core:${bucket4jVersion}"
+            // dependency "com.github.bucket4j:bucket4j-redis:${bucket4jVersion}"
             dependency "org.junit.jupiter:junit-jupiter:${junitVersion}"
             dependency "org.mockito:mockito-core:${mockitoVersion}"
             dependency "org.mockito:mockito-junit-jupiter:${mockitoVersion}"

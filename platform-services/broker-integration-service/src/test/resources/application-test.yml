@@ -1,0 +1,66 @@
+# Test configuration for AlgoLab Service
+
+spring:
+  application:
+    name: broker-integration-service-test
+
+# Test-specific AlgoLab configuration
+algolab:
+  api:
+    base-url: "http://localhost:8080"
+    api-key: "test-api-key"
+    secret-key: "test-secret-key-32-characters-long"
+    timeout:
+      connect: 2s
+      read: 5s
+      write: 2s
+    session:
+      keep-alive: false # Test sırasında keep-alive kapalı
+      keep-alive-interval: 1s
+      auto-refresh: false
+    rate-limit:
+      enabled: true
+      request-delay: 100ms # Test için kısa delay
+      max-concurrent-requests: 1
+
+# Test için hızlı Resilience4j ayarları
+resilience4j:
+  circuitbreaker:
+    instances:
+      algolab-api:
+        register-health-indicator: false
+        sliding-window-size: 5
+        minimum-number-of-calls: 3
+        permitted-number-of-calls-in-half-open-state: 2
+        wait-duration-in-open-state: 2s
+        failure-rate-threshold: 50
+        slow-call-rate-threshold: 50
+        slow-call-duration-threshold: 1s
+
+  retry:
+    instances:
+      algolab-api:
+        max-attempts: 2 # Test için az deneme
+        wait-duration: 100ms
+        exponential-backoff-multiplier: 1.5
+
+  timelimiter:
+    instances:
+      algolab-api:
+        timeout-duration: 5s
+        cancel-running-future: true
+
+# Test logging
+logging:
+  level:
+    com.bisttrading.broker: DEBUG
+    org.springframework.web.reactive.function.client: WARN
+    io.github.resilience4j: WARN
+    okhttp3.mockwebserver: WARN
+  pattern:
+    console: "%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
+
+# Disable management endpoints in tests
+management:
+  endpoints:
+    enabled-by-default: false

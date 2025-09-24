@@ -18,8 +18,7 @@ dependencies {
     api 'org.flywaydb:flyway-core'
     api 'org.flywaydb:flyway-database-postgresql'
 
-    // TimescaleDB extension
-    api 'com.timescale:timescaledb-jdbc:2.13.0'
+    // TimescaleDB works with standard PostgreSQL driver
 
     // JSON processing for JSONB
     api 'com.fasterxml.jackson.core:jackson-core'

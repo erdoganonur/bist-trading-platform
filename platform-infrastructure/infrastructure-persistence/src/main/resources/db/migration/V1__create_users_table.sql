@@ -1,5 +1,5 @@
--- Create users table with all required fields
--- This table stores user information for the BIST Trading Platform
+-- Kullanıcı tablosu - BIST Trading Platform için tüm gerekli alanları içerir
+-- Bu tablo kullanıcı bilgilerini saklar, şifreli PII alanları içerir
 
 CREATE TABLE users (
     id VARCHAR(36) NOT NULL PRIMARY KEY,

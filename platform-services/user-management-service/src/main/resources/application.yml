@@ -99,11 +99,57 @@ spring:
         size: 5
       thread-name-prefix: user-mgmt-scheduler-
 
+  # Redis Configuration
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      database: ${REDIS_DATABASE:0}
+      ssl:
+        enabled: ${REDIS_SSL_ENABLED:false}
+      timeout: ${REDIS_TIMEOUT:2000ms}
+      lettuce:
+        pool:
+          max-active: 10
+          max-idle: 8
+          min-idle: 2
+          max-wait: -1ms
+        shutdown-timeout: 100ms
+
   # Cache Configuration
   cache:
-    type: caffeine
-    caffeine:
-      spec: maximumSize=1000,expireAfterWrite=300s
+    type: redis
+    redis:
+      cache-null-values: false
+      time-to-live: 300000ms # 5 minutes
+      key-prefix: "bist:user-mgmt:"
+      use-key-prefix: true
+
+  # Kafka Configuration
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    client-id: user-management-service
+    consumer:
+      group-id: ${KAFKA_CONSUMER_GROUP:user-management-group}
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: "com.bisttrading.*"
+        spring.json.type.mapping: |
+          user-created:com.bisttrading.user.dto.event.UserCreatedEvent,
+          user-updated:com.bisttrading.user.dto.event.UserUpdatedEvent,
+          user-deleted:com.bisttrading.user.dto.event.UserDeletedEvent
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      properties:
+        spring.json.add.type.headers: false
+    properties:
+      security.protocol: ${KAFKA_SECURITY_PROTOCOL:PLAINTEXT}
+      sasl.mechanism: ${KAFKA_SASL_MECHANISM:PLAIN}
+      sasl.jaas.config: ${KAFKA_SASL_JAAS_CONFIG:}
 
 # Management & Monitoring
 management:
@@ -170,13 +216,14 @@ logging:
       total-size-cap: 3GB
 
 # OpenAPI Documentation
+# OpenAPI Documentation
 springdoc:
   api-docs:
     path: /api-docs
-    enabled: true
+    enabled: ${OPENAPI_ENABLED:true}
   swagger-ui:
     path: /swagger-ui.html
-    enabled: true
+    enabled: ${SWAGGER_UI_ENABLED:true}
     tags-sorter: alpha
     operations-sorter: alpha
     display-request-duration: true
@@ -187,11 +234,60 @@ springdoc:
     filter: false
     show-extensions: false
     show-common-extensions: false
+    config-url: /api-docs/swagger-config
+    oauth:
+      client-id: ${SWAGGER_OAUTH_CLIENT_ID:swagger-ui}
+      client-secret: ${SWAGGER_OAUTH_CLIENT_SECRET:}
+      realm: ${SWAGGER_OAUTH_REALM:bist-trading}
+    try-it-out-enabled: ${SWAGGER_TRY_IT_OUT:true}
   show-actuator: false
+  info:
+    title: BIST Trading Platform - User Management API
+    description: |
+      BIST Trading Platform User Management Service API Documentation
+
+      ## Features
+      - User registration and authentication
+      - Turkish regulatory compliance (TC Kimlik, KYC)
+      - Multi-factor authentication
+      - Session management
+      - Profile management
+      - Broker account integration
+
+      ## Security
+      - JWT based authentication
+      - Rate limiting
+      - CORS protection
+      - Input validation
+
+      ## Supported Languages
+      - Turkish (tr_TR)
+      - English (en_US)
+    version: 1.0.0
+    contact:
+      name: BIST Trading Platform Team
+      email: api-support@bisttrading.com
+      url: https://docs.bisttrading.com
+    license:
+      name: Proprietary
+      url: https://bisttrading.com/license
+    terms-of-service: https://bisttrading.com/terms
+  external-docs:
+    description: Full Documentation
+    url: https://docs.bisttrading.com/user-management
   group-configs:
     - group: user-management
       display-name: User Management API
       paths-to-match: /api/v1/**
+    - group: authentication
+      display-name: Authentication API
+      paths-to-match: /api/v1/auth/**
+    - group: profile
+      display-name: Profile Management API
+      paths-to-match: /api/v1/profile/**
+    - group: admin
+      display-name: Admin API
+      paths-to-match: /api/v1/admin/**
 
 # BIST Trading Platform Configuration
 bist:
@@ -250,6 +346,14 @@ bist:
     max-concurrent-sessions: ${MAX_CONCURRENT_SESSIONS:5}
     session-timeout: ${SESSION_TIMEOUT:1800} # 30 minutes
     cleanup-interval: ${SESSION_CLEANUP_INTERVAL:300} # 5 minutes
+    redis-key-prefix: "session:"
+    serialize-format: json
+    cookie:
+      name: BIST_SESSION_ID
+      http-only: true
+      secure: ${SESSION_COOKIE_SECURE:false}
+      same-site: strict
+      max-age: ${SESSION_TIMEOUT:1800}
 
   # Account Security
   account:
@@ -258,113 +362,111 @@ bist:
     password-expiry-days: ${PASSWORD_EXPIRY_DAYS:90}
     verification-code-expiry: ${VERIFICATION_CODE_EXPIRY:900} # 15 minutes
 
----
-# Development Profile
-spring:
-  config:
-    activate:
-      on-profile: dev
+  # AlgoLab API Configuration
+  integration:
+    algolab:
+      enabled: ${ALGOLAB_INTEGRATION_ENABLED:true}
+      base-url: ${ALGOLAB_BASE_URL:https://api.algolab.com.tr}
+      api-key: ${ALGOLAB_API_KEY:your-api-key}
+      api-secret: ${ALGOLAB_API_SECRET:your-api-secret}
+      version: ${ALGOLAB_API_VERSION:v2.0}
+      timeout:
+        connect: ${ALGOLAB_CONNECT_TIMEOUT:15000}
+        read: ${ALGOLAB_READ_TIMEOUT:30000}
+      rate-limit:
+        requests-per-minute: ${ALGOLAB_RATE_LIMIT:1000}
+        burst-capacity: ${ALGOLAB_BURST_CAPACITY:100}
+      retry:
+        max-attempts: ${ALGOLAB_MAX_RETRIES:3}
+        backoff-delay: ${ALGOLAB_BACKOFF_DELAY:1000}
+      endpoints:
+        authentication: "/auth"
+        user-info: "/user"
+        trading: "/trading"
+        market-data: "/market-data"
+        positions: "/positions"
+        orders: "/orders"
+      features:
+        real-time-data: ${ALGOLAB_REALTIME_DATA:true}
+        historical-data: ${ALGOLAB_HISTORICAL_DATA:true}
+        order-management: ${ALGOLAB_ORDER_MGMT:true}
+        portfolio-tracking: ${ALGOLAB_PORTFOLIO_TRACKING:true}
+      security:
+        ssl-verification: ${ALGOLAB_SSL_VERIFY:true}
+        certificate-path: ${ALGOLAB_CERT_PATH:}
 
-  # Development Database
-  datasource:
-    url: jdbc:postgresql://localhost:5432/bist_trading_dev
-    username: bist_dev_user
-    password: bist_dev_pass
+  # Broker Integration Configuration
+  brokers:
+    denizbank:
+      enabled: ${DENIZBANK_INTEGRATION_ENABLED:true}
+      base-url: ${DENIZBANK_BASE_URL:https://api.denizbank.com/investment}
+      api-version: ${DENIZBANK_API_VERSION:v1.0}
+      timeout:
+        connect: 20000
+        read: 45000
+      rate-limit:
+        requests-per-minute: 500
+    garanti:
+      enabled: ${GARANTI_INTEGRATION_ENABLED:true}
+      base-url: ${GARANTI_BASE_URL:https://api.garantibbva.com.tr/trading}
+      api-version: ${GARANTI_API_VERSION:v1.2}
+      timeout:
+        connect: 25000
+        read: 60000
+      rate-limit:
+        requests-per-minute: 750
 
-  # Development JPA
-  jpa:
-    show-sql: true
-    properties:
-      hibernate:
-        format_sql: true
-        use_sql_comments: true
+  # Event Publishing Configuration
+  events:
+    kafka:
+      enabled: ${KAFKA_EVENTS_ENABLED:true}
+      topics:
+        user-created: ${KAFKA_TOPIC_USER_CREATED:user.events.created}
+        user-updated: ${KAFKA_TOPIC_USER_UPDATED:user.events.updated}
+        user-deleted: ${KAFKA_TOPIC_USER_DELETED:user.events.deleted}
+        user-login: ${KAFKA_TOPIC_USER_LOGIN:user.events.login}
+        user-logout: ${KAFKA_TOPIC_USER_LOGOUT:user.events.logout}
+      retry:
+        attempts: 3
+        backoff-delay: 1000
 
-# Development Logging
-logging:
-  level:
-    com.bisttrading: DEBUG
-    org.springframework.security: DEBUG
-    org.hibernate.SQL: DEBUG
-    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
+  # Turkish Locale Configuration
+  locale:
+    default-locale: tr_TR
+    supported-locales: tr_TR,en_US
+    timezone: Europe/Istanbul
+    currency: TRY
+    number-format:
+      decimal-separator: ","
+      thousands-separator: "."
+    date-format:
+      short: "dd.MM.yyyy"
+      medium: "dd MMMM yyyy"
+      long: "dd MMMM yyyy EEEE"
+    time-format:
+      short: "HH:mm"
+      medium: "HH:mm:ss"
 
-# Development Notifications (disabled)
-bist:
-  notifications:
-    email:
-      enabled: false
-    sms:
-      enabled: false
-
----
-# Test Profile
-spring:
-  config:
-    activate:
-      on-profile: test
-
-  # Test Database (will be overridden by TestContainers)
-  datasource:
-    url: jdbc:postgresql://localhost:5432/bist_trading_test
-    username: test
-    password: test
-
-  # Test JPA
-  jpa:
-    hibernate:
-      ddl-auto: create-drop
-    show-sql: true
-
-  # Test Flyway
-  flyway:
-    enabled: false
-
-# Test Logging
-logging:
-  level:
-    com.bisttrading: DEBUG
-    org.testcontainers: INFO
-    com.zaxxer.hikari: WARN
-
-# Test Configuration
-bist:
-  security:
-    rate-limiting:
-      enabled: false
-  notifications:
-    email:
-      enabled: false
-    sms:
-      enabled: false
-
----
-# Production Profile
-spring:
-  config:
-    activate:
-      on-profile: prod
-
-  # Production JPA
-  jpa:
-    show-sql: false
-    properties:
-      hibernate:
-        generate_statistics: true
-
-# Production Logging
-logging:
-  level:
-    root: WARN
-    com.bisttrading: INFO
-    org.springframework: WARN
-  file:
-    name: /var/log/bist-trading/user-management-service.log
-
-# Production Management
-management:
-  endpoint:
-    health:
-      show-details: never
-  endpoints:
-    web:
-      exposure:
-        include: health,info,metrics,prometheus
+  # Feature Flags
+  features:
+    two-factor-auth:
+      enabled: ${FEATURE_2FA_ENABLED:true}
+      mandatory-for-professional: ${FEATURE_2FA_MANDATORY_PRO:true}
+    kyc-verification:
+      enabled: ${FEATURE_KYC_ENABLED:true}
+      auto-verify-test-users: ${FEATURE_KYC_AUTO_VERIFY_TEST:false}
+    email-verification:
+      enabled: ${FEATURE_EMAIL_VERIFICATION_ENABLED:true}
+      required-for-trading: ${FEATURE_EMAIL_REQUIRED_TRADING:true}
+    phone-verification:
+      enabled: ${FEATURE_PHONE_VERIFICATION_ENABLED:true}
+      required-for-trading: ${FEATURE_PHONE_REQUIRED_TRADING:true}
+    password-complexity:
+      enabled: ${FEATURE_PASSWORD_COMPLEXITY_ENABLED:true}
+      check-common-passwords: ${FEATURE_CHECK_COMMON_PASSWORDS:true}
+    user-activity-tracking:
+      enabled: ${FEATURE_USER_ACTIVITY_TRACKING:true}
+      track-ip-changes: ${FEATURE_TRACK_IP_CHANGES:true}
+    gdpr-compliance:
+      enabled: ${FEATURE_GDPR_ENABLED:true}
+      data-retention-days: ${FEATURE_DATA_RETENTION_DAYS:2555} # 7 years
