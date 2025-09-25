@@ -1,0 +1,65 @@
+plugins {
+    id 'org.springframework.boot'
+    id 'io.spring.dependency-management'
+    id 'java'
+}
+
+// Configuration inherited from root project
+
+dependencies {
+    // Internal dependencies
+    // implementation project(':platform-services:broker-integration-service') // Temporarily disabled
+    implementation project(':platform-infrastructure:infrastructure-persistence')
+
+    // Spring Boot Starters
+    implementation 'org.springframework.boot:spring-boot-starter-web'
+    implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+    implementation 'org.springframework.boot:spring-boot-starter-security'
+    implementation 'org.springframework.boot:spring-boot-starter-actuator'
+    implementation 'org.springframework.boot:spring-boot-starter-validation'
+
+    // PostgreSQL Driver
+    runtimeOnly 'org.postgresql:postgresql'
+
+    // Jackson for JSON processing
+    implementation 'com.fasterxml.jackson.core:jackson-databind'
+    implementation 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310'
+
+    // Lombok for reducing boilerplate code
+    compileOnly 'org.projectlombok:lombok'
+    annotationProcessor 'org.projectlombok:lombok'
+
+    // Micrometer for metrics
+    implementation 'io.micrometer:micrometer-registry-prometheus'
+
+    // Spring Boot Configuration Processor
+    annotationProcessor 'org.springframework.boot:spring-boot-configuration-processor'
+
+    // Development tools
+    developmentOnly 'org.springframework.boot:spring-boot-devtools'
+
+    // Test Dependencies
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    testImplementation 'org.testcontainers:junit-jupiter'
+    testImplementation 'org.testcontainers:postgresql'
+    testImplementation 'org.awaitility:awaitility'
+    testRuntimeOnly 'com.h2database:h2'
+}
+
+// Spring Boot configuration
+springBoot {
+    buildInfo()
+}
+
+// Jar configuration
+jar {
+    archiveBaseName = 'order-management-service'
+    archiveVersion = version
+    enabled = false
+}
+
+bootJar {
+    archiveBaseName = 'order-management-service'
+    archiveVersion = version
+    enabled = true
+}

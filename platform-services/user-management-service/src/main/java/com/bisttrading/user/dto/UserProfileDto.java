@@ -1,6 +1,6 @@
 package com.bisttrading.user.dto;
 
-import com.bisttrading.infrastructure.persistence.entity.UserEntity;
+import com.bisttrading.user.entity.UserEntity;
 import com.fasterxml.jackson.annotation.JsonFormat;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.AllArgsConstructor;
@@ -61,6 +61,9 @@ public class UserProfileDto {
 
     @Schema(description = "Hesap durumu", example = "ACTIVE")
     private UserEntity.UserStatus status;
+
+    @Schema(description = "Hesap aktif mi?", example = "true")
+    private boolean active;
 
     @Schema(description = "E-posta doğrulanmış mı?", example = "true")
     private Boolean emailVerified;

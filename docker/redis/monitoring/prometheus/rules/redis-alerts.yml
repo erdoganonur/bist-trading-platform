@@ -1,0 +1,273 @@
+# =============================================================================
+# Redis Alerting Rules for BIST Trading Platform
+# Prometheus alerting rules for Redis cluster monitoring
+# =============================================================================
+
+groups:
+  # =============================================================================
+  # REDIS CLUSTER HEALTH ALERTS
+  # =============================================================================
+  - name: redis-cluster-health
+    rules:
+      - alert: RedisClusterDown
+        expr: up{job="redis-cluster"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          service: redis-cluster
+        annotations:
+          summary: "Redis cluster is down"
+          description: "Redis cluster has been down for more than 1 minute"
+
+      - alert: RedisNodeDown
+        expr: redis_up == 0
+        for: 30s
+        labels:
+          severity: critical
+          service: redis-cluster
+        annotations:
+          summary: "Redis node {{ $labels.instance }} is down"
+          description: "Redis node {{ $labels.instance }} has been down for more than 30 seconds"
+
+      - alert: RedisClusterSlotsCoverage
+        expr: redis_cluster_slots_assigned < 16384
+        for: 5m
+        labels:
+          severity: critical
+          service: redis-cluster
+        annotations:
+          summary: "Redis cluster slots not fully covered"
+          description: "Redis cluster has {{ $value }} slots assigned out of 16384 total slots"
+
+      - alert: RedisClusterState
+        expr: redis_cluster_state == 0
+        for: 2m
+        labels:
+          severity: critical
+          service: redis-cluster
+        annotations:
+          summary: "Redis cluster state is not OK"
+          description: "Redis cluster state is fail on instance {{ $labels.instance }}"
+
+  # =============================================================================
+  # REDIS PERFORMANCE ALERTS
+  # =============================================================================
+  - name: redis-performance
+    rules:
+      - alert: RedisHighMemoryUsage
+        expr: (redis_memory_used_bytes / redis_config_maxmemory) * 100 > 90
+        for: 5m
+        labels:
+          severity: warning
+          service: redis-cluster
+        annotations:
+          summary: "Redis high memory usage on {{ $labels.instance }}"
+          description: "Redis memory usage is {{ $value | humanizePercentage }} on instance {{ $labels.instance }}"
+
+      - alert: RedisCriticalMemoryUsage
+        expr: (redis_memory_used_bytes / redis_config_maxmemory) * 100 > 95
+        for: 2m
+        labels:
+          severity: critical
+          service: redis-cluster
+        annotations:
+          summary: "Redis critical memory usage on {{ $labels.instance }}"
+          description: "Redis memory usage is {{ $value | humanizePercentage }} on instance {{ $labels.instance }}"
+
+      - alert: RedisHighCPU
+        expr: rate(redis_cpu_sys_seconds_total[5m]) * 100 > 80
+        for: 10m
+        labels:
+          severity: warning
+          service: redis-cluster
+        annotations:
+          summary: "Redis high CPU usage on {{ $labels.instance }}"
+          description: "Redis CPU usage is {{ $value | humanizePercentage }} on instance {{ $labels.instance }}"
+
+      - alert: RedisSlowQueries
+        expr: rate(redis_commands_duration_seconds_total[5m]) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+          service: redis-cluster
+        annotations:
+          summary: "Redis slow queries detected on {{ $labels.instance }}"
+          description: "Average command duration is {{ $value }}s on instance {{ $labels.instance }}"
+
+  # =============================================================================
+  # REDIS CONNECTIVITY ALERTS
+  # =============================================================================
+  - name: redis-connectivity
+    rules:
+      - alert: RedisHighConnectionUsage
+        expr: (redis_connected_clients / redis_config_maxclients) * 100 > 80
+        for: 5m
+        labels:
+          severity: warning
+          service: redis-cluster
+        annotations:
+          summary: "Redis high connection usage on {{ $labels.instance }}"
+          description: "Redis connection usage is {{ $value | humanizePercentage }} on instance {{ $labels.instance }}"
+
+      - alert: RedisConnectionsRejected
+        expr: rate(redis_rejected_connections_total[5m]) > 0
+        for: 2m
+        labels:
+          severity: critical
+          service: redis-cluster
+        annotations:
+          summary: "Redis rejecting connections on {{ $labels.instance }}"
+          description: "Redis is rejecting {{ $value }} connections per second on instance {{ $labels.instance }}"
+
+      - alert: RedisHighCommandRate
+        expr: rate(redis_commands_total[5m]) > 10000
+        for: 5m
+        labels:
+          severity: warning
+          service: redis-cluster
+        annotations:
+          summary: "Redis high command rate on {{ $labels.instance }}"
+          description: "Redis is processing {{ $value }} commands per second on instance {{ $labels.instance }}"
+
+  # =============================================================================
+  # REDIS REPLICATION ALERTS
+  # =============================================================================
+  - name: redis-replication
+    rules:
+      - alert: RedisReplicationDown
+        expr: redis_connected_slaves == 0 and redis_instance_info{role="master"} == 1
+        for: 5m
+        labels:
+          severity: critical
+          service: redis-cluster
+        annotations:
+          summary: "Redis replication down on master {{ $labels.instance }}"
+          description: "Redis master {{ $labels.instance }} has no connected slaves"
+
+      - alert: RedisReplicationLag
+        expr: redis_slave_lag_in_seconds > 30
+        for: 2m
+        labels:
+          severity: warning
+          service: redis-cluster
+        annotations:
+          summary: "Redis replication lag on {{ $labels.instance }}"
+          description: "Redis slave {{ $labels.instance }} is lagging {{ $value }}s behind master"
+
+      - alert: RedisMasterLinkDown
+        expr: redis_master_link_up == 0
+        for: 1m
+        labels:
+          severity: critical
+          service: redis-cluster
+        annotations:
+          summary: "Redis master link down on {{ $labels.instance }}"
+          description: "Redis slave {{ $labels.instance }} lost connection to master"
+
+  # =============================================================================
+  # REDIS PERSISTENCE ALERTS
+  # =============================================================================
+  - name: redis-persistence
+    rules:
+      - alert: RedisRDBSaveFailed
+        expr: redis_rdb_last_save_timestamp_seconds < (time() - 3600)
+        for: 0m
+        labels:
+          severity: warning
+          service: redis-cluster
+        annotations:
+          summary: "Redis RDB save failed on {{ $labels.instance }}"
+          description: "Redis RDB last save was more than 1 hour ago on instance {{ $labels.instance }}"
+
+      - alert: RedisAOFRewriteFailed
+        expr: redis_aof_last_rewrite_time_sec == -1
+        for: 0m
+        labels:
+          severity: warning
+          service: redis-cluster
+        annotations:
+          summary: "Redis AOF rewrite failed on {{ $labels.instance }}"
+          description: "Redis AOF rewrite failed on instance {{ $labels.instance }}"
+
+      - alert: RedisHighDiskUsage
+        expr: (node_filesystem_avail_bytes{mountpoint="/"} / node_filesystem_size_bytes{mountpoint="/"}) * 100 < 20
+        for: 5m
+        labels:
+          severity: warning
+          service: redis-cluster
+        annotations:
+          summary: "Low disk space on Redis host"
+          description: "Disk usage is above 80% on Redis host with {{ $value | humanizePercentage }} remaining"
+
+  # =============================================================================
+  # REDIS TRADING SPECIFIC ALERTS
+  # =============================================================================
+  - name: redis-trading
+    rules:
+      - alert: RedisMarketDataCacheMiss
+        expr: rate(redis_keyspace_misses_total[5m]) / rate(redis_keyspace_hits_total[5m]) > 0.3
+        for: 5m
+        labels:
+          severity: warning
+          service: redis-cluster
+          category: market-data
+        annotations:
+          summary: "High Redis cache miss rate on {{ $labels.instance }}"
+          description: "Redis cache miss rate is {{ $value | humanizePercentage }} on instance {{ $labels.instance }}"
+
+      - alert: RedisMarketDataExpiration
+        expr: rate(redis_expired_keys_total[5m]) > 1000
+        for: 2m
+        labels:
+          severity: warning
+          service: redis-cluster
+          category: market-data
+        annotations:
+          summary: "High Redis key expiration rate on {{ $labels.instance }}"
+          description: "Redis is expiring {{ $value }} keys per second on instance {{ $labels.instance }}"
+
+      - alert: RedisOrderBookLatency
+        expr: histogram_quantile(0.95, rate(redis_command_duration_seconds_bucket{cmd="get"}[5m])) > 0.01
+        for: 3m
+        labels:
+          severity: warning
+          service: redis-cluster
+          category: order-book
+        annotations:
+          summary: "High Redis GET command latency on {{ $labels.instance }}"
+          description: "95th percentile GET command latency is {{ $value }}s on instance {{ $labels.instance }}"
+
+  # =============================================================================
+  # REDIS SYSTEM RESOURCE ALERTS
+  # =============================================================================
+  - name: redis-system
+    rules:
+      - alert: RedisHostHighCPU
+        expr: 100 - (avg(rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 85
+        for: 10m
+        labels:
+          severity: warning
+          service: redis-cluster
+        annotations:
+          summary: "High CPU usage on Redis host"
+          description: "CPU usage is {{ $value | humanizePercentage }} on Redis host"
+
+      - alert: RedisHostHighMemory
+        expr: (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100 > 90
+        for: 5m
+        labels:
+          severity: critical
+          service: redis-cluster
+        annotations:
+          summary: "High memory usage on Redis host"
+          description: "Memory usage is {{ $value | humanizePercentage }} on Redis host"
+
+      - alert: RedisHostHighNetworkIO
+        expr: rate(node_network_receive_bytes_total[5m]) + rate(node_network_transmit_bytes_total[5m]) > 100000000
+        for: 5m
+        labels:
+          severity: warning
+          service: redis-cluster
+        annotations:
+          summary: "High network I/O on Redis host"
+          description: "Network I/O is {{ $value | humanize }}bps on Redis host"

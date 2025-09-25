@@ -12,6 +12,24 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-webflux'
     implementation 'org.springframework.boot:spring-boot-starter-actuator'
     implementation 'org.springframework.boot:spring-boot-starter-validation'
+    implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+    implementation 'org.springframework.boot:spring-boot-starter-security'
+
+    // WebSocket Support
+    implementation 'org.springframework.boot:spring-boot-starter-websocket'
+    implementation 'jakarta.websocket:jakarta.websocket-api:2.1.1'
+    implementation 'org.eclipse.jetty.websocket:websocket-jakarta-client:11.0.20'
+
+    // Jakarta Annotations (for @PostConstruct, @PreDestroy)
+    implementation 'jakarta.annotation:jakarta.annotation-api:3.0.0'
+
+    // OpenAPI/Swagger
+    implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui'
+
+    // Database
+    implementation 'org.postgresql:postgresql'
+    implementation 'org.flywaydb:flyway-core'
+    implementation 'org.flywaydb:flyway-database-postgresql'
 
     // Resilience4j for Circuit Breaker
     implementation 'io.github.resilience4j:resilience4j-spring-boot3'

@@ -25,6 +25,7 @@ include 'platform-infrastructure:infrastructure-monitoring'
 include 'platform-services:user-management-service'
 include 'platform-services:market-data-service'
 include 'platform-services:broker-integration-service'
+include 'platform-services:order-management-service'
 
 // Set project directories
 project(':platform-core:core-common').projectDir = file('platform-core/core-common')
@@ -39,6 +40,7 @@ project(':platform-infrastructure:infrastructure-monitoring').projectDir = file(
 project(':platform-services:user-management-service').projectDir = file('platform-services/user-management-service')
 project(':platform-services:market-data-service').projectDir = file('platform-services/market-data-service')
 project(':platform-services:broker-integration-service').projectDir = file('platform-services/broker-integration-service')
+project(':platform-services:order-management-service').projectDir = file('platform-services/order-management-service')
 
 // Dependency resolution
 dependencyResolutionManagement {

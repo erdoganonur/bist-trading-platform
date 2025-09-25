@@ -30,7 +30,7 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> handleValidationErrors(
             MethodArgumentNotValidException ex, WebRequest request) {
 
-        Map<String, String> fieldErrors = new HashMap<>();
+        Map<String, Object> fieldErrors = new HashMap<>();
         ex.getBindingResult().getAllErrors().forEach(error -> {
             String fieldName = ((FieldError) error).getField();
             String errorMessage = error.getDefaultMessage();

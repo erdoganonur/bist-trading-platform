@@ -222,7 +222,8 @@ public class UserSessionEntity {
         EXPIRED,     // Session has expired
         TERMINATED,  // Session was terminated by user
         INVALIDATED, // Session was invalidated by system
-        SUSPENDED    // Session is temporarily suspended
+        SUSPENDED,   // Session is temporarily suspended
+        ENDED        // Session has ended
     }
 
     /**

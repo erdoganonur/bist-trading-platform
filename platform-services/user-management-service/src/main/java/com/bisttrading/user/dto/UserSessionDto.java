@@ -1,6 +1,6 @@
 package com.bisttrading.user.dto;
 
-import com.bisttrading.infrastructure.persistence.entity.UserSessionEntity;
+import com.bisttrading.user.entity.UserSessionEntity;
 import com.fasterxml.jackson.annotation.JsonFormat;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.AllArgsConstructor;

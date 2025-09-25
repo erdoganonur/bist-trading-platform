@@ -1,0 +1,365 @@
+# =============================================================================
+# TimescaleDB Prometheus Exporter Queries
+# Custom queries for monitoring BIST Trading Platform market data
+# =============================================================================
+
+# =============================================================================
+# HYPERTABLE STATISTICS
+# =============================================================================
+pg_timescaledb_hypertable_stats:
+  query: |
+    SELECT
+      schema_name,
+      table_name,
+      total_chunks,
+      COALESCE(number_compressed_chunks, 0) as compressed_chunks,
+      COALESCE(uncompressed_heap_size, 0) as uncompressed_size,
+      COALESCE(compressed_heap_size, 0) as compressed_size,
+      CASE
+        WHEN compressed_heap_size > 0 AND uncompressed_heap_size > 0 THEN
+          uncompressed_heap_size::float / compressed_heap_size::float
+        ELSE 0
+      END as compression_ratio
+    FROM timescaledb_information.hypertables h
+    LEFT JOIN timescaledb_information.compression_settings cs
+      ON h.table_name = cs.hypertable_name
+    WHERE h.schema_name IN ('market_data', 'analytics', 'audit')
+  metrics:
+    - schema_name:
+        usage: "LABEL"
+        description: "Schema name"
+    - table_name:
+        usage: "LABEL"
+        description: "Table name"
+    - total_chunks:
+        usage: "GAUGE"
+        description: "Total number of chunks"
+    - compressed_chunks:
+        usage: "GAUGE"
+        description: "Number of compressed chunks"
+    - uncompressed_size:
+        usage: "GAUGE"
+        description: "Uncompressed data size in bytes"
+    - compressed_size:
+        usage: "GAUGE"
+        description: "Compressed data size in bytes"
+    - compression_ratio:
+        usage: "GAUGE"
+        description: "Compression ratio (uncompressed/compressed)"
+
+# =============================================================================
+# MARKET DATA INGESTION RATES
+# =============================================================================
+pg_market_data_ingestion_rate:
+  query: |
+    SELECT
+      s.symbol,
+      COUNT(*) as tick_count,
+      EXTRACT(EPOCH FROM (MAX(mt.time) - MIN(mt.time))) as time_span_seconds,
+      CASE
+        WHEN EXTRACT(EPOCH FROM (MAX(mt.time) - MIN(mt.time))) > 0 THEN
+          COUNT(*)::float / EXTRACT(EPOCH FROM (MAX(mt.time) - MIN(mt.time)))
+        ELSE 0
+      END as ticks_per_second
+    FROM market_data.market_ticks mt
+    JOIN reference.symbols s ON mt.symbol_id = s.symbol_id
+    WHERE mt.time >= NOW() - INTERVAL '5 minutes'
+    GROUP BY s.symbol
+    HAVING COUNT(*) > 0
+  metrics:
+    - symbol:
+        usage: "LABEL"
+        description: "Trading symbol"
+    - tick_count:
+        usage: "GAUGE"
+        description: "Number of ticks in last 5 minutes"
+    - time_span_seconds:
+        usage: "GAUGE"
+        description: "Time span of data in seconds"
+    - ticks_per_second:
+        usage: "GAUGE"
+        description: "Average ticks per second"
+
+# =============================================================================
+# DATA FRESHNESS MONITORING
+# =============================================================================
+pg_market_data_freshness:
+  query: |
+    SELECT
+      s.symbol,
+      EXTRACT(EPOCH FROM (NOW() - MAX(mt.time))) as seconds_since_last_tick,
+      CASE
+        WHEN MAX(mt.time) >= NOW() - INTERVAL '1 minute' THEN 1
+        ELSE 0
+      END as is_fresh
+    FROM reference.symbols s
+    LEFT JOIN market_data.market_ticks mt ON s.symbol_id = mt.symbol_id
+    WHERE s.data_feed_enabled = true
+    GROUP BY s.symbol_id, s.symbol
+  metrics:
+    - symbol:
+        usage: "LABEL"
+        description: "Trading symbol"
+    - seconds_since_last_tick:
+        usage: "GAUGE"
+        description: "Seconds since last market tick"
+    - is_fresh:
+        usage: "GAUGE"
+        description: "1 if data is fresh (< 1 minute old), 0 otherwise"
+
+# =============================================================================
+# CONTINUOUS AGGREGATE HEALTH
+# =============================================================================
+pg_continuous_aggregates_health:
+  query: |
+    SELECT
+      view_name,
+      materialization_hypertable,
+      EXTRACT(EPOCH FROM (NOW() - completed_threshold)) as lag_seconds,
+      CASE
+        WHEN completed_threshold >= NOW() - INTERVAL '5 minutes' THEN 1
+        ELSE 0
+      END as is_current
+    FROM timescaledb_information.continuous_aggregates
+    WHERE view_schema = 'market_data'
+  metrics:
+    - view_name:
+        usage: "LABEL"
+        description: "Continuous aggregate view name"
+    - materialization_hypertable:
+        usage: "LABEL"
+        description: "Materialization hypertable name"
+    - lag_seconds:
+        usage: "GAUGE"
+        description: "Lag in seconds from current time"
+    - is_current:
+        usage: "GAUGE"
+        description: "1 if aggregate is current, 0 if lagging"
+
+# =============================================================================
+# TRADING VOLUME METRICS
+# =============================================================================
+pg_trading_volume_metrics:
+  query: |
+    SELECT
+      s.symbol,
+      s.sector,
+      COALESCE(SUM(mt.quantity), 0) as total_volume,
+      COALESCE(COUNT(*), 0) as trade_count,
+      COALESCE(AVG(mt.price), 0) as avg_price,
+      COALESCE(MIN(mt.price), 0) as min_price,
+      COALESCE(MAX(mt.price), 0) as max_price
+    FROM reference.symbols s
+    LEFT JOIN market_data.market_ticks mt ON s.symbol_id = mt.symbol_id
+      AND mt.time >= NOW() - INTERVAL '1 hour'
+    WHERE s.data_feed_enabled = true
+    GROUP BY s.symbol_id, s.symbol, s.sector
+  metrics:
+    - symbol:
+        usage: "LABEL"
+        description: "Trading symbol"
+    - sector:
+        usage: "LABEL"
+        description: "Market sector"
+    - total_volume:
+        usage: "GAUGE"
+        description: "Total trading volume in last hour"
+    - trade_count:
+        usage: "GAUGE"
+        description: "Number of trades in last hour"
+    - avg_price:
+        usage: "GAUGE"
+        description: "Average price in last hour"
+    - min_price:
+        usage: "GAUGE"
+        description: "Minimum price in last hour"
+    - max_price:
+        usage: "GAUGE"
+        description: "Maximum price in last hour"
+
+# =============================================================================
+# DATABASE CONNECTION METRICS
+# =============================================================================
+pg_timescaledb_connections:
+  query: |
+    SELECT
+      datname,
+      usename,
+      state,
+      COUNT(*) as connection_count,
+      AVG(EXTRACT(EPOCH FROM (NOW() - state_change))) as avg_state_duration
+    FROM pg_stat_activity
+    WHERE datname = 'bist_market_data'
+    GROUP BY datname, usename, state
+  metrics:
+    - datname:
+        usage: "LABEL"
+        description: "Database name"
+    - usename:
+        usage: "LABEL"
+        description: "Username"
+    - state:
+        usage: "LABEL"
+        description: "Connection state"
+    - connection_count:
+        usage: "GAUGE"
+        description: "Number of connections"
+    - avg_state_duration:
+        usage: "GAUGE"
+        description: "Average duration in current state (seconds)"
+
+# =============================================================================
+# QUERY PERFORMANCE METRICS
+# =============================================================================
+pg_slow_queries:
+  query: |
+    SELECT
+      LEFT(query, 100) as query_preview,
+      calls,
+      total_time,
+      mean_time,
+      max_time,
+      rows,
+      100.0 * shared_blks_hit / nullif(shared_blks_hit + shared_blks_read, 0) AS hit_percent
+    FROM pg_stat_statements
+    WHERE dbid = (SELECT oid FROM pg_database WHERE datname = 'bist_market_data')
+    AND calls > 10
+    ORDER BY mean_time DESC
+    LIMIT 20
+  metrics:
+    - query_preview:
+        usage: "LABEL"
+        description: "Query preview (first 100 characters)"
+    - calls:
+        usage: "GAUGE"
+        description: "Number of times executed"
+    - total_time:
+        usage: "GAUGE"
+        description: "Total time spent executing"
+    - mean_time:
+        usage: "GAUGE"
+        description: "Mean execution time"
+    - max_time:
+        usage: "GAUGE"
+        description: "Maximum execution time"
+    - rows:
+        usage: "GAUGE"
+        description: "Total rows retrieved or affected"
+    - hit_percent:
+        usage: "GAUGE"
+        description: "Cache hit percentage"
+
+# =============================================================================
+# STORAGE USAGE METRICS
+# =============================================================================
+pg_storage_usage:
+  query: |
+    SELECT
+      schemaname,
+      tablename,
+      pg_total_relation_size(schemaname||'.'||tablename) as total_bytes,
+      pg_relation_size(schemaname||'.'||tablename) as table_bytes,
+      pg_indexes_size(schemaname||'.'||tablename) as index_bytes,
+      COALESCE(n_tup_ins, 0) as inserts,
+      COALESCE(n_tup_upd, 0) as updates,
+      COALESCE(n_tup_del, 0) as deletes,
+      COALESCE(seq_scan, 0) as seq_scans,
+      COALESCE(idx_scan, 0) as index_scans
+    FROM pg_tables t
+    LEFT JOIN pg_stat_user_tables s ON s.relname = t.tablename AND s.schemaname = t.schemaname
+    WHERE t.schemaname IN ('market_data', 'analytics', 'reference', 'audit')
+  metrics:
+    - schemaname:
+        usage: "LABEL"
+        description: "Schema name"
+    - tablename:
+        usage: "LABEL"
+        description: "Table name"
+    - total_bytes:
+        usage: "GAUGE"
+        description: "Total table size in bytes"
+    - table_bytes:
+        usage: "GAUGE"
+        description: "Table data size in bytes"
+    - index_bytes:
+        usage: "GAUGE"
+        description: "Index size in bytes"
+    - inserts:
+        usage: "COUNTER"
+        description: "Number of insert operations"
+    - updates:
+        usage: "COUNTER"
+        description: "Number of update operations"
+    - deletes:
+        usage: "COUNTER"
+        description: "Number of delete operations"
+    - seq_scans:
+        usage: "COUNTER"
+        description: "Number of sequential scans"
+    - index_scans:
+        usage: "COUNTER"
+        description: "Number of index scans"
+
+# =============================================================================
+# MARKET DATA QUALITY METRICS
+# =============================================================================
+pg_data_quality:
+  query: |
+    SELECT
+      table_name,
+      metric_name,
+      metric_value,
+      EXTRACT(EPOCH FROM (NOW() - time)) as age_seconds
+    FROM audit.data_quality
+    WHERE time >= NOW() - INTERVAL '1 hour'
+    ORDER BY time DESC
+  metrics:
+    - table_name:
+        usage: "LABEL"
+        description: "Table being monitored"
+    - metric_name:
+        usage: "LABEL"
+        description: "Quality metric name"
+    - metric_value:
+        usage: "GAUGE"
+        description: "Quality metric value"
+    - age_seconds:
+        usage: "GAUGE"
+        description: "Age of the measurement in seconds"
+
+# =============================================================================
+# REPLICATION METRICS (if replica is enabled)
+# =============================================================================
+pg_replication_status:
+  query: |
+    SELECT
+      application_name,
+      client_addr,
+      state,
+      pg_wal_lsn_diff(pg_current_wal_lsn(), sent_lsn) as send_lag_bytes,
+      pg_wal_lsn_diff(sent_lsn, flush_lsn) as flush_lag_bytes,
+      pg_wal_lsn_diff(flush_lsn, replay_lsn) as replay_lag_bytes,
+      EXTRACT(EPOCH FROM (NOW() - backend_start)) as connection_age_seconds
+    FROM pg_stat_replication
+  metrics:
+    - application_name:
+        usage: "LABEL"
+        description: "Replication application name"
+    - client_addr:
+        usage: "LABEL"
+        description: "Client IP address"
+    - state:
+        usage: "LABEL"
+        description: "Replication state"
+    - send_lag_bytes:
+        usage: "GAUGE"
+        description: "Send lag in bytes"
+    - flush_lag_bytes:
+        usage: "GAUGE"
+        description: "Flush lag in bytes"
+    - replay_lag_bytes:
+        usage: "GAUGE"
+        description: "Replay lag in bytes"
+    - connection_age_seconds:
+        usage: "GAUGE"
+        description: "Age of replication connection in seconds"

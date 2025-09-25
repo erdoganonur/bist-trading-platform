@@ -35,8 +35,9 @@ class EncryptionUtilTest {
         String plainText = "Sensitive Information";
 
         // When
-        String encrypted = EncryptionUtil.encrypt(plainText, testEncryptionKey);
-        String decrypted = EncryptionUtil.decrypt(encrypted, testEncryptionKey);
+        EncryptionUtil encryptionUtil = new EncryptionUtil(testEncryptionKey);
+        String encrypted = encryptionUtil.encrypt(plainText);
+        String decrypted = encryptionUtil.decrypt(encrypted);
 
         // Then
         assertThat(encrypted).isNotNull().isNotEmpty().isNotEqualTo(plainText);
@@ -50,8 +51,9 @@ class EncryptionUtilTest {
         String turkishText = "Türkçe karakter içeren metin: ğĞıİöÖüÜşŞçÇ";
 
         // When
-        String encrypted = EncryptionUtil.encrypt(turkishText, testEncryptionKey);
-        String decrypted = EncryptionUtil.decrypt(encrypted, testEncryptionKey);
+        EncryptionUtil encryptionUtil = new EncryptionUtil(testEncryptionKey);
+        String encrypted = encryptionUtil.encrypt(turkishText);
+        String decrypted = encryptionUtil.decrypt(encrypted);
 
         // Then
         assertThat(encrypted).isNotNull().isNotEmpty().isNotEqualTo(turkishText);
@@ -71,7 +73,7 @@ class EncryptionUtilTest {
     void shouldHandleVariousTurkishNamesCorrectly(String turkishName) {
         // When
         String encrypted = EncryptionUtil.encrypt(turkishName, testEncryptionKey);
-        String decrypted = EncryptionUtil.decrypt(encrypted, testEncryptionKey);
+        String decrypted = encryptionUtil.decrypt(encrypted);
 
         // Then
         assertThat(decrypted).isEqualTo(turkishName);
@@ -85,7 +87,7 @@ class EncryptionUtilTest {
 
         // When
         String encrypted = EncryptionUtil.encrypt(tcKimlik, testEncryptionKey);
-        String decrypted = EncryptionUtil.decrypt(encrypted, testEncryptionKey);
+        String decrypted = encryptionUtil.decrypt(encrypted);
 
         // Then
         assertThat(encrypted).isNotEqualTo(tcKimlik);
@@ -102,7 +104,7 @@ class EncryptionUtilTest {
 
         // When
         String encrypted = EncryptionUtil.encrypt(phoneNumber, testEncryptionKey);
-        String decrypted = EncryptionUtil.decrypt(encrypted, testEncryptionKey);
+        String decrypted = encryptionUtil.decrypt(encrypted);
 
         // Then
         assertThat(encrypted).isNotEqualTo(phoneNumber);
@@ -153,7 +155,7 @@ class EncryptionUtilTest {
 
         // When
         String encrypted = EncryptionUtil.encrypt(longText, testEncryptionKey);
-        String decrypted = EncryptionUtil.decrypt(encrypted, testEncryptionKey);
+        String decrypted = encryptionUtil.decrypt(encrypted);
 
         // Then
         assertThat(decrypted).isEqualTo(longText);
@@ -168,7 +170,7 @@ class EncryptionUtilTest {
 
         // When
         String encrypted = EncryptionUtil.encrypt(specialChars, testEncryptionKey);
-        String decrypted = EncryptionUtil.decrypt(encrypted, testEncryptionKey);
+        String decrypted = encryptionUtil.decrypt(encrypted);
 
         // Then
         assertThat(decrypted).isEqualTo(specialChars);
@@ -196,7 +198,7 @@ class EncryptionUtilTest {
 
         // When
         String encrypted = EncryptionUtil.encrypt(textWithWhitespace, testEncryptionKey);
-        String decrypted = EncryptionUtil.decrypt(encrypted, testEncryptionKey);
+        String decrypted = encryptionUtil.decrypt(encrypted);
 
         // Then
         assertThat(decrypted).isEqualTo(textWithWhitespace);
@@ -209,7 +211,8 @@ class EncryptionUtilTest {
         String plainText = "Test validation";
 
         // When
-        String encrypted = EncryptionUtil.encrypt(plainText, testEncryptionKey);
+        EncryptionUtil encryptionUtil = new EncryptionUtil(testEncryptionKey);
+        String encrypted = encryptionUtil.encrypt(plainText);
 
         // Then
         assertThat(encrypted).matches("^[A-Za-z0-9+/]*={0,2}$"); // Base64 format
@@ -220,7 +223,8 @@ class EncryptionUtilTest {
     void shouldHandleCorruptedEncryptedDataGracefully() {
         // Given
         String plainText = "Test data";
-        String encrypted = EncryptionUtil.encrypt(plainText, testEncryptionKey);
+        EncryptionUtil encryptionUtil = new EncryptionUtil(testEncryptionKey);
+        String encrypted = encryptionUtil.encrypt(plainText);
         String corrupted = encrypted.substring(0, encrypted.length() - 5) + "XXXXX";
 
         // When & Then
@@ -247,7 +251,7 @@ class EncryptionUtilTest {
 
         // When
         String encrypted = EncryptionUtil.encrypt(jsonData, testEncryptionKey);
-        String decrypted = EncryptionUtil.decrypt(encrypted, testEncryptionKey);
+        String decrypted = encryptionUtil.decrypt(encrypted);
 
         // Then
         assertThat(decrypted).isEqualTo(jsonData);
@@ -273,7 +277,7 @@ class EncryptionUtilTest {
         // When & Then
         for (String testCase : testCases) {
             String encrypted = EncryptionUtil.encrypt(testCase, testEncryptionKey);
-            String decrypted = EncryptionUtil.decrypt(encrypted, testEncryptionKey);
+            String decrypted = encryptionUtil.decrypt(encrypted);
 
             assertThat(decrypted)
                 .withFailMessage("Data integrity failed for: '%s'", testCase)
@@ -291,7 +295,7 @@ class EncryptionUtilTest {
         // When
         for (int i = 0; i < 1000; i++) {
             String encrypted = EncryptionUtil.encrypt(testData, testEncryptionKey);
-            String decrypted = EncryptionUtil.decrypt(encrypted, testEncryptionKey);
+            String decrypted = encryptionUtil.decrypt(encrypted);
             assertThat(decrypted).isEqualTo(testData);
         }
 
@@ -313,7 +317,8 @@ class EncryptionUtilTest {
         CompletableFuture<String>[] futures = new CompletableFuture[threadCount];
         for (int i = 0; i < threadCount; i++) {
             futures[i] = CompletableFuture.supplyAsync(() -> {
-                String encrypted = EncryptionUtil.encrypt(plainText, testEncryptionKey);
+                EncryptionUtil encryptionUtil = new EncryptionUtil(testEncryptionKey);
+        String encrypted = encryptionUtil.encrypt(plainText);
                 return EncryptionUtil.decrypt(encrypted, testEncryptionKey);
             }, executor);
         }

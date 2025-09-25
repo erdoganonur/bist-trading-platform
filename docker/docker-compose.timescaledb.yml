@@ -1,0 +1,306 @@
+# =============================================================================
+# BIST Trading Platform - TimescaleDB Configuration
+# High-performance time-series database for market data
+# =============================================================================
+
+version: '3.8'
+
+services:
+  # =============================================================================
+  # TimescaleDB Primary Database
+  # =============================================================================
+  timescaledb-primary:
+    image: timescale/timescaledb:latest-pg16
+    container_name: bist-timescaledb-primary
+    restart: unless-stopped
+
+    # Environment variables
+    environment:
+      # Database configuration
+      POSTGRES_DB: bist_market_data
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${TIMESCALEDB_PASSWORD:-SecureTimescalePassword123!}
+
+      # TimescaleDB specific
+      TIMESCALEDB_TELEMETRY: off
+      TS_TUNE_MEMORY: 4GB
+      TS_TUNE_NUM_CPUS: 4
+
+      # Custom configuration
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=en_US.UTF-8"
+
+    # Port mapping
+    ports:
+      - "${TIMESCALEDB_PORT:-5433}:5432"
+
+    # Volume mounts
+    volumes:
+      # Data persistence
+      - timescaledb_data:/var/lib/postgresql/data
+
+      # Custom configuration
+      - ./timescaledb/postgresql.conf:/etc/postgresql/postgresql.conf
+      - ./timescaledb/pg_hba.conf:/etc/postgresql/pg_hba.conf
+
+      # Initialization scripts
+      - ./timescaledb/init:/docker-entrypoint-initdb.d/
+
+      # Backup location
+      - ./timescaledb/backups:/backups
+
+      # Logs
+      - ./timescaledb/logs:/var/log/postgresql
+
+    # Command override for custom configuration
+    command: >
+      postgres
+      -c config_file=/etc/postgresql/postgresql.conf
+      -c hba_file=/etc/postgresql/pg_hba.conf
+      -c log_destination=stderr,csvlog
+      -c logging_collector=on
+      -c log_directory=/var/log/postgresql
+      -c log_filename=postgresql-%Y-%m-%d_%H%M%S.log
+
+    # Health check
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d bist_market_data"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          memory: 6G
+          cpus: '4.0'
+        reservations:
+          memory: 4G
+          cpus: '2.0'
+
+    # Network
+    networks:
+      - bist-network
+
+  # =============================================================================
+  # TimescaleDB Read Replica (Optional for scaling)
+  # =============================================================================
+  timescaledb-replica:
+    image: timescale/timescaledb:latest-pg16
+    container_name: bist-timescaledb-replica
+    restart: unless-stopped
+
+    # Environment variables
+    environment:
+      POSTGRES_DB: bist_market_data
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${TIMESCALEDB_PASSWORD:-SecureTimescalePassword123!}
+      TIMESCALEDB_TELEMETRY: off
+
+      # Replication configuration
+      PGUSER: postgres
+      POSTGRES_MASTER_SERVICE: timescaledb-primary
+      POSTGRES_REPLICA_USER: replicator
+      POSTGRES_REPLICA_PASSWORD: ${REPLICA_PASSWORD:-SecureReplicaPassword123!}
+
+    # Port mapping
+    ports:
+      - "${TIMESCALEDB_REPLICA_PORT:-5434}:5432"
+
+    # Volume mounts
+    volumes:
+      - timescaledb_replica_data:/var/lib/postgresql/data
+      - ./timescaledb/replica-postgresql.conf:/etc/postgresql/postgresql.conf
+      - ./timescaledb/replica-recovery.conf:/etc/postgresql/recovery.conf
+
+    # Depends on primary
+    depends_on:
+      timescaledb-primary:
+        condition: service_healthy
+
+    # Health check
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d bist_market_data"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          memory: 4G
+          cpus: '2.0'
+        reservations:
+          memory: 2G
+          cpus: '1.0'
+
+    # Network
+    networks:
+      - bist-network
+
+    # Only start if explicitly enabled
+    profiles:
+      - replica
+
+  # =============================================================================
+  # TimescaleDB Administration Tools
+  # =============================================================================
+
+  # pgAdmin for database administration
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: bist-timescaledb-admin
+    restart: unless-stopped
+
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@bisttrading.com
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:-SecureAdminPassword123!}
+      PGADMIN_CONFIG_SERVER_MODE: 'False'
+      PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: 'False'
+
+    ports:
+      - "${PGADMIN_PORT:-8080}:80"
+
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+      - ./timescaledb/pgadmin/servers.json:/pgadmin4/servers.json
+
+    depends_on:
+      timescaledb-primary:
+        condition: service_healthy
+
+    networks:
+      - bist-network
+
+    profiles:
+      - admin
+
+  # =============================================================================
+  # Backup Service
+  # =============================================================================
+  timescaledb-backup:
+    image: postgres:16-alpine
+    container_name: bist-timescaledb-backup
+    restart: "no"
+
+    environment:
+      PGHOST: timescaledb-primary
+      PGPORT: 5432
+      PGDATABASE: bist_market_data
+      PGUSER: postgres
+      PGPASSWORD: ${TIMESCALEDB_PASSWORD:-SecureTimescalePassword123!}
+
+    volumes:
+      - ./timescaledb/backups:/backups
+      - ./timescaledb/scripts:/scripts
+
+    command: >
+      sh -c "
+        echo 'Starting backup service...';
+        while true; do
+          echo 'Creating backup...';
+          pg_dump -h timescaledb-primary -U postgres -d bist_market_data \
+            --verbose --format=custom --compress=9 \
+            --file=/backups/bist_market_data_$$(date +%Y%m%d_%H%M%S).backup;
+          echo 'Backup completed';
+          find /backups -name '*.backup' -mtime +7 -delete;
+          sleep 86400;
+        done
+      "
+
+    depends_on:
+      timescaledb-primary:
+        condition: service_healthy
+
+    networks:
+      - bist-network
+
+    profiles:
+      - backup
+
+  # =============================================================================
+  # Monitoring (Prometheus Postgres Exporter)
+  # =============================================================================
+  postgres-exporter:
+    image: prometheuscommunity/postgres-exporter:latest
+    container_name: bist-timescaledb-exporter
+    restart: unless-stopped
+
+    environment:
+      DATA_SOURCE_NAME: "postgresql://postgres:${TIMESCALEDB_PASSWORD:-SecureTimescalePassword123!}@timescaledb-primary:5432/bist_market_data?sslmode=disable"
+      PG_EXPORTER_INCLUDE_DATABASES: "bist_market_data"
+      PG_EXPORTER_AUTO_DISCOVER_DATABASES: "true"
+      PG_EXPORTER_EXTEND_QUERY_PATH: "/etc/postgres_exporter/queries.yaml"
+
+    ports:
+      - "${POSTGRES_EXPORTER_PORT:-9187}:9187"
+
+    volumes:
+      - ./timescaledb/monitoring/queries.yaml:/etc/postgres_exporter/queries.yaml
+
+    depends_on:
+      timescaledb-primary:
+        condition: service_healthy
+
+    networks:
+      - bist-network
+
+    profiles:
+      - monitoring
+
+# =============================================================================
+# VOLUMES
+# =============================================================================
+volumes:
+  # Primary database data
+  timescaledb_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${TIMESCALEDB_DATA_PATH:-./data/timescaledb}
+
+  # Replica database data
+  timescaledb_replica_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${TIMESCALEDB_REPLICA_DATA_PATH:-./data/timescaledb-replica}
+
+  # pgAdmin data
+  pgadmin_data:
+    driver: local
+
+# =============================================================================
+# NETWORKS
+# =============================================================================
+networks:
+  bist-network:
+    external: true
+    name: bist-trading-network
+
+# =============================================================================
+# USAGE EXAMPLES
+# =============================================================================
+
+# Start TimescaleDB only:
+# docker-compose -f docker-compose.timescaledb.yml up -d
+
+# Start with replica:
+# docker-compose -f docker-compose.timescaledb.yml --profile replica up -d
+
+# Start with admin tools:
+# docker-compose -f docker-compose.timescaledb.yml --profile admin up -d
+
+# Start with backup service:
+# docker-compose -f docker-compose.timescaledb.yml --profile backup up -d
+
+# Start with monitoring:
+# docker-compose -f docker-compose.timescaledb.yml --profile monitoring up -d
+
+# Start everything:
+# docker-compose -f docker-compose.timescaledb.yml --profile replica --profile admin --profile backup --profile monitoring up -d

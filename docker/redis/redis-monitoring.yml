@@ -1,0 +1,158 @@
+# =============================================================================
+# Redis Monitoring Configuration for Prometheus
+# BIST Trading Platform - Redis Performance Metrics
+# =============================================================================
+
+version: '3.8'
+
+services:
+  # =============================================================================
+  # PROMETHEUS CONFIGURATION FOR REDIS
+  # =============================================================================
+  redis-prometheus:
+    image: prom/prometheus:latest
+    container_name: bist-redis-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./monitoring/prometheus/rules:/etc/prometheus/rules:ro
+      - prometheus-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=30d'
+      - '--storage.tsdb.retention.size=50GB'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--web.enable-lifecycle'
+      - '--web.enable-admin-api'
+    networks:
+      - redis-monitoring
+    restart: unless-stopped
+    profiles:
+      - monitoring
+
+  # =============================================================================
+  # GRAFANA DASHBOARD FOR REDIS METRICS
+  # =============================================================================
+  redis-grafana:
+    image: grafana/grafana:latest
+    container_name: bist-redis-grafana
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-AdminPassword123!}
+      GF_SECURITY_ADMIN_USER: admin
+      GF_INSTALL_PLUGINS: grafana-clock-panel,grafana-simple-json-datasource
+    volumes:
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - grafana-data:/var/lib/grafana
+    networks:
+      - redis-monitoring
+    depends_on:
+      - redis-prometheus
+    restart: unless-stopped
+    profiles:
+      - monitoring
+
+  # =============================================================================
+  # ALERTMANAGER FOR REDIS ALERTS
+  # =============================================================================
+  redis-alertmanager:
+    image: prom/alertmanager:latest
+    container_name: bist-redis-alertmanager
+    ports:
+      - "9093:9093"
+    volumes:
+      - ./monitoring/alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - alertmanager-data:/alertmanager
+    command:
+      - '--config.file=/etc/alertmanager/alertmanager.yml'
+      - '--storage.path=/alertmanager'
+      - '--web.external-url=http://localhost:9093'
+    networks:
+      - redis-monitoring
+    restart: unless-stopped
+    profiles:
+      - monitoring
+
+  # =============================================================================
+  # NODE EXPORTER FOR SYSTEM METRICS
+  # =============================================================================
+  redis-node-exporter:
+    image: prom/node-exporter:latest
+    container_name: bist-redis-node-exporter
+    ports:
+      - "9100:9100"
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    command:
+      - '--path.procfs=/host/proc'
+      - '--path.rootfs=/rootfs'
+      - '--path.sysfs=/host/sys'
+      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
+    networks:
+      - redis-monitoring
+    restart: unless-stopped
+    profiles:
+      - monitoring
+
+  # =============================================================================
+  # CADVISOR FOR CONTAINER METRICS
+  # =============================================================================
+  redis-cadvisor:
+    image: gcr.io/cadvisor/cadvisor:latest
+    container_name: bist-redis-cadvisor
+    ports:
+      - "8080:8080"
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:rw
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+      - /dev/disk/:/dev/disk:ro
+    privileged: true
+    devices:
+      - /dev/kmsg:/dev/kmsg
+    networks:
+      - redis-monitoring
+    restart: unless-stopped
+    profiles:
+      - monitoring
+
+# =============================================================================
+# NETWORKS
+# =============================================================================
+networks:
+  redis-monitoring:
+    driver: bridge
+    external: true
+
+# =============================================================================
+# VOLUMES
+# =============================================================================
+volumes:
+  prometheus-data:
+    driver: local
+  grafana-data:
+    driver: local
+  alertmanager-data:
+    driver: local
+
+# =============================================================================
+# USAGE INSTRUCTIONS
+# =============================================================================
+# Start monitoring stack:
+#   docker network create redis-monitoring
+#   docker-compose -f redis-monitoring.yml --profile monitoring up -d
+#
+# Access URLs:
+#   Grafana: http://localhost:3000 (admin/AdminPassword123!)
+#   Prometheus: http://localhost:9090
+#   Alertmanager: http://localhost:9093
+#   Node Exporter: http://localhost:9100
+#   cAdvisor: http://localhost:8080

@@ -27,6 +27,13 @@ public class AlgoLabResponse<T> {
     }
 
     /**
+     * Alias for isSuccessful() method
+     */
+    public boolean isSuccess() {
+        return isSuccessful();
+    }
+
+    /**
      * Hata mesajını döner (Türkçe)
      */
     public String getErrorMessage() {

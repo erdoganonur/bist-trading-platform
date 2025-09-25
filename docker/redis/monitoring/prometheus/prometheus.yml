@@ -1,0 +1,100 @@
+# =============================================================================
+# Prometheus Configuration for Redis Monitoring
+# BIST Trading Platform - Redis Cluster Metrics
+# =============================================================================
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    cluster: 'bist-redis-cluster'
+    environment: '${ENVIRONMENT:-development}'
+
+# =============================================================================
+# ALERTING CONFIGURATION
+# =============================================================================
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+          - redis-alertmanager:9093
+
+# =============================================================================
+# RULES CONFIGURATION
+# =============================================================================
+rule_files:
+  - "rules/*.yml"
+
+# =============================================================================
+# SCRAPE CONFIGURATIONS
+# =============================================================================
+scrape_configs:
+  # =============================================================================
+  # REDIS EXPORTER METRICS
+  # =============================================================================
+  - job_name: 'redis-cluster'
+    static_configs:
+      - targets:
+          - 'redis-exporter:9121'
+    scrape_interval: 10s
+    metrics_path: /metrics
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: redis-exporter:9121
+
+  # Individual Redis nodes
+  - job_name: 'redis-nodes'
+    static_configs:
+      - targets:
+          - 'localhost:7001'
+          - 'localhost:7002'
+          - 'localhost:7003'
+          - 'localhost:7004'
+          - 'localhost:7005'
+          - 'localhost:7006'
+        labels:
+          service: 'redis-cluster'
+    metrics_path: /metrics
+    scrape_interval: 15s
+
+  # =============================================================================
+  # SYSTEM METRICS
+  # =============================================================================
+  - job_name: 'node-exporter'
+    static_configs:
+      - targets:
+          - 'redis-node-exporter:9100'
+    scrape_interval: 15s
+
+  # =============================================================================
+  # CONTAINER METRICS
+  # =============================================================================
+  - job_name: 'cadvisor'
+    static_configs:
+      - targets:
+          - 'redis-cadvisor:8080'
+    scrape_interval: 15s
+    metrics_path: /metrics
+
+  # =============================================================================
+  # PROMETHEUS SELF-MONITORING
+  # =============================================================================
+  - job_name: 'prometheus'
+    static_configs:
+      - targets:
+          - 'localhost:9090'
+    scrape_interval: 30s
+
+# =============================================================================
+# REMOTE WRITE CONFIGURATION (Optional - for long-term storage)
+# =============================================================================
+# remote_write:
+#   - url: "http://victoriametrics:8428/api/v1/write"
+#     queue_config:
+#       max_samples_per_send: 10000
+#       capacity: 20000
+#       max_shards: 30

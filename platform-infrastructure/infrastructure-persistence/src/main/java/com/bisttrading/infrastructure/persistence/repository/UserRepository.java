@@ -343,4 +343,13 @@ public interface UserRepository extends JpaRepository<UserEntity, String> {
      */
     @Query("SELECT u FROM UserEntity u WHERE u.marketingConsent = true AND u.status = 'ACTIVE'")
     List<UserEntity> findUsersWithMarketingConsent();
+
+    /**
+     * Checks if phone number exists for a different user.
+     *
+     * @param phoneNumber Phone number
+     * @param userId User ID to exclude
+     * @return true if exists for another user
+     */
+    boolean existsByPhoneNumberAndIdNot(String phoneNumber, String userId);
 }

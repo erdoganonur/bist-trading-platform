@@ -7,6 +7,10 @@ plugins {
 // Configuration inherited from root project
 
 dependencies {
+    // Internal dependencies
+    // implementation project(':platform-services:broker-integration-service') // Temporarily disabled
+    implementation project(':platform-infrastructure:infrastructure-persistence')
+
     // Spring Boot Starters
     implementation 'org.springframework.boot:spring-boot-starter-web'
     implementation 'org.springframework.boot:spring-boot-starter-webflux'
@@ -32,6 +36,9 @@ dependencies {
     // Jackson for JSON processing
     implementation 'com.fasterxml.jackson.core:jackson-databind'
     implementation 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310'
+
+    // OpenAPI/Swagger
+    implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.2.0'
 
     // Lombok for reducing boilerplate code
     compileOnly 'org.projectlombok:lombok'

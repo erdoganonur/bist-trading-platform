@@ -1,6 +1,7 @@
 package com.bisttrading.core.security.service;
 
 import com.bisttrading.core.security.config.JwtProperties;
+import com.bisttrading.core.security.jwt.JwtTokenProvider;
 import com.bisttrading.core.security.test.TestDataBuilder;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.ExpiredJwtException;

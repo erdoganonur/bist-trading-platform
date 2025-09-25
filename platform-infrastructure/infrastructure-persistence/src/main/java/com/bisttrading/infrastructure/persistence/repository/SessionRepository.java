@@ -325,4 +325,38 @@ public interface SessionRepository extends JpaRepository<UserSessionEntity, Stri
            "s2.status = 'ACTIVE' AND s2.lastActivityAt > :sinceTime AND s.lastActivityAt > :sinceTime)")
     List<UserSessionEntity> findPotentialAccountSharingSessions(@Param("userId") String userId,
                                                                @Param("sinceTime") LocalDateTime sinceTime);
+
+    /**
+     * Ends all active sessions except current one for a user.
+     *
+     * @param userId User ID
+     * @param endedAt End timestamp
+     * @return Number of ended sessions
+     */
+    @Query("UPDATE UserSessionEntity s SET s.status = 'ENDED', s.endedAt = :endedAt " +
+           "WHERE s.userId = :userId AND s.status = 'ACTIVE'")
+    int endAllActiveSessionsExceptCurrent(@Param("userId") String userId,
+                                         @Param("endedAt") LocalDateTime endedAt);
+
+    /**
+     * Ends all active sessions for a user.
+     *
+     * @param userId User ID
+     * @param endedAt End timestamp
+     * @return Number of ended sessions
+     */
+    @Query("UPDATE UserSessionEntity s SET s.status = 'ENDED', s.endedAt = :endedAt " +
+           "WHERE s.userId = :userId AND s.status = 'ACTIVE'")
+    int endAllActiveSessionsForUser(@Param("userId") String userId,
+                                   @Param("endedAt") LocalDateTime endedAt);
+
+    /**
+     * Finds session by ID and user ID.
+     *
+     * @param id Session ID
+     * @param userId User ID
+     * @return Optional UserSessionEntity
+     */
+    @Query("SELECT s FROM UserSessionEntity s WHERE s.id = :id AND s.userId = :userId")
+    Optional<UserSessionEntity> findByIdAndUserId(@Param("id") String id, @Param("userId") String userId);
 }

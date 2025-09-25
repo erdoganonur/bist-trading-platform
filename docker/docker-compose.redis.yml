@@ -1,0 +1,408 @@
+# =============================================================================
+# BIST Trading Platform - Redis Infrastructure
+# High-Performance Caching and Real-Time Data Distribution
+# =============================================================================
+
+version: '3.8'
+
+services:
+  # =============================================================================
+  # REDIS CLUSTER SETUP (3 Master + 3 Replica)
+  # =============================================================================
+  redis-node-1:
+    image: redis:7.2-alpine
+    container_name: bist-redis-1
+    hostname: redis-1
+    ports:
+      - "7001:6379"
+      - "17001:16379"
+    volumes:
+      - ./redis/redis-cluster.conf:/etc/redis/redis.conf:ro
+      - ./redis/data/node-1:/data
+      - ./redis/logs:/var/log/redis
+    command: redis-server /etc/redis/redis.conf --port 6379 --cluster-announce-port 6379 --cluster-announce-bus-port 16379
+    networks:
+      redis-network:
+        ipv4_address: 172.20.0.11
+    deploy:
+      resources:
+        limits:
+          memory: 1GB
+          cpus: '1.0'
+        reservations:
+          memory: 512MB
+          cpus: '0.5'
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+
+  redis-node-2:
+    image: redis:7.2-alpine
+    container_name: bist-redis-2
+    hostname: redis-2
+    ports:
+      - "7002:6379"
+      - "17002:16379"
+    volumes:
+      - ./redis/redis-cluster.conf:/etc/redis/redis.conf:ro
+      - ./redis/data/node-2:/data
+      - ./redis/logs:/var/log/redis
+    command: redis-server /etc/redis/redis.conf --port 6379 --cluster-announce-port 6379 --cluster-announce-bus-port 16379
+    networks:
+      redis-network:
+        ipv4_address: 172.20.0.12
+    deploy:
+      resources:
+        limits:
+          memory: 1GB
+          cpus: '1.0'
+        reservations:
+          memory: 512MB
+          cpus: '0.5'
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+
+  redis-node-3:
+    image: redis:7.2-alpine
+    container_name: bist-redis-3
+    hostname: redis-3
+    ports:
+      - "7003:6379"
+      - "17003:16379"
+    volumes:
+      - ./redis/redis-cluster.conf:/etc/redis/redis.conf:ro
+      - ./redis/data/node-3:/data
+      - ./redis/logs:/var/log/redis
+    command: redis-server /etc/redis/redis.conf --port 6379 --cluster-announce-port 6379 --cluster-announce-bus-port 16379
+    networks:
+      redis-network:
+        ipv4_address: 172.20.0.13
+    deploy:
+      resources:
+        limits:
+          memory: 1GB
+          cpus: '1.0'
+        reservations:
+          memory: 512MB
+          cpus: '0.5'
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+
+  redis-node-4:
+    image: redis:7.2-alpine
+    container_name: bist-redis-4
+    hostname: redis-4
+    ports:
+      - "7004:6379"
+      - "17004:16379"
+    volumes:
+      - ./redis/redis-cluster.conf:/etc/redis/redis.conf:ro
+      - ./redis/data/node-4:/data
+      - ./redis/logs:/var/log/redis
+    command: redis-server /etc/redis/redis.conf --port 6379 --cluster-announce-port 6379 --cluster-announce-bus-port 16379
+    networks:
+      redis-network:
+        ipv4_address: 172.20.0.14
+    deploy:
+      resources:
+        limits:
+          memory: 1GB
+          cpus: '1.0'
+        reservations:
+          memory: 512MB
+          cpus: '0.5'
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+
+  redis-node-5:
+    image: redis:7.2-alpine
+    container_name: bist-redis-5
+    hostname: redis-5
+    ports:
+      - "7005:6379"
+      - "17005:16379"
+    volumes:
+      - ./redis/redis-cluster.conf:/etc/redis/redis.conf:ro
+      - ./redis/data/node-5:/data
+      - ./redis/logs:/var/log/redis
+    command: redis-server /etc/redis/redis.conf --port 6379 --cluster-announce-port 6379 --cluster-announce-bus-port 16379
+    networks:
+      redis-network:
+        ipv4_address: 172.20.0.15
+    deploy:
+      resources:
+        limits:
+          memory: 1GB
+          cpus: '1.0'
+        reservations:
+          memory: 512MB
+          cpus: '0.5'
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+
+  redis-node-6:
+    image: redis:7.2-alpine
+    container_name: bist-redis-6
+    hostname: redis-6
+    ports:
+      - "7006:6379"
+      - "17006:16379"
+    volumes:
+      - ./redis/redis-cluster.conf:/etc/redis/redis.conf:ro
+      - ./redis/data/node-6:/data
+      - ./redis/logs:/var/log/redis
+    command: redis-server /etc/redis/redis.conf --port 6379 --cluster-announce-port 6379 --cluster-announce-bus-port 16379
+    networks:
+      redis-network:
+        ipv4_address: 172.20.0.16
+    deploy:
+      resources:
+        limits:
+          memory: 1GB
+          cpus: '1.0'
+        reservations:
+          memory: 512MB
+          cpus: '0.5'
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+
+  # =============================================================================
+  # REDIS CLUSTER INITIALIZATION
+  # =============================================================================
+  redis-cluster-init:
+    image: redis:7.2-alpine
+    container_name: bist-redis-cluster-init
+    depends_on:
+      redis-node-1:
+        condition: service_healthy
+      redis-node-2:
+        condition: service_healthy
+      redis-node-3:
+        condition: service_healthy
+      redis-node-4:
+        condition: service_healthy
+      redis-node-5:
+        condition: service_healthy
+      redis-node-6:
+        condition: service_healthy
+    networks:
+      - redis-network
+    command: >
+      sh -c "
+        echo 'Waiting for Redis nodes to be ready...' &&
+        sleep 10 &&
+        echo 'Creating Redis cluster...' &&
+        redis-cli --cluster create
+          172.20.0.11:6379
+          172.20.0.12:6379
+          172.20.0.13:6379
+          172.20.0.14:6379
+          172.20.0.15:6379
+          172.20.0.16:6379
+          --cluster-replicas 1
+          --cluster-yes &&
+        echo 'Redis cluster created successfully!'
+      "
+    profiles:
+      - cluster-init
+
+  # =============================================================================
+  # REDIS SENTINEL (For High Availability)
+  # =============================================================================
+  redis-sentinel-1:
+    image: redis:7.2-alpine
+    container_name: bist-redis-sentinel-1
+    ports:
+      - "26379:26379"
+    volumes:
+      - ./redis/sentinel.conf:/etc/redis/sentinel.conf:ro
+      - ./redis/logs:/var/log/redis
+    command: redis-sentinel /etc/redis/sentinel.conf
+    networks:
+      - redis-network
+    depends_on:
+      - redis-node-1
+      - redis-node-2
+      - redis-node-3
+    restart: unless-stopped
+    profiles:
+      - sentinel
+
+  redis-sentinel-2:
+    image: redis:7.2-alpine
+    container_name: bist-redis-sentinel-2
+    ports:
+      - "26380:26379"
+    volumes:
+      - ./redis/sentinel.conf:/etc/redis/sentinel.conf:ro
+      - ./redis/logs:/var/log/redis
+    command: redis-sentinel /etc/redis/sentinel.conf
+    networks:
+      - redis-network
+    depends_on:
+      - redis-node-1
+      - redis-node-2
+      - redis-node-3
+    restart: unless-stopped
+    profiles:
+      - sentinel
+
+  redis-sentinel-3:
+    image: redis:7.2-alpine
+    container_name: bist-redis-sentinel-3
+    ports:
+      - "26381:26379"
+    volumes:
+      - ./redis/sentinel.conf:/etc/redis/sentinel.conf:ro
+      - ./redis/logs:/var/log/redis
+    command: redis-sentinel /etc/redis/sentinel.conf
+    networks:
+      - redis-network
+    depends_on:
+      - redis-node-1
+      - redis-node-2
+      - redis-node-3
+    restart: unless-stopped
+    profiles:
+      - sentinel
+
+  # =============================================================================
+  # REDIS INSIGHT (Management UI)
+  # =============================================================================
+  redis-insight:
+    image: redislabs/redisinsight:latest
+    container_name: bist-redis-insight
+    ports:
+      - "8001:8001"
+    volumes:
+      - ./redis/redisinsight:/db
+    environment:
+      REDISINSIGHT_HOST: "0.0.0.0"
+      REDISINSIGHT_PORT: 8001
+    networks:
+      - redis-network
+    restart: unless-stopped
+    profiles:
+      - management
+
+  # =============================================================================
+  # REDIS EXPORTER (Prometheus Monitoring)
+  # =============================================================================
+  redis-exporter:
+    image: oliver006/redis_exporter:latest
+    container_name: bist-redis-exporter
+    ports:
+      - "9121:9121"
+    environment:
+      REDIS_ADDR: "redis://172.20.0.11:6379,redis://172.20.0.12:6379,redis://172.20.0.13:6379"
+      REDIS_EXPORTER_CHECK_KEYS: "market:*,trading:*,analytics:*"
+      REDIS_EXPORTER_CHECK_KEY_GROUPS: "market,trading,analytics"
+      REDIS_EXPORTER_INCL_SYSTEM_METRICS: "true"
+    networks:
+      - redis-network
+    depends_on:
+      - redis-node-1
+      - redis-node-2
+      - redis-node-3
+    restart: unless-stopped
+    profiles:
+      - monitoring
+
+  # =============================================================================
+  # REDIS COMMANDER (Alternative Management UI)
+  # =============================================================================
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    container_name: bist-redis-commander
+    ports:
+      - "8002:8081"
+    environment:
+      REDIS_HOSTS: "local:172.20.0.11:6379:0,cluster:172.20.0.12:6379:0"
+      HTTP_USER: admin
+      HTTP_PASSWORD: ${REDIS_ADMIN_PASSWORD:-AdminPassword123!}
+    networks:
+      - redis-network
+    depends_on:
+      - redis-node-1
+      - redis-node-2
+    restart: unless-stopped
+    profiles:
+      - management
+
+# =============================================================================
+# NETWORKS
+# =============================================================================
+networks:
+  redis-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+          gateway: 172.20.0.1
+
+# =============================================================================
+# VOLUMES (Created automatically by bind mounts)
+# =============================================================================
+# Local directories will be created:
+# - ./redis/data/node-{1-6}    - Redis data persistence
+# - ./redis/logs               - Redis and Sentinel logs
+# - ./redis/redisinsight       - RedisInsight configuration
+
+# =============================================================================
+# USAGE INSTRUCTIONS
+# =============================================================================
+# Start basic Redis cluster:
+#   docker-compose -f docker-compose.redis.yml up -d
+#
+# Initialize cluster (run once after first startup):
+#   docker-compose -f docker-compose.redis.yml --profile cluster-init up redis-cluster-init
+#
+# Start with Sentinel for HA:
+#   docker-compose -f docker-compose.redis.yml --profile sentinel up -d
+#
+# Start with management tools:
+#   docker-compose -f docker-compose.redis.yml --profile management up -d
+#
+# Start with monitoring:
+#   docker-compose -f docker-compose.redis.yml --profile monitoring up -d
+#
+# Start everything:
+#   docker-compose -f docker-compose.redis.yml --profile sentinel --profile management --profile monitoring up -d
+
+# =============================================================================
+# PERFORMANCE NOTES
+# =============================================================================
+# 1. Each Redis node is limited to 1GB RAM and 1 CPU core
+# 2. Data is persisted using AOF + RDB for durability
+# 3. Cluster provides automatic sharding and replication
+# 4. Sentinel provides automatic failover capabilities
+# 5. Monitor memory usage and adjust maxmemory policies as needed

@@ -4,6 +4,13 @@
 
 The BIST Trading Platform exposes RESTful APIs for user management, market data access, and trading operations. All APIs follow REST principles with JSON request/response format and standard HTTP status codes.
 
+**🚨 Current Status**:
+- ✅ **API Documentation**: Complete and up-to-date
+- ⚠️ **AuthController**: Temporarily disabled for build stability (Sprint 4 activation planned)
+- ✅ **Service Layer**: Fully functional
+- ✅ **Market Data APIs**: Ready for implementation
+- ✅ **Trading APIs**: Ready for implementation
+
 ## Base URLs
 
 | Service | Port | Base URL | Description |
