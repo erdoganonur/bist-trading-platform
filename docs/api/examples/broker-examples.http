@@ -1,0 +1,408 @@
+### BIST Trading Platform - Broker Integration API Examples
+### Broker Integration Service - Port 8083
+
+# Variables - Update these with your actual values
+@baseUrl = http://localhost:8083
+@accessToken = {{accessToken}}
+@orderId = {{orderId}}
+@brokerOrderId = {{brokerOrderId}}
+
+# You need to authenticate first using auth-examples.http to get accessToken
+
+###
+
+### 1. Place Limit Order (Buy)
+### Places a limit buy order for AKBNK shares
+POST {{baseUrl}}/api/trading/orders
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "symbol": "AKBNK",
+  "side": "BUY",
+  "orderType": "LIMIT",
+  "quantity": 1000,
+  "price": 15.75,
+  "timeInForce": "DAY",
+  "clientOrderId": "CLIENT-ORDER-001"
+}
+
+> {%
+  if (response.status === 201) {
+    console.log("✅ Buy order placed successfully");
+    console.log("Order ID: " + response.body.orderId);
+    console.log("Broker Order ID: " + response.body.brokerOrderId);
+    console.log("Status: " + response.body.status);
+
+    // Store order IDs for subsequent requests
+    client.global.set("orderId", response.body.orderId);
+    client.global.set("brokerOrderId", response.body.brokerOrderId);
+  } else {
+    console.log("❌ Order placement failed: " + response.body.message);
+  }
+%}
+
+###
+
+### 2. Place Market Order (Sell)
+### Places a market sell order for THYAO shares
+POST {{baseUrl}}/api/trading/orders
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "symbol": "THYAO",
+  "side": "SELL",
+  "orderType": "MARKET",
+  "quantity": 500,
+  "timeInForce": "IOC",
+  "clientOrderId": "CLIENT-ORDER-002"
+}
+
+> {%
+  if (response.status === 201) {
+    console.log("✅ Sell order placed successfully");
+    console.log("Order ID: " + response.body.orderId);
+    console.log("Estimated Execution Price: " + response.body.estimatedPrice);
+  } else {
+    console.log("❌ Order placement failed: " + response.body.message);
+  }
+%}
+
+###
+
+### 3. Modify Existing Order
+### Modifies price and quantity of an existing order
+PUT {{baseUrl}}/api/trading/orders/{{orderId}}
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "price": 15.80,
+  "quantity": 1200,
+  "timeInForce": "DAY"
+}
+
+> {%
+  if (response.status === 200) {
+    console.log("✅ Order modified successfully");
+    console.log("New Price: " + response.body.price);
+    console.log("New Quantity: " + response.body.quantity);
+  } else {
+    console.log("❌ Order modification failed: " + response.body.message);
+  }
+%}
+
+###
+
+### 4. Cancel Order
+### Cancels an existing order by Order ID
+DELETE {{baseUrl}}/api/trading/orders/{{orderId}}
+Authorization: Bearer {{accessToken}}
+
+> {%
+  if (response.status === 200) {
+    console.log("✅ Order cancelled successfully");
+    console.log("Cancel Time: " + response.body.cancelTime);
+    console.log("Remaining Quantity: " + response.body.remainingQuantity);
+  } else {
+    console.log("❌ Order cancellation failed: " + response.body.message);
+  }
+%}
+
+###
+
+### 5. Get Order Details
+### Retrieves details of a specific order
+GET {{baseUrl}}/api/trading/orders/{{orderId}}
+Authorization: Bearer {{accessToken}}
+
+> {%
+  if (response.status === 200) {
+    console.log("✅ Order details retrieved");
+    console.log("Symbol: " + response.body.symbol);
+    console.log("Status: " + response.body.status);
+    console.log("Filled Quantity: " + response.body.filledQuantity + "/" + response.body.quantity);
+    console.log("Average Price: " + response.body.averagePrice);
+  } else {
+    console.log("❌ Failed to get order details: " + response.body.message);
+  }
+%}
+
+###
+
+### 6. Get All Orders
+### Retrieves all orders for current user with optional filtering
+GET {{baseUrl}}/api/trading/orders?status=ACTIVE&symbol=AKBNK&from=2024-09-24T00:00:00Z&to=2024-09-24T23:59:59Z&limit=50
+Authorization: Bearer {{accessToken}}
+
+> {%
+  if (response.status === 200) {
+    console.log("✅ Orders retrieved successfully");
+    console.log("Total Orders: " + response.body.totalCount);
+    console.log("Active Orders: " + response.body.data.filter(o => o.status === 'ACTIVE').length);
+  } else {
+    console.log("❌ Failed to get orders: " + response.body.message);
+  }
+%}
+
+###
+
+### 7. Get User Portfolio
+### Retrieves current portfolio positions and balances
+GET {{baseUrl}}/api/trading/portfolio
+Authorization: Bearer {{accessToken}}
+
+> {%
+  if (response.status === 200) {
+    console.log("✅ Portfolio retrieved successfully");
+    console.log("Total Portfolio Value: " + response.body.totalValue + " TRY");
+    console.log("Cash Balance: " + response.body.cashBalance + " TRY");
+    console.log("Buying Power: " + response.body.buyingPower + " TRY");
+    console.log("Number of Positions: " + response.body.positions.length);
+  } else {
+    console.log("❌ Failed to get portfolio: " + response.body.message);
+  }
+%}
+
+###
+
+### 8. Get Position Details
+### Retrieves detailed information about a specific position
+GET {{baseUrl}}/api/trading/portfolio/positions/AKBNK
+Authorization: Bearer {{accessToken}}
+
+> {%
+  if (response.status === 200) {
+    console.log("✅ Position details retrieved");
+    console.log("Symbol: " + response.body.symbol);
+    console.log("Quantity: " + response.body.quantity);
+    console.log("Average Cost: " + response.body.averageCost);
+    console.log("Current Price: " + response.body.currentPrice);
+    console.log("P&L: " + response.body.unrealizedPnl + " TRY (" + response.body.unrealizedPnlPercent + "%)");
+  } else if (response.status === 404) {
+    console.log("⚠️  No position found for AKBNK");
+  } else {
+    console.log("❌ Failed to get position: " + response.body.message);
+  }
+%}
+
+###
+
+### 9. Get Account Balance
+### Retrieves detailed account balance information
+GET {{baseUrl}}/api/trading/account/balance
+Authorization: Bearer {{accessToken}}
+
+> {%
+  if (response.status === 200) {
+    console.log("✅ Account balance retrieved");
+    console.log("Total Balance: " + response.body.totalBalance + " TRY");
+    console.log("Available Balance: " + response.body.availableBalance + " TRY");
+    console.log("Reserved Balance: " + response.body.reservedBalance + " TRY");
+    console.log("Margin Used: " + response.body.marginUsed + " TRY");
+  } else {
+    console.log("❌ Failed to get balance: " + response.body.message);
+  }
+%}
+
+###
+
+### 10. Get Transaction History
+### Retrieves transaction history with filtering options
+GET {{baseUrl}}/api/trading/transactions?from=2024-09-01T00:00:00Z&to=2024-09-24T23:59:59Z&type=EXECUTION&symbol=AKBNK&limit=100
+Authorization: Bearer {{accessToken}}
+
+> {%
+  if (response.status === 200) {
+    console.log("✅ Transaction history retrieved");
+    console.log("Total Transactions: " + response.body.totalCount);
+    console.log("Total Pages: " + response.body.totalPages);
+
+    if (response.body.data.length > 0) {
+      console.log("Latest Transaction: " + response.body.data[0].symbol +
+                  " " + response.body.data[0].side + " " + response.body.data[0].quantity);
+    }
+  } else {
+    console.log("❌ Failed to get transactions: " + response.body.message);
+  }
+%}
+
+###
+
+### 11. Get Daily P&L Summary
+### Retrieves daily profit and loss summary
+GET {{baseUrl}}/api/trading/account/pnl/daily?date=2024-09-24
+Authorization: Bearer {{accessToken}}
+
+> {%
+  if (response.status === 200) {
+    console.log("✅ Daily P&L retrieved");
+    console.log("Realized P&L: " + response.body.realizedPnl + " TRY");
+    console.log("Unrealized P&L: " + response.body.unrealizedPnl + " TRY");
+    console.log("Total P&L: " + response.body.totalPnl + " TRY");
+    console.log("Best Performer: " + (response.body.bestPerformer ? response.body.bestPerformer.symbol : 'N/A'));
+  } else {
+    console.log("❌ Failed to get daily P&L: " + response.body.message);
+  }
+%}
+
+###
+
+### 12. Place Stop Loss Order
+### Places a stop loss order to limit losses
+POST {{baseUrl}}/api/trading/orders
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "symbol": "GARAN",
+  "side": "SELL",
+  "orderType": "STOP_LOSS",
+  "quantity": 800,
+  "stopPrice": 29.50,
+  "timeInForce": "GTC",
+  "clientOrderId": "STOP-LOSS-001"
+}
+
+> {%
+  if (response.status === 201) {
+    console.log("✅ Stop loss order placed successfully");
+    console.log("Order ID: " + response.body.orderId);
+    console.log("Stop Price: " + response.body.stopPrice);
+  } else {
+    console.log("❌ Stop loss order failed: " + response.body.message);
+  }
+%}
+
+###
+
+### 13. Place Take Profit Order
+### Places a take profit order to secure gains
+POST {{baseUrl}}/api/trading/orders
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "symbol": "ISCTR",
+  "side": "SELL",
+  "orderType": "TAKE_PROFIT",
+  "quantity": 600,
+  "limitPrice": 32.75,
+  "timeInForce": "GTC",
+  "clientOrderId": "TAKE-PROFIT-001"
+}
+
+> {%
+  if (response.status === 201) {
+    console.log("✅ Take profit order placed successfully");
+    console.log("Order ID: " + response.body.orderId);
+    console.log("Target Price: " + response.body.limitPrice);
+  } else {
+    console.log("❌ Take profit order failed: " + response.body.message);
+  }
+%}
+
+###
+
+### 14. Get Risk Metrics
+### Retrieves current risk metrics and limits
+GET {{baseUrl}}/api/trading/account/risk
+Authorization: Bearer {{accessToken}}
+
+> {%
+  if (response.status === 200) {
+    console.log("✅ Risk metrics retrieved");
+    console.log("Daily Loss Limit: " + response.body.dailyLossLimit + " TRY");
+    console.log("Position Limit: " + response.body.positionLimit + " TRY");
+    console.log("Margin Utilization: " + response.body.marginUtilization + "%");
+    console.log("Risk Score: " + response.body.riskScore + "/10");
+  } else {
+    console.log("❌ Failed to get risk metrics: " + response.body.message);
+  }
+%}
+
+###
+
+### 15. Cancel All Orders
+### Cancels all active orders for current user
+DELETE {{baseUrl}}/api/trading/orders/cancel-all
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "symbol": "AKBNK",
+  "side": "BUY"
+}
+
+> {%
+  if (response.status === 200) {
+    console.log("✅ Orders cancelled successfully");
+    console.log("Cancelled Order Count: " + response.body.cancelledCount);
+    console.log("Failed Cancellations: " + response.body.failedCount);
+  } else {
+    console.log("❌ Bulk cancellation failed: " + response.body.message);
+  }
+%}
+
+###
+
+### 16. Get Order Book (Market Data)
+### Retrieves current order book for a symbol
+GET {{baseUrl}}/api/trading/market/orderbook/AKBNK?depth=10
+Authorization: Bearer {{accessToken}}
+
+> {%
+  if (response.status === 200) {
+    console.log("✅ Order book retrieved");
+    console.log("Best Bid: " + response.body.bestBid.price + " (Size: " + response.body.bestBid.size + ")");
+    console.log("Best Ask: " + response.body.bestAsk.price + " (Size: " + response.body.bestAsk.size + ")");
+    console.log("Spread: " + (response.body.bestAsk.price - response.body.bestBid.price) + " TRY");
+  } else {
+    console.log("❌ Failed to get order book: " + response.body.message);
+  }
+%}
+
+###
+
+### 17. Get Symbol Information
+### Retrieves trading information for a specific symbol
+GET {{baseUrl}}/api/trading/market/symbols/AKBNK
+Authorization: Bearer {{accessToken}}
+
+> {%
+  if (response.status === 200) {
+    console.log("✅ Symbol information retrieved");
+    console.log("Symbol: " + response.body.symbol);
+    console.log("Name: " + response.body.name);
+    console.log("Lot Size: " + response.body.lotSize);
+    console.log("Tick Size: " + response.body.tickSize);
+    console.log("Min Order Qty: " + response.body.minOrderQuantity);
+  } else {
+    console.log("❌ Failed to get symbol info: " + response.body.message);
+  }
+%}
+
+###
+
+### Common Error Responses:
+# 400 Bad Request - Invalid order parameters, insufficient balance
+# 401 Unauthorized - Invalid or expired JWT token
+# 403 Forbidden - Trading not allowed, account restrictions
+# 404 Not Found - Order not found, symbol not found
+# 409 Conflict - Order already cancelled, position conflict
+# 422 Unprocessable Entity - Business rule violations
+# 429 Too Many Requests - Rate limit exceeded
+# 500 Internal Server Error - Broker connectivity issues
+# 503 Service Unavailable - Market closed, maintenance
+
+### Rate Limits:
+# Order operations: 100 requests per minute per user
+# Portfolio queries: 200 requests per minute per user
+# Market data: 50 requests per minute per user
+# Account operations: 50 requests per minute per user
+
+### Business Hours:
+# BIST Trading Hours: Monday-Friday 10:00-18:00 (Istanbul Time)
+# Order placement outside trading hours: Orders queued for next session
+# Weekend operations: Limited to queries only, no order placement

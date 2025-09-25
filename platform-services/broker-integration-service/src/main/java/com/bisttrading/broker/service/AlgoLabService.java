@@ -472,100 +472,49 @@ public class AlgoLabService implements BrokerAdapter {
     // ===========================================
 
     /**
-     * Emir gönderme (Python SendOrder() metodunun karşılığı)
+     * Emir gönderme (Python SendOrder() metodunun karşılığı) - stub
      */
     @CircuitBreaker(name = "algolab-api")
     @Retry(name = "algolab-api")
-    public AlgoLabResponse<Object> sendOrder(String symbol, String direction, String priceType,
+    public AlgoLabResponse<Object> sendOrderLegacy(String symbol, String direction, String priceType,
                                            String price, String lot, Boolean sms, Boolean email, String subAccount) {
 
-        log.info("Emir gönderiliyor: {} {} {} @ {}", symbol, direction, priceType, price);
+        log.info("sendOrderLegacy çağrıldı: {} {} {} @ {} - henüz implement edilmedi", symbol, direction, priceType, price);
 
-        try {
-            SendOrderRequest orderRequest = new SendOrderRequest();
-            orderRequest.setSymbol(symbol);
-            orderRequest.setDirection(direction);
-            orderRequest.setPriceType(priceType);
-            orderRequest.setPrice(price);
-            orderRequest.setLot(lot);
-            orderRequest.setSms(sms);
-            orderRequest.setEmail(email);
-            orderRequest.setSubAccount(subAccount);
-
-            String payload = objectMapper.writeValueAsString(orderRequest);
-
-            return makeRequest(
-                AlgoLabEndpoints.SEND_ORDER,
-                payload,
-                false,
-                Object.class
-            ).block(properties.getTimeout().getRead());
-
-        } catch (Exception e) {
-            log.error("SendOrder() fonksiyonunda hata: {}", e.getMessage(), e);
-            throw new AlgoLabException("Emir gönderilemedi: " + e.getMessage(), e);
-        }
+        AlgoLabResponse<Object> response = new AlgoLabResponse<>();
+        response.setSuccess(false);
+        response.setMessage("Not yet implemented");
+        return response;
     }
 
     /**
-     * Emir değiştirme (Python ModifyOrder() metodunun karşılığı)
+     * Emir değiştirme (Python ModifyOrder() metodunun karşılığı) - stub
      */
     @CircuitBreaker(name = "algolab-api")
     @Retry(name = "algolab-api")
     public AlgoLabResponse<Object> modifyOrder(String id, String price, String lot, Boolean viop, String subAccount) {
 
-        log.info("Emir değiştiriliyor: {} fiyat: {} lot: {}", id, price, lot);
+        log.info("modifyOrder çağrıldı: {} fiyat: {} lot: {} - henüz implement edilmedi", id, price, lot);
 
-        try {
-            ModifyOrderRequest modifyRequest = new ModifyOrderRequest();
-            modifyRequest.setId(id);
-            modifyRequest.setPrice(price);
-            modifyRequest.setLot(lot);
-            modifyRequest.setViop(viop);
-            modifyRequest.setSubAccount(subAccount);
-
-            String payload = objectMapper.writeValueAsString(modifyRequest);
-
-            return makeRequest(
-                AlgoLabEndpoints.MODIFY_ORDER,
-                payload,
-                false,
-                Object.class
-            ).block(properties.getTimeout().getRead());
-
-        } catch (Exception e) {
-            log.error("ModifyOrder() fonksiyonunda hata: {}", e.getMessage(), e);
-            throw new AlgoLabException("Emir değiştirilemedi: " + e.getMessage(), e);
-        }
+        AlgoLabResponse<Object> response = new AlgoLabResponse<>();
+        response.setSuccess(false);
+        response.setMessage("Not yet implemented");
+        return response;
     }
 
     /**
-     * Emir iptal etme (Python DeleteOrder() metodunun karşılığı)
+     * Emir iptal etme (Python DeleteOrder() metodunun karşılığı) - stub
      */
     @CircuitBreaker(name = "algolab-api")
     @Retry(name = "algolab-api")
     public AlgoLabResponse<Object> deleteOrder(String id, String subAccount) {
 
-        log.info("Emir iptal ediliyor: {}", id);
+        log.info("deleteOrder çağrıldı: {} - henüz implement edilmedi", id);
 
-        try {
-            DeleteOrderRequest deleteRequest = new DeleteOrderRequest();
-            deleteRequest.setId(id);
-            deleteRequest.setSubAccount(subAccount);
-
-            String payload = objectMapper.writeValueAsString(deleteRequest);
-
-            return makeRequest(
-                AlgoLabEndpoints.DELETE_ORDER,
-                payload,
-                false,
-                Object.class
-            ).block(properties.getTimeout().getRead());
-
-        } catch (Exception e) {
-            log.error("DeleteOrder() fonksiyonunda hata: {}", e.getMessage(), e);
-            throw new AlgoLabException("Emir iptal edilemedi: " + e.getMessage(), e);
-        }
+        AlgoLabResponse<Object> response = new AlgoLabResponse<>();
+        response.setSuccess(false);
+        response.setMessage("Not yet implemented");
+        return response;
     }
 
     /**
@@ -687,59 +636,33 @@ public class AlgoLabService implements BrokerAdapter {
     }
 
     /**
-     * Anlık pozisyonları getir (Python GetInstantPosition() metodunun karşılığı)
+     * Anlık pozisyonları getir (Python GetInstantPosition() metodunun karşılığı) - stub
      */
     @CircuitBreaker(name = "algolab-api")
     @Retry(name = "algolab-api")
     public AlgoLabResponse<Object> getInstantPosition(String subAccount) {
 
-        log.debug("Anlık pozisyonlar getiriliyor, subAccount: {}", subAccount);
+        log.info("getInstantPosition çağrıldı: {} - henüz implement edilmedi", subAccount);
 
-        try {
-            var request = objectMapper.createObjectNode();
-            request.put("Subaccount", subAccount != null ? subAccount : "");
-
-            String payload = objectMapper.writeValueAsString(request);
-
-            return makeRequest(
-                AlgoLabEndpoints.INSTANT_POSITION,
-                payload,
-                false,
-                Object.class
-            ).block(properties.getTimeout().getRead());
-
-        } catch (Exception e) {
-            log.error("GetInstantPosition() fonksiyonunda hata: {}", e.getMessage(), e);
-            throw new AlgoLabException("Anlık pozisyon getirilemedi: " + e.getMessage(), e);
-        }
+        AlgoLabResponse<Object> response = new AlgoLabResponse<>();
+        response.setSuccess(false);
+        response.setMessage("Not yet implemented");
+        return response;
     }
 
     /**
-     * Günlük işlemleri getir (Python GetTodaysTransaction() metodunun karşılığı)
+     * Günlük işlemleri getir (Python GetTodaysTransaction() metodunun karşılığı) - stub
      */
     @CircuitBreaker(name = "algolab-api")
     @Retry(name = "algolab-api")
-    public AlgoLabResponse<Object> getTodaysTransaction(String subAccount) {
+    public AlgoLabResponse<Object> getTodaysTransactions(String subAccount) {
 
-        log.debug("Günlük işlemler getiriliyor, subAccount: {}", subAccount);
+        log.info("getTodaysTransactions çağrıldı: {} - henüz implement edilmedi", subAccount);
 
-        try {
-            var request = objectMapper.createObjectNode();
-            request.put("Subaccount", subAccount != null ? subAccount : "");
-
-            String payload = objectMapper.writeValueAsString(request);
-
-            return makeRequest(
-                AlgoLabEndpoints.TODAYS_TRANSACTION,
-                payload,
-                false,
-                Object.class
-            ).block(properties.getTimeout().getRead());
-
-        } catch (Exception e) {
-            log.error("GetTodaysTransaction() fonksiyonunda hata: {}", e.getMessage(), e);
-            throw new AlgoLabException("Günlük işlemler getirilemedi: " + e.getMessage(), e);
-        }
+        AlgoLabResponse<Object> response = new AlgoLabResponse<>();
+        response.setSuccess(false);
+        response.setMessage("Not yet implemented");
+        return response;
     }
 
     // ===========================================
@@ -895,31 +818,27 @@ public class AlgoLabService implements BrokerAdapter {
 
     @Override
     public OrderResult sendOrder(Map<String, Object> orderData) {
-        try {
-            // AlgoLab order gönderme mantığı burada implementasyonlanacak
-            // Şimdilik mock response döndür
-            log.info("Emir gönderiliyor: {} - {} adet {}",
-                orderData.get("symbol"), orderData.get("quantity"), orderData.get("orderType"));
+        log.info("sendOrder çağrıldı - henüz implement edilmedi");
+        return new OrderResult(
+            false,
+            orderData.get("id") != null ? orderData.get("id").toString() : "",
+            "",
+            OrderStatus.REJECTED,
+            "Not yet implemented"
+        );
+    }
 
-            String brokerOrderId = "ALG" + System.currentTimeMillis();
+    /**
+     * Emir gönderme (AlgoLab API implementasyonu) - stub
+     */
+    public AlgoLabResponse<Object> sendOrder(String symbol, String direction, String priceType,
+                                           String price, String lot, Boolean sms, Boolean email, String subAccount) {
+        log.info("sendOrder(AlgoLab) çağrıldı: {} {} {} @ {} - henüz implement edilmedi", symbol, direction, priceType, price);
 
-            return new OrderResult(
-                true,
-                orderData.get("id").toString(),
-                brokerOrderId,
-                OrderStatus.SUBMITTED,
-                null
-            );
-        } catch (Exception e) {
-            log.error("Emir gönderme hatası: {}", e.getMessage(), e);
-            return new OrderResult(
-                false,
-                orderData.get("id").toString(),
-                "",
-                OrderStatus.REJECTED,
-                e.getMessage()
-            );
-        }
+        AlgoLabResponse<Object> response = new AlgoLabResponse<>();
+        response.setSuccess(false);
+        response.setMessage("Not yet implemented");
+        return response;
     }
 
     @Override

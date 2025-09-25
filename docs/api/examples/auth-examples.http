@@ -1,0 +1,333 @@
+### BIST Trading Platform - User Authentication API Examples
+### User Management Service - Port 8081
+
+# Variables - Update these with your actual values
+@baseUrl = http://localhost:8081
+@accessToken = {{accessToken}}
+@refreshToken = {{refreshToken}}
+
+###
+
+### 1. User Registration
+### Creates a new user account with Turkish market compliance (TCKN validation)
+POST {{baseUrl}}/api/auth/register
+Content-Type: application/json
+
+{
+  "firstName": "Ahmet",
+  "lastName": "Yılmaz",
+  "email": "ahmet.yilmaz@example.com",
+  "password": "SecurePassword123!",
+  "tcknNumber": "12345678901",
+  "phoneNumber": "+905551234567",
+  "dateOfBirth": "1985-03-15",
+  "address": {
+    "street": "Atatürk Caddesi No: 123",
+    "city": "İstanbul",
+    "country": "Turkey",
+    "postalCode": "34000"
+  }
+}
+
+> {%
+  if (response.status === 201) {
+    console.log("✅ User registration successful");
+    console.log("User ID: " + response.body.userId);
+  } else {
+    console.log("❌ Registration failed: " + response.body.message);
+  }
+%}
+
+###
+
+### 2. User Login
+### Authenticates user and returns JWT access token and refresh token
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "username": "ahmet.yilmaz@example.com",
+  "password": "SecurePassword123!"
+}
+
+> {%
+  if (response.status === 200) {
+    console.log("✅ Login successful");
+
+    // Store tokens for subsequent requests
+    client.global.set("accessToken", response.body.accessToken);
+    client.global.set("refreshToken", response.body.refreshToken);
+
+    console.log("Access Token: " + response.body.accessToken.substring(0, 50) + "...");
+    console.log("Refresh Token: " + response.body.refreshToken.substring(0, 50) + "...");
+    console.log("Expires In: " + response.body.expiresIn + " seconds");
+  } else {
+    console.log("❌ Login failed: " + response.body.message);
+  }
+%}
+
+###
+
+### 3. Token Refresh
+### Refreshes the access token using refresh token
+POST {{baseUrl}}/api/auth/refresh
+Content-Type: application/json
+
+{
+  "refreshToken": "{{refreshToken}}"
+}
+
+> {%
+  if (response.status === 200) {
+    console.log("✅ Token refresh successful");
+
+    // Update tokens
+    client.global.set("accessToken", response.body.accessToken);
+    client.global.set("refreshToken", response.body.refreshToken);
+
+    console.log("New Access Token: " + response.body.accessToken.substring(0, 50) + "...");
+  } else {
+    console.log("❌ Token refresh failed: " + response.body.message);
+  }
+%}
+
+###
+
+### 4. Email Verification
+### Verifies user email address using verification token
+POST {{baseUrl}}/api/auth/verify-email
+Content-Type: application/json
+
+{
+  "email": "ahmet.yilmaz@example.com",
+  "verificationToken": "VERIFICATION_TOKEN_FROM_EMAIL"
+}
+
+> {%
+  if (response.status === 200) {
+    console.log("✅ Email verification successful");
+  } else {
+    console.log("❌ Email verification failed: " + response.body.message);
+  }
+%}
+
+###
+
+### 5. Password Reset Request
+### Initiates password reset process by sending reset email
+POST {{baseUrl}}/api/auth/forgot-password
+Content-Type: application/json
+
+{
+  "email": "ahmet.yilmaz@example.com"
+}
+
+> {%
+  if (response.status === 200) {
+    console.log("✅ Password reset email sent");
+  } else {
+    console.log("❌ Password reset failed: " + response.body.message);
+  }
+%}
+
+###
+
+### 6. Password Reset Completion
+### Completes password reset using reset token from email
+POST {{baseUrl}}/api/auth/reset-password
+Content-Type: application/json
+
+{
+  "email": "ahmet.yilmaz@example.com",
+  "resetToken": "RESET_TOKEN_FROM_EMAIL",
+  "newPassword": "NewSecurePassword123!"
+}
+
+> {%
+  if (response.status === 200) {
+    console.log("✅ Password reset successful");
+  } else {
+    console.log("❌ Password reset failed: " + response.body.message);
+  }
+%}
+
+###
+
+### 7. Get User Profile (Authenticated)
+### Retrieves current user profile information
+GET {{baseUrl}}/api/users/profile
+Authorization: Bearer {{accessToken}}
+
+> {%
+  if (response.status === 200) {
+    console.log("✅ Profile retrieved successfully");
+    console.log("User ID: " + response.body.userId);
+    console.log("Full Name: " + response.body.firstName + " " + response.body.lastName);
+    console.log("Email: " + response.body.email);
+    console.log("Account Status: " + response.body.accountStatus);
+  } else {
+    console.log("❌ Failed to get profile: " + response.body.message);
+  }
+%}
+
+###
+
+### 8. Update User Profile (Authenticated)
+### Updates user profile information
+PUT {{baseUrl}}/api/users/profile
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "firstName": "Ahmet",
+  "lastName": "Yılmaz",
+  "phoneNumber": "+905551234568",
+  "address": {
+    "street": "Cumhuriyet Caddesi No: 456",
+    "city": "Ankara",
+    "country": "Turkey",
+    "postalCode": "06000"
+  },
+  "preferences": {
+    "language": "tr",
+    "timezone": "Europe/Istanbul",
+    "notifications": {
+      "email": true,
+      "sms": false,
+      "push": true
+    }
+  }
+}
+
+> {%
+  if (response.status === 200) {
+    console.log("✅ Profile updated successfully");
+  } else {
+    console.log("❌ Profile update failed: " + response.body.message);
+  }
+%}
+
+###
+
+### 9. Change Password (Authenticated)
+### Changes user password with current password verification
+PUT {{baseUrl}}/api/users/change-password
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "currentPassword": "SecurePassword123!",
+  "newPassword": "NewSecurePassword456!",
+  "confirmPassword": "NewSecurePassword456!"
+}
+
+> {%
+  if (response.status === 200) {
+    console.log("✅ Password changed successfully");
+  } else {
+    console.log("❌ Password change failed: " + response.body.message);
+  }
+%}
+
+###
+
+### 10. Phone Number Verification (Authenticated)
+### Initiates phone number verification process
+POST {{baseUrl}}/api/users/verify-phone
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "phoneNumber": "+905551234567"
+}
+
+> {%
+  if (response.status === 200) {
+    console.log("✅ SMS verification code sent");
+  } else {
+    console.log("❌ Phone verification failed: " + response.body.message);
+  }
+%}
+
+###
+
+### 11. Phone Number Verification Confirmation (Authenticated)
+### Confirms phone number using SMS verification code
+POST {{baseUrl}}/api/users/confirm-phone
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "phoneNumber": "+905551234567",
+  "verificationCode": "123456"
+}
+
+> {%
+  if (response.status === 200) {
+    console.log("✅ Phone number verified successfully");
+  } else {
+    console.log("❌ Phone verification confirmation failed: " + response.body.message);
+  }
+%}
+
+###
+
+### 12. Logout (Authenticated)
+### Logs out user and invalidates tokens
+POST {{baseUrl}}/api/auth/logout
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "refreshToken": "{{refreshToken}}"
+}
+
+> {%
+  if (response.status === 200) {
+    console.log("✅ Logout successful");
+
+    // Clear stored tokens
+    client.global.clear("accessToken");
+    client.global.clear("refreshToken");
+  } else {
+    console.log("❌ Logout failed: " + response.body.message);
+  }
+%}
+
+###
+
+### 13. Token Validation (System)
+### Validates JWT token - typically used by other services
+POST {{baseUrl}}/api/auth/validate
+Content-Type: application/json
+
+{
+  "token": "{{accessToken}}"
+}
+
+> {%
+  if (response.status === 200) {
+    console.log("✅ Token is valid");
+    console.log("User ID: " + response.body.userId);
+    console.log("Roles: " + response.body.roles.join(", "));
+  } else {
+    console.log("❌ Token validation failed: " + response.body.message);
+  }
+%}
+
+###
+
+### Common Error Responses:
+# 400 Bad Request - Validation errors, malformed request
+# 401 Unauthorized - Invalid credentials, expired token
+# 403 Forbidden - Access denied, insufficient permissions
+# 404 Not Found - User not found
+# 409 Conflict - User already exists, email already taken
+# 429 Too Many Requests - Rate limit exceeded
+# 500 Internal Server Error - Server error
+
+### Rate Limits:
+# Registration: 5 requests per hour per IP
+# Login: 10 attempts per hour per user
+# Token refresh: 100 requests per hour per user
+# Profile operations: 100 requests per hour per user

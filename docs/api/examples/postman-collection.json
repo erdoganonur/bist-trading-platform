@@ -1,0 +1,1196 @@
+{
+	"info": {
+		"_postman_id": "a1b2c3d4-e5f6-7890-1234-567890abcdef",
+		"name": "BIST Trading Platform API",
+		"description": "Comprehensive Postman collection for BIST Trading Platform APIs including User Management, Broker Integration, and Market Data services.\n\n## 🚀 Getting Started\n\n1. **Import Environment**: Import the included environment variables\n2. **Authentication**: Run the login request to get JWT tokens\n3. **Explore APIs**: Use the organized folders to test different services\n\n## 🔐 Authentication\n\nAll endpoints (except registration/login) require JWT Bearer token authentication:\n- Login to get `accessToken` and `refreshToken`\n- Tokens are automatically stored in environment variables\n- Access token expires in 15 minutes, use refresh token to renew\n\n## 📊 Services\n\n- **User Management** (Port 8081): Authentication, user profiles\n- **Broker Integration** (Port 8083): Trading operations, portfolio management  \n- **Market Data** (Port 8082): Real-time data, analytics\n\n## 🇹🇷 Turkish Market Support\n\n- TCKN validation for Turkish users\n- BIST symbol support (AKBNK, THYAO, GARAN, etc.)\n- Turkish Lira (TRY) currency\n- Istanbul timezone\n\n**Last Updated**: September 2024\n**Version**: 1.0.0",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "12345678"
+	},
+	"item": [
+		{
+			"name": "🔐 Authentication",
+			"item": [
+				{
+					"name": "User Registration",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 201) {",
+									"    const responseJson = pm.response.json();",
+									"    console.log('✅ User registration successful');",
+									"    console.log('User ID:', responseJson.userId);",
+									"    pm.environment.set('userId', responseJson.userId);",
+									"} else {",
+									"    console.log('❌ Registration failed:', pm.response.json().message);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"firstName\": \"Ahmet\",\n  \"lastName\": \"Yılmaz\",\n  \"email\": \"ahmet.yilmaz@example.com\",\n  \"password\": \"SecurePassword123!\",\n  \"tcknNumber\": \"12345678901\",\n  \"phoneNumber\": \"+905551234567\",\n  \"dateOfBirth\": \"1985-03-15\",\n  \"address\": {\n    \"street\": \"Atatürk Caddesi No: 123\",\n    \"city\": \"İstanbul\",\n    \"country\": \"Turkey\",\n    \"postalCode\": \"34000\"\n  }\n}"
+						},
+						"url": {
+							"raw": "{{userServiceUrl}}/api/auth/register",
+							"host": [
+								"{{userServiceUrl}}"
+							],
+							"path": [
+								"api",
+								"auth",
+								"register"
+							]
+						},
+						"description": "Registers a new user account with Turkish market compliance including TCKN validation."
+					},
+					"response": []
+				},
+				{
+					"name": "User Login",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    const responseJson = pm.response.json();",
+									"    console.log('✅ Login successful');",
+									"    ",
+									"    // Store tokens for subsequent requests",
+									"    pm.environment.set('accessToken', responseJson.accessToken);",
+									"    pm.environment.set('refreshToken', responseJson.refreshToken);",
+									"    pm.environment.set('userId', responseJson.user.userId);",
+									"    ",
+									"    console.log('Access Token stored');",
+									"    console.log('Expires in:', responseJson.expiresIn, 'seconds');",
+									"} else {",
+									"    console.log('❌ Login failed:', pm.response.json().message);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"username\": \"ahmet.yilmaz@example.com\",\n  \"password\": \"SecurePassword123!\"\n}"
+						},
+						"url": {
+							"raw": "{{userServiceUrl}}/api/auth/login",
+							"host": [
+								"{{userServiceUrl}}"
+							],
+							"path": [
+								"api",
+								"auth",
+								"login"
+							]
+						},
+						"description": "Authenticates user and returns JWT access token and refresh token."
+					},
+					"response": []
+				},
+				{
+					"name": "Refresh Token",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    const responseJson = pm.response.json();",
+									"    console.log('✅ Token refresh successful');",
+									"    ",
+									"    // Update tokens",
+									"    pm.environment.set('accessToken', responseJson.accessToken);",
+									"    pm.environment.set('refreshToken', responseJson.refreshToken);",
+									"} else {",
+									"    console.log('❌ Token refresh failed:', pm.response.json().message);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}"
+						},
+						"url": {
+							"raw": "{{userServiceUrl}}/api/auth/refresh",
+							"host": [
+								"{{userServiceUrl}}"
+							],
+							"path": [
+								"api",
+								"auth",
+								"refresh"
+							]
+						},
+						"description": "Refreshes the access token using refresh token."
+					},
+					"response": []
+				},
+				{
+					"name": "Logout",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    console.log('✅ Logout successful');",
+									"    ",
+									"    // Clear stored tokens",
+									"    pm.environment.unset('accessToken');",
+									"    pm.environment.unset('refreshToken');",
+									"} else {",
+									"    console.log('❌ Logout failed:', pm.response.json().message);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{accessToken}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}"
+						},
+						"url": {
+							"raw": "{{userServiceUrl}}/api/auth/logout",
+							"host": [
+								"{{userServiceUrl}}"
+							],
+							"path": [
+								"api",
+								"auth",
+								"logout"
+							]
+						},
+						"description": "Logs out user and invalidates tokens."
+					},
+					"response": []
+				}
+			],
+			"description": "User authentication and session management endpoints."
+		},
+		{
+			"name": "👤 User Management",
+			"item": [
+				{
+					"name": "Get User Profile",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    const responseJson = pm.response.json();",
+									"    console.log('✅ Profile retrieved successfully');",
+									"    console.log('Full Name:', responseJson.firstName, responseJson.lastName);",
+									"    console.log('Email:', responseJson.email);",
+									"    console.log('Account Status:', responseJson.accountStatus);",
+									"} else {",
+									"    console.log('❌ Failed to get profile:', pm.response.json().message);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{accessToken}}"
+							}
+						],
+						"url": {
+							"raw": "{{userServiceUrl}}/api/users/profile",
+							"host": [
+								"{{userServiceUrl}}"
+							],
+							"path": [
+								"api",
+								"users",
+								"profile"
+							]
+						},
+						"description": "Retrieves current user profile information."
+					},
+					"response": []
+				},
+				{
+					"name": "Update User Profile",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    console.log('✅ Profile updated successfully');",
+									"} else {",
+									"    console.log('❌ Profile update failed:', pm.response.json().message);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{accessToken}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"firstName\": \"Ahmet\",\n  \"lastName\": \"Yılmaz\",\n  \"phoneNumber\": \"+905551234568\",\n  \"address\": {\n    \"street\": \"Cumhuriyet Caddesi No: 456\",\n    \"city\": \"Ankara\",\n    \"country\": \"Turkey\",\n    \"postalCode\": \"06000\"\n  },\n  \"preferences\": {\n    \"language\": \"tr\",\n    \"timezone\": \"Europe/Istanbul\",\n    \"notifications\": {\n      \"email\": true,\n      \"sms\": false,\n      \"push\": true\n    }\n  }\n}"
+						},
+						"url": {
+							"raw": "{{userServiceUrl}}/api/users/profile",
+							"host": [
+								"{{userServiceUrl}}"
+							],
+							"path": [
+								"api",
+								"users",
+								"profile"
+							]
+						},
+						"description": "Updates user profile information."
+					},
+					"response": []
+				},
+				{
+					"name": "Change Password",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    console.log('✅ Password changed successfully');",
+									"} else {",
+									"    console.log('❌ Password change failed:', pm.response.json().message);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{accessToken}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"currentPassword\": \"SecurePassword123!\",\n  \"newPassword\": \"NewSecurePassword456!\",\n  \"confirmPassword\": \"NewSecurePassword456!\"\n}"
+						},
+						"url": {
+							"raw": "{{userServiceUrl}}/api/users/change-password",
+							"host": [
+								"{{userServiceUrl}}"
+							],
+							"path": [
+								"api",
+								"users",
+								"change-password"
+							]
+						},
+						"description": "Changes user password with current password verification."
+					},
+					"response": []
+				}
+			],
+			"description": "User profile management and account operations."
+		},
+		{
+			"name": "💼 Trading Operations",
+			"item": [
+				{
+					"name": "Place Limit Order",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 201) {",
+									"    const responseJson = pm.response.json();",
+									"    console.log('✅ Order placed successfully');",
+									"    console.log('Order ID:', responseJson.orderId);",
+									"    console.log('Broker Order ID:', responseJson.brokerOrderId);",
+									"    ",
+									"    // Store order IDs for subsequent requests",
+									"    pm.environment.set('orderId', responseJson.orderId);",
+									"    pm.environment.set('brokerOrderId', responseJson.brokerOrderId);",
+									"} else {",
+									"    console.log('❌ Order placement failed:', pm.response.json().message);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{accessToken}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"symbol\": \"AKBNK\",\n  \"side\": \"BUY\",\n  \"orderType\": \"LIMIT\",\n  \"quantity\": 1000,\n  \"price\": 15.75,\n  \"timeInForce\": \"DAY\",\n  \"clientOrderId\": \"CLIENT-ORDER-001\"\n}"
+						},
+						"url": {
+							"raw": "{{brokerServiceUrl}}/api/trading/orders",
+							"host": [
+								"{{brokerServiceUrl}}"
+							],
+							"path": [
+								"api",
+								"trading",
+								"orders"
+							]
+						},
+						"description": "Places a limit buy order for AKBNK shares."
+					},
+					"response": []
+				},
+				{
+					"name": "Place Market Order",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 201) {",
+									"    const responseJson = pm.response.json();",
+									"    console.log('✅ Market order placed successfully');",
+									"    console.log('Order ID:', responseJson.orderId);",
+									"} else {",
+									"    console.log('❌ Order placement failed:', pm.response.json().message);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{accessToken}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"symbol\": \"THYAO\",\n  \"side\": \"SELL\",\n  \"orderType\": \"MARKET\",\n  \"quantity\": 500,\n  \"timeInForce\": \"IOC\",\n  \"clientOrderId\": \"CLIENT-ORDER-002\"\n}"
+						},
+						"url": {
+							"raw": "{{brokerServiceUrl}}/api/trading/orders",
+							"host": [
+								"{{brokerServiceUrl}}"
+							],
+							"path": [
+								"api",
+								"trading",
+								"orders"
+							]
+						},
+						"description": "Places a market sell order for THYAO shares."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Order Details",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    const responseJson = pm.response.json();",
+									"    console.log('✅ Order details retrieved');",
+									"    console.log('Symbol:', responseJson.symbol);",
+									"    console.log('Status:', responseJson.status);",
+									"    console.log('Filled:', responseJson.filledQuantity + '/' + responseJson.quantity);",
+									"} else {",
+									"    console.log('❌ Failed to get order details:', pm.response.json().message);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{accessToken}}"
+							}
+						],
+						"url": {
+							"raw": "{{brokerServiceUrl}}/api/trading/orders/{{orderId}}",
+							"host": [
+								"{{brokerServiceUrl}}"
+							],
+							"path": [
+								"api",
+								"trading",
+								"orders",
+								"{{orderId}}"
+							]
+						},
+						"description": "Retrieves details of a specific order."
+					},
+					"response": []
+				},
+				{
+					"name": "Cancel Order",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    const responseJson = pm.response.json();",
+									"    console.log('✅ Order cancelled successfully');",
+									"    console.log('Remaining Quantity:', responseJson.remainingQuantity);",
+									"} else {",
+									"    console.log('❌ Order cancellation failed:', pm.response.json().message);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{accessToken}}"
+							}
+						],
+						"url": {
+							"raw": "{{brokerServiceUrl}}/api/trading/orders/{{orderId}}",
+							"host": [
+								"{{brokerServiceUrl}}"
+							],
+							"path": [
+								"api",
+								"trading",
+								"orders",
+								"{{orderId}}"
+							]
+						},
+						"description": "Cancels an existing order by Order ID."
+					},
+					"response": []
+				},
+				{
+					"name": "Get All Orders",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    const responseJson = pm.response.json();",
+									"    console.log('✅ Orders retrieved successfully');",
+									"    console.log('Total Orders:', responseJson.totalCount);",
+									"    console.log('Active Orders:', responseJson.data.filter(o => o.status === 'ACTIVE').length);",
+									"} else {",
+									"    console.log('❌ Failed to get orders:', pm.response.json().message);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{accessToken}}"
+							}
+						],
+						"url": {
+							"raw": "{{brokerServiceUrl}}/api/trading/orders?status=ACTIVE&limit=50",
+							"host": [
+								"{{brokerServiceUrl}}"
+							],
+							"path": [
+								"api",
+								"trading",
+								"orders"
+							],
+							"query": [
+								{
+									"key": "status",
+									"value": "ACTIVE"
+								},
+								{
+									"key": "limit",
+									"value": "50"
+								}
+							]
+						},
+						"description": "Retrieves all orders for current user with optional filtering."
+					},
+					"response": []
+				}
+			],
+			"description": "Trading operations including order placement, modification, and cancellation."
+		},
+		{
+			"name": "💰 Portfolio Management",
+			"item": [
+				{
+					"name": "Get Portfolio",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    const responseJson = pm.response.json();",
+									"    console.log('✅ Portfolio retrieved successfully');",
+									"    console.log('Total Value:', responseJson.totalValue, 'TRY');",
+									"    console.log('Cash Balance:', responseJson.cashBalance, 'TRY');",
+									"    console.log('Positions:', responseJson.positions.length);",
+									"} else {",
+									"    console.log('❌ Failed to get portfolio:', pm.response.json().message);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{accessToken}}"
+							}
+						],
+						"url": {
+							"raw": "{{brokerServiceUrl}}/api/trading/portfolio",
+							"host": [
+								"{{brokerServiceUrl}}"
+							],
+							"path": [
+								"api",
+								"trading",
+								"portfolio"
+							]
+						},
+						"description": "Retrieves current portfolio positions and balances."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Position Details",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    const responseJson = pm.response.json();",
+									"    console.log('✅ Position details retrieved');",
+									"    console.log('Symbol:', responseJson.symbol);",
+									"    console.log('Quantity:', responseJson.quantity);",
+									"    console.log('P&L:', responseJson.unrealizedPnl, 'TRY');",
+									"} else if (pm.response.code === 404) {",
+									"    console.log('⚠️ No position found for this symbol');",
+									"} else {",
+									"    console.log('❌ Failed to get position:', pm.response.json().message);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{accessToken}}"
+							}
+						],
+						"url": {
+							"raw": "{{brokerServiceUrl}}/api/trading/portfolio/positions/AKBNK",
+							"host": [
+								"{{brokerServiceUrl}}"
+							],
+							"path": [
+								"api",
+								"trading",
+								"portfolio",
+								"positions",
+								"AKBNK"
+							]
+						},
+						"description": "Retrieves detailed information about a specific position."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Account Balance",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    const responseJson = pm.response.json();",
+									"    console.log('✅ Account balance retrieved');",
+									"    console.log('Total Balance:', responseJson.totalBalance, 'TRY');",
+									"    console.log('Available Balance:', responseJson.availableBalance, 'TRY');",
+									"} else {",
+									"    console.log('❌ Failed to get balance:', pm.response.json().message);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{accessToken}}"
+							}
+						],
+						"url": {
+							"raw": "{{brokerServiceUrl}}/api/trading/account/balance",
+							"host": [
+								"{{brokerServiceUrl}}"
+							],
+							"path": [
+								"api",
+								"trading",
+								"account",
+								"balance"
+							]
+						},
+						"description": "Retrieves detailed account balance information."
+					},
+					"response": []
+				}
+			],
+			"description": "Portfolio and account management endpoints."
+		},
+		{
+			"name": "📊 Market Data",
+			"item": [
+				{
+					"name": "Get OHLCV Data",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    const responseJson = pm.response.json();",
+									"    console.log('✅ OHLCV data retrieved');",
+									"    console.log('Timeframes:', Object.keys(responseJson));",
+									"    ",
+									"    // Count total data points",
+									"    const totalPoints = Object.values(responseJson).reduce((sum, arr) => sum + arr.length, 0);",
+									"    console.log('Total data points:', totalPoints);",
+									"} else {",
+									"    console.log('❌ Failed to get OHLCV data:', pm.response.json().message);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{accessToken}}"
+							}
+						],
+						"url": {
+							"raw": "{{marketDataServiceUrl}}/api/v1/market-data/ohlcv/AKBNK?startTime={{startTime}}&endTime={{endTime}}",
+							"host": [
+								"{{marketDataServiceUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"market-data",
+								"ohlcv",
+								"AKBNK"
+							],
+							"query": [
+								{
+									"key": "startTime",
+									"value": "{{startTime}}"
+								},
+								{
+									"key": "endTime",
+									"value": "{{endTime}}"
+								}
+							]
+						},
+						"description": "Retrieves multi-timeframe OHLCV data for AKBNK symbol."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Volume Analysis",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    const responseJson = pm.response.json();",
+									"    console.log('✅ Volume analysis retrieved');",
+									"    console.log('Total Volume:', responseJson.totalVolume?.toLocaleString());",
+									"    console.log('VWAP:', responseJson.vwap);",
+									"} else {",
+									"    console.log('❌ Failed to get volume analysis:', pm.response.json().message);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{accessToken}}"
+							}
+						],
+						"url": {
+							"raw": "{{marketDataServiceUrl}}/api/v1/market-data/volume/THYAO?startTime={{startTime}}&endTime={{endTime}}",
+							"host": [
+								"{{marketDataServiceUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"market-data",
+								"volume",
+								"THYAO"
+							],
+							"query": [
+								{
+									"key": "startTime",
+									"value": "{{startTime}}"
+								},
+								{
+									"key": "endTime",
+									"value": "{{endTime}}"
+								}
+							]
+						},
+						"description": "Retrieves volume analysis for THYAO symbol including VWAP and volume profile."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Technical Indicators",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    const responseJson = pm.response.json();",
+									"    console.log('✅ Technical indicators retrieved');",
+									"    console.log('SMA 20 points:', responseJson.sma20?.length);",
+									"    console.log('RSI points:', responseJson.rsi?.length);",
+									"} else {",
+									"    console.log('❌ Failed to get technical indicators:', pm.response.json().message);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{accessToken}}"
+							}
+						],
+						"url": {
+							"raw": "{{marketDataServiceUrl}}/api/v1/market-data/technical/GARAN?timeframe=1 hour&startTime={{startTime}}&endTime={{endTime}}",
+							"host": [
+								"{{marketDataServiceUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"market-data",
+								"technical",
+								"GARAN"
+							],
+							"query": [
+								{
+									"key": "timeframe",
+									"value": "1 hour"
+								},
+								{
+									"key": "startTime",
+									"value": "{{startTime}}"
+								},
+								{
+									"key": "endTime",
+									"value": "{{endTime}}"
+								}
+							]
+						},
+						"description": "Retrieves technical indicators (SMA, RSI, Bollinger Bands) for GARAN symbol."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Order Book Analysis",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    const responseJson = pm.response.json();",
+									"    console.log('✅ Order book analysis retrieved');",
+									"    console.log('Spread analysis points:', responseJson.spreadAnalysis?.length);",
+									"    console.log('Depth analysis points:', responseJson.depthAnalysis?.length);",
+									"} else {",
+									"    console.log('❌ Failed to get order book analysis:', pm.response.json().message);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{accessToken}}"
+							}
+						],
+						"url": {
+							"raw": "{{marketDataServiceUrl}}/api/v1/market-data/orderbook/ISCTR?startTime={{startTime}}&endTime={{endTime}}",
+							"host": [
+								"{{marketDataServiceUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"market-data",
+								"orderbook",
+								"ISCTR"
+							],
+							"query": [
+								{
+									"key": "startTime",
+									"value": "{{startTime}}"
+								},
+								{
+									"key": "endTime",
+									"value": "{{endTime}}"
+								}
+							]
+						},
+						"description": "Retrieves order book analysis including spread, depth, and liquidity metrics."
+					},
+					"response": []
+				}
+			],
+			"description": "Market data analytics and historical data endpoints."
+		},
+		{
+			"name": "🏥 Health Checks",
+			"item": [
+				{
+					"name": "User Service Health",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    console.log('✅ User Management Service is healthy');",
+									"} else {",
+									"    console.log('❌ User Management Service health check failed');",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{userServiceUrl}}/actuator/health",
+							"host": [
+								"{{userServiceUrl}}"
+							],
+							"path": [
+								"actuator",
+								"health"
+							]
+						},
+						"description": "Checks the health status of User Management Service."
+					},
+					"response": []
+				},
+				{
+					"name": "Broker Service Health",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    console.log('✅ Broker Integration Service is healthy');",
+									"} else {",
+									"    console.log('❌ Broker Integration Service health check failed');",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{brokerServiceUrl}}/actuator/health",
+							"host": [
+								"{{brokerServiceUrl}}"
+							],
+							"path": [
+								"actuator",
+								"health"
+							]
+						},
+						"description": "Checks the health status of Broker Integration Service."
+					},
+					"response": []
+				},
+				{
+					"name": "Market Data Service Health",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    console.log('✅ Market Data Service is healthy');",
+									"} else {",
+									"    console.log('❌ Market Data Service health check failed');",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{marketDataServiceUrl}}/actuator/health",
+							"host": [
+								"{{marketDataServiceUrl}}"
+							],
+							"path": [
+								"actuator",
+								"health"
+							]
+						},
+						"description": "Checks the health status of Market Data Service."
+					},
+					"response": []
+				}
+			],
+			"description": "Health check endpoints for all services."
+		}
+	],
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					"// Auto-generate timestamps for requests",
+					"const now = new Date();",
+					"const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);",
+					"",
+					"pm.environment.set('startTime', oneHourAgo.toISOString());",
+					"pm.environment.set('endTime', now.toISOString());",
+					"",
+					"// Check if we have required tokens for authenticated requests",
+					"if (pm.request.headers.find(h => h.key === 'Authorization')) {",
+					"    const accessToken = pm.environment.get('accessToken');",
+					"    if (!accessToken || accessToken === '') {",
+					"        console.log('⚠️  No access token found. Please login first.');",
+					"    }",
+					"}"
+				]
+			}
+		},
+		{
+			"listen": "test",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					"// Global response logging",
+					"console.log('Response Status:', pm.response.code, pm.response.status);",
+					"",
+					"// Check for common error conditions",
+					"if (pm.response.code === 401) {",
+					"    console.log('🔐 Authentication required or token expired');",
+					"} else if (pm.response.code === 403) {",
+					"    console.log('🚫 Access forbidden - insufficient permissions');",
+					"} else if (pm.response.code === 429) {",
+					"    console.log('⏰ Rate limit exceeded - please wait before retrying');",
+					"} else if (pm.response.code >= 500) {",
+					"    console.log('🚨 Server error - please check service status');",
+					"}"
+				]
+			}
+		}
+	],
+	"variable": [
+		{
+			"key": "userServiceUrl",
+			"value": "http://localhost:8081",
+			"type": "string"
+		},
+		{
+			"key": "brokerServiceUrl",
+			"value": "http://localhost:8083",
+			"type": "string"
+		},
+		{
+			"key": "marketDataServiceUrl",
+			"value": "http://localhost:8082",
+			"type": "string"
+		},
+		{
+			"key": "accessToken",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "refreshToken",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "userId",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "orderId",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "brokerOrderId",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "startTime",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "endTime",
+			"value": "",
+			"type": "string"
+		}
+	]
+}
