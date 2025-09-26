@@ -12,5 +12,6 @@ public class OrderModifiedEvent {
     private String userId;
     private String symbol;
     private String reason;
+    @Builder.Default
     private LocalDateTime timestamp = LocalDateTime.now();
 }

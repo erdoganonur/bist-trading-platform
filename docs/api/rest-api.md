@@ -6,8 +6,9 @@ The BIST Trading Platform exposes RESTful APIs for user management, market data 
 
 **🚨 Current Status**:
 - ✅ **API Documentation**: Complete and up-to-date
-- ⚠️ **AuthController**: Temporarily disabled for build stability (Sprint 4 activation planned)
-- ✅ **Service Layer**: Fully functional
+- ✅ **GraphQL Gateway**: Fully implemented with comprehensive schema
+- ✅ **REST API Gateway**: Spring Cloud Gateway with routing and security
+- ✅ **Service Layer**: Fully functional with microservice integration
 - ✅ **Market Data APIs**: Ready for implementation
 - ✅ **Trading APIs**: Ready for implementation
 
@@ -15,9 +16,22 @@ The BIST Trading Platform exposes RESTful APIs for user management, market data 
 
 | Service | Port | Base URL | Description |
 |---------|------|----------|-------------|
+| **REST API Gateway** | 8080 | `http://localhost:8080/api` | Main REST API Gateway (Spring Cloud Gateway) |
+| **GraphQL Gateway** | 8090 | `http://localhost:8090/graphql` | GraphQL API Gateway (Netflix DGS) |
 | **User Management** | 8081 | `http://localhost:8081/api` | Authentication and user operations |
-| **Market Data** | 8082 | `http://localhost:8082/api` | Market data and analytics |
-| **Broker Integration** | 8083 | `http://localhost:8083/api` | Trading and order management |
+| **Market Data** | 8083 | `http://localhost:8083/api` | Market data and analytics |
+| **Order Management** | 8082 | `http://localhost:8082/api` | Order management and portfolio |
+| **Broker Integration** | 8084 | `http://localhost:8084/api` | Trading and broker integration |
+
+### Gateway Integration
+
+The platform offers both REST and GraphQL API access:
+
+- **REST API Gateway** (Port: 8080): Provides REST endpoints with routing to microservices
+- **GraphQL Gateway** (Port: 8090): Unified GraphQL schema with type-safe queries and mutations
+- **Direct Service Access**: Individual microservices accessible for development/debugging
+
+For production use, prefer the gateway endpoints for enhanced security, rate limiting, and load balancing.
 
 ## Authentication
 
@@ -213,7 +227,7 @@ Authorization: Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...
 
 ---
 
-## Market Data Service API (Port: 8082)
+## Market Data Service API (Port: 8083)
 
 ### Market Data Endpoints
 
@@ -383,7 +397,7 @@ Authorization: Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...
 
 ---
 
-## Broker Integration Service API (Port: 8083)
+## Order Management Service API (Port: 8082)
 
 ### Order Management Endpoints
 
@@ -400,8 +414,7 @@ Authorization: Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...
   "orderType": "LIMIT",
   "quantity": 1000,
   "price": 15.75,
-  "timeInForce": "DAY",
-  "subAccount": ""
+  "timeInForce": "DAY"
 }
 ```
 
@@ -411,28 +424,15 @@ Authorization: Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...
   "success": true,
   "data": {
     "orderId": "ORD-123456789",
-    "brokerOrderId": "ALG-987654321",
     "symbol": "AKBNK",
     "side": "BUY",
     "orderType": "LIMIT",
     "quantity": 1000,
     "price": 15.75,
-    "status": "SUBMITTED",
+    "status": "PENDING",
     "timestamp": "2024-09-24T10:30:00Z"
   },
-  "message": "Order submitted successfully"
-}
-```
-
-**Response (400 Bad Request)**:
-```json
-{
-  "success": false,
-  "error": {
-    "code": "INSUFFICIENT_BALANCE",
-    "message": "Insufficient account balance for this order",
-    "details": "Required: 15,750.00 TRY, Available: 10,000.00 TRY"
-  }
+  "message": "Order created successfully"
 }
 ```
 
@@ -442,7 +442,7 @@ Authorization: Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...
 **Headers**: `Authorization: Bearer {token}`
 
 **Query Parameters**:
-- `status` (optional): Filter by status ("SUBMITTED", "FILLED", "CANCELLED")
+- `status` (optional): Filter by status ("PENDING", "FILLED", "CANCELLED")
 - `symbol` (optional): Filter by symbol
 - `limit` (optional): Number of results (default: 50)
 - `offset` (optional): Pagination offset
@@ -455,7 +455,6 @@ Authorization: Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...
     "orders": [
       {
         "orderId": "ORD-123456789",
-        "brokerOrderId": "ALG-987654321",
         "symbol": "AKBNK",
         "side": "BUY",
         "orderType": "LIMIT",
@@ -475,13 +474,57 @@ Authorization: Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...
 }
 ```
 
-#### GET /api/orders/{orderId}
-**Description**: Get specific order details
+---
+
+## Broker Integration Service API (Port: 8084)
+
+### Broker Integration Endpoints
+
+#### POST /api/broker/submit-order
+**Description**: Submit order to external broker (AlgoLab)
 
 **Headers**: `Authorization: Bearer {token}`
 
-**Path Parameters**:
-- `orderId`: Order ID
+**Request**:
+```json
+{
+  "orderId": "ORD-123456789",
+  "symbol": "AKBNK",
+  "side": "BUY",
+  "orderType": "LIMIT",
+  "quantity": 1000,
+  "price": 15.75,
+  "timeInForce": "DAY",
+  "subAccount": ""
+}
+```
+
+**Response (201 Created)**:
+```json
+{
+  "success": true,
+  "data": {
+    "orderId": "ORD-123456789",
+    "brokerOrderId": "ALG-987654321",
+    "status": "SUBMITTED",
+    "submittedAt": "2024-09-24T10:30:00Z"
+  },
+  "message": "Order submitted to broker successfully"
+}
+```
+
+#### POST /api/broker/cancel-order
+**Description**: Cancel order at external broker
+
+**Headers**: `Authorization: Bearer {token}`
+
+**Request**:
+```json
+{
+  "orderId": "ORD-123456789",
+  "brokerOrderId": "ALG-987654321"
+}
+```
 
 **Response (200 OK)**:
 ```json
@@ -490,16 +533,31 @@ Authorization: Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...
   "data": {
     "orderId": "ORD-123456789",
     "brokerOrderId": "ALG-987654321",
-    "symbol": "AKBNK",
-    "side": "BUY",
-    "orderType": "LIMIT",
-    "quantity": 1000,
-    "filledQuantity": 1000,
-    "price": 15.75,
-    "averagePrice": 15.74,
+    "status": "CANCEL_SUBMITTED",
+    "cancelledAt": "2024-09-24T10:45:00Z"
+  },
+  "message": "Cancel request submitted to broker"
+}
+```
+
+#### GET /api/broker/order-status/{brokerOrderId}
+**Description**: Get order status from broker
+
+**Headers**: `Authorization: Bearer {token}`
+
+**Path Parameters**:
+- `brokerOrderId`: Broker-specific order ID
+
+**Response (200 OK)**:
+```json
+{
+  "success": true,
+  "data": {
+    "brokerOrderId": "ALG-987654321",
     "status": "FILLED",
+    "filledQuantity": 1000,
+    "averagePrice": 15.74,
     "commission": 7.87,
-    "timestamp": "2024-09-24T10:30:00Z",
     "fills": [
       {
         "quantity": 500,
@@ -513,24 +571,6 @@ Authorization: Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...
       }
     ]
   }
-}
-```
-
-#### DELETE /api/orders/{orderId}
-**Description**: Cancel an order
-
-**Headers**: `Authorization: Bearer {token}`
-
-**Response (200 OK)**:
-```json
-{
-  "success": true,
-  "data": {
-    "orderId": "ORD-123456789",
-    "status": "CANCELLED",
-    "cancelledAt": "2024-09-24T10:45:00Z"
-  },
-  "message": "Order cancelled successfully"
 }
 ```
 
@@ -712,14 +752,29 @@ Version is specified in the URL path:
 
 ## Testing
 
+### GraphQL vs REST API
+
+**GraphQL Gateway** (Port: 8090):
+- Unified schema with type-safe queries
+- Single endpoint for all operations
+- Real-time subscriptions support
+- Advanced query capabilities
+- GraphiQL playground: `http://localhost:8090/graphiql`
+
+**REST API Gateway** (Port: 8080):
+- Traditional REST endpoints
+- Resource-based operations
+- Standard HTTP methods
+- OpenAPI/Swagger documentation: `http://localhost:8080/swagger-ui.html`
+
 ### Postman Collection
 A Postman collection is available at: `docs/api/BIST-Trading-Platform.postman_collection.json`
 
 ### cURL Examples
 
-**Login**:
+**Login (via REST Gateway)**:
 ```bash
-curl -X POST http://localhost:8081/api/auth/login \
+curl -X POST http://localhost:8080/api/auth/login \
   -H "Content-Type: application/json" \
   -d '{
     "username": "trader@example.com",
@@ -727,15 +782,15 @@ curl -X POST http://localhost:8081/api/auth/login \
   }'
 ```
 
-**Get Market Quote**:
+**Get Market Quote (via REST Gateway)**:
 ```bash
-curl -X GET http://localhost:8082/api/market-data/quotes/AKBNK \
+curl -X GET http://localhost:8080/api/market-data/quotes/AKBNK \
   -H "Authorization: Bearer YOUR_JWT_TOKEN"
 ```
 
-**Place Order**:
+**Place Order (via REST Gateway)**:
 ```bash
-curl -X POST http://localhost:8083/api/orders \
+curl -X POST http://localhost:8080/api/orders \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer YOUR_JWT_TOKEN" \
   -d '{
@@ -744,6 +799,16 @@ curl -X POST http://localhost:8083/api/orders \
     "orderType": "LIMIT",
     "quantity": 100,
     "price": 15.75
+  }'
+```
+
+**GraphQL Query Example**:
+```bash
+curl -X POST http://localhost:8090/graphql \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+  -d '{
+    "query": "query { marketData(symbol: \"AKBNK\") { symbol price change changePercent } }"
   }'
 ```
 

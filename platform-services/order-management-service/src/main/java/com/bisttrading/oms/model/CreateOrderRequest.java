@@ -17,6 +17,9 @@ public class CreateOrderRequest {
     @NotBlank(message = "User ID cannot be blank")
     private String userId;
 
+    @Size(max = 50, message = "Client order ID cannot exceed 50 characters")
+    private String clientOrderId;
+
     @NotBlank(message = "Symbol cannot be blank")
     @Size(max = 20, message = "Symbol cannot exceed 20 characters")
     private String symbol;

@@ -60,6 +60,7 @@ public class OMSOrder extends BaseEntity {
     private TimeInForce timeInForce;
 
     @Column(name = "filled_quantity", precision = 15, scale = 2)
+    @Builder.Default
     private BigDecimal filledQuantity = BigDecimal.ZERO;
 
     @Column(name = "remaining_quantity", precision = 15, scale = 2)
@@ -69,6 +70,7 @@ public class OMSOrder extends BaseEntity {
     private BigDecimal averagePrice;
 
     @Column(name = "commission", precision = 10, scale = 4)
+    @Builder.Default
     private BigDecimal commission = BigDecimal.ZERO;
 
     @Column(name = "reject_reason")
@@ -99,6 +101,7 @@ public class OMSOrder extends BaseEntity {
     private String notes;
 
     @Column(name = "is_active")
+    @Builder.Default
     private boolean active = true;
 
     // Enums

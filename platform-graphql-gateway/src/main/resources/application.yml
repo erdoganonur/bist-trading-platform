@@ -1,0 +1,375 @@
+# BIST Trading Platform - GraphQL Gateway Configuration
+# Version: 1.0.0
+# Environment: Development/Production
+
+server:
+  port: 8090
+  servlet:
+    context-path: /
+  compression:
+    enabled: true
+    mime-types: application/json,application/graphql,text/css,application/javascript
+    min-response-size: 1024
+
+spring:
+  application:
+    name: bist-trading-graphql-gateway
+
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:development}
+
+  # GraphQL Configuration
+  graphql:
+    graphiql:
+      enabled: true
+      path: /graphiql
+    schema:
+      locations: classpath:schema/
+      file-extensions: .graphqls, .gql
+    websocket:
+      path: /graphql/websocket
+      connection-init-timeout: 60s
+    cors:
+      allowed-origins: "*"
+      allowed-methods: "*"
+      allowed-headers: "*"
+      allow-credentials: true
+      max-age: 3600
+
+  # Database Configuration
+  datasource:
+    url: jdbc:postgresql://localhost:5432/bist_trading?currentSchema=public
+    username: ${DB_USERNAME:postgres}
+    password: ${DB_PASSWORD:postgres}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      connection-timeout: 20000
+      maximum-pool-size: 20
+      minimum-idle: 5
+      idle-timeout: 300000
+      leak-detection-threshold: 300000
+      pool-name: GraphQLGatewayCP
+
+  # JPA Configuration
+  jpa:
+    hibernate:
+      ddl-auto: none
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+        use_sql_comments: true
+        jdbc:
+          time_zone: Europe/Istanbul
+
+  # Redis Configuration
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      database: 2
+      timeout: 6000ms
+      lettuce:
+        pool:
+          max-active: 20
+          max-idle: 10
+          min-idle: 5
+
+  # Jackson Configuration
+  jackson:
+    serialization:
+      write-dates-as-timestamps: false
+    deserialization:
+      adjust-dates-to-context-time-zone: false
+    time-zone: Europe/Istanbul
+    locale: tr-TR
+    default-property-inclusion: NON_NULL
+
+  # Kafka Configuration (for subscriptions)
+  kafka:
+    bootstrap-servers: ${KAFKA_SERVERS:localhost:9092}
+    consumer:
+      group-id: graphql-gateway
+      auto-offset-reset: latest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: com.bisttrading
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+
+  # Security Configuration
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${JWT_ISSUER_URI:http://localhost:8081}
+
+  # Cache Configuration
+  cache:
+    type: redis
+    redis:
+      time-to-live: 300000 # 5 minutes default
+    cache-names:
+      - marketData
+      - symbolSearch
+      - technicalAnalysis
+      - marketOverview
+      - marketStatus
+      - tradingHours
+      - availableSymbols
+
+# Management & Monitoring
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus,graphql
+      base-path: /actuator
+  endpoint:
+    health:
+      show-details: when_authorized
+      roles: ADMIN
+      probes:
+        enabled: true
+    metrics:
+      enabled: true
+    prometheus:
+      enabled: true
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+    tags:
+      application: ${spring.application.name}
+      environment: ${spring.profiles.active}
+
+# GraphQL Specific Configuration
+dgs:
+  graphql:
+    path: /graphql
+    websocket:
+      path: /graphql/websocket
+    schema-json:
+      path: /schema.json
+    graphiql:
+      enabled: true
+      path: /graphiql
+    query-execution-strategy: ASYNC_NON_BLOCKING
+    introspection:
+      enabled: true
+    field-visibility: BLOCK_LIST_BASED
+  reload:
+    enabled: false
+
+# Custom Application Configuration
+bist-trading:
+  graphql:
+    # Query complexity limits by user type
+    complexity:
+      basic-user: 500
+      premium-user: 1000
+      professional: 2000
+      admin: 5000
+      unlimited: -1
+
+    # Rate limiting configuration
+    rate-limits:
+      queries-per-minute:
+        basic-user: 60
+        premium-user: 300
+        professional: 1000
+        admin: -1
+      subscriptions-per-user:
+        basic-user: 5
+        premium-user: 20
+        professional: 50
+        admin: -1
+
+    # Subscription limits
+    subscriptions:
+      max-symbols-per-user: 20
+      max-concurrent-connections: 1000
+      connection-timeout: 300s
+      heartbeat-interval: 30s
+
+    # Cache configuration
+    cache:
+      market-data-ttl: 60s
+      technical-analysis-ttl: 300s
+      user-data-ttl: 600s
+
+    # Turkish market configuration
+    market:
+      timezone: Europe/Istanbul
+      trading-hours:
+        pre-market: "09:00-10:00"
+        regular: "10:00-18:00"
+        post-market: "18:00-18:30"
+      currency: TRY
+      locale: tr-TR
+
+# Service Client Configuration
+service-clients:
+  user-management:
+    base-url: ${USER_SERVICE_URL:http://localhost:8081}
+    timeout: 10s
+    retry:
+      max-attempts: 3
+      delay: 1s
+
+  order-management:
+    base-url: ${ORDER_SERVICE_URL:http://localhost:8082}
+    timeout: 15s
+    retry:
+      max-attempts: 3
+      delay: 1s
+
+  market-data:
+    base-url: ${MARKET_DATA_SERVICE_URL:http://localhost:8083}
+    timeout: 5s
+    retry:
+      max-attempts: 2
+      delay: 500ms
+
+  broker-integration:
+    base-url: ${BROKER_SERVICE_URL:http://localhost:8084}
+    timeout: 20s
+    retry:
+      max-attempts: 3
+      delay: 2s
+
+# Logging Configuration
+logging:
+  level:
+    com.bisttrading: DEBUG
+    com.netflix.graphql.dgs: INFO
+    graphql: INFO
+    org.springframework.graphql: DEBUG
+    org.springframework.security: INFO
+    org.springframework.cache: DEBUG
+    org.dataloader: DEBUG
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level [%X{traceId:-},%X{spanId:-}] %logger{36} - %msg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level [%X{traceId:-},%X{spanId:-}] %logger{36} - %msg%n"
+  file:
+    name: logs/graphql-gateway.log
+    max-size: 100MB
+    max-history: 30
+
+# Turkish Market Compliance
+compliance:
+  logging:
+    enabled: true
+    audit-trail: true
+    sensitive-data-masking: true
+
+  market-hours:
+    enforce-trading-hours: true
+    weekend-access: false
+    holiday-calendar: BIST
+
+  data-retention:
+    user-queries: 90 # days
+    admin-queries: 365 # days
+    error-logs: 30 # days
+
+---
+# Development Profile
+spring:
+  config:
+    activate:
+      on-profile: development
+
+  devtools:
+    restart:
+      enabled: true
+    livereload:
+      enabled: true
+
+  graphql:
+    graphiql:
+      enabled: true
+    schema:
+      introspection:
+        enabled: true
+
+logging:
+  level:
+    root: INFO
+    com.bisttrading: DEBUG
+    org.springframework.graphql: DEBUG
+
+bist-trading:
+  graphql:
+    complexity:
+      basic-user: 1000 # More lenient for development
+    rate-limits:
+      queries-per-minute:
+        basic-user: 300 # Higher limits for development
+
+---
+# Production Profile
+spring:
+  config:
+    activate:
+      on-profile: production
+
+  graphql:
+    graphiql:
+      enabled: false
+    schema:
+      introspection:
+        enabled: false
+
+logging:
+  level:
+    root: WARN
+    com.bisttrading: INFO
+    org.springframework.security: WARN
+
+bist-trading:
+  graphql:
+    complexity:
+      basic-user: 200 # Stricter limits for production
+    rate-limits:
+      queries-per-minute:
+        basic-user: 30
+
+compliance:
+  logging:
+    enabled: true
+    audit-trail: true
+  market-hours:
+    enforce-trading-hours: true
+    weekend-access: false
+
+---
+# Testing Profile
+spring:
+  config:
+    activate:
+      on-profile: test
+
+  datasource:
+    url: jdbc:h2:mem:testdb
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    database-platform: org.hibernate.dialect.H2Dialect
+
+  kafka:
+    bootstrap-servers: localhost:9092 # Embedded for tests
+
+bist-trading:
+  graphql:
+    rate-limits:
+      queries-per-minute:
+        basic-user: -1 # No limits in tests

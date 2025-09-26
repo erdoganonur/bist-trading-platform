@@ -17,5 +17,6 @@ public class OrderCreatedEvent {
     private OMSOrder.OrderType type;
     private BigDecimal quantity;
     private BigDecimal price;
+    @Builder.Default
     private LocalDateTime timestamp = LocalDateTime.now();
 }

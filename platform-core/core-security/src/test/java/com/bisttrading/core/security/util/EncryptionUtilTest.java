@@ -1,6 +1,5 @@
 package com.bisttrading.core.security.util;
 
-import com.bisttrading.core.security.test.TestDataBuilder;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -22,10 +21,12 @@ import static org.assertj.core.api.Assertions.*;
 class EncryptionUtilTest {
 
     private String testEncryptionKey;
+    private EncryptionUtil encryptionUtil;
 
     @BeforeEach
     void setUp() {
         testEncryptionKey = "dGVzdC1lbmNyeXB0aW9uLWtleS1mb3ItdW5pdC10ZXN0cw=="; // Base64 encoded
+        encryptionUtil = new EncryptionUtil(testEncryptionKey);
     }
 
     @Test
@@ -35,7 +36,6 @@ class EncryptionUtilTest {
         String plainText = "Sensitive Information";
 
         // When
-        EncryptionUtil encryptionUtil = new EncryptionUtil(testEncryptionKey);
         String encrypted = encryptionUtil.encrypt(plainText);
         String decrypted = encryptionUtil.decrypt(encrypted);
 
@@ -51,7 +51,6 @@ class EncryptionUtilTest {
         String turkishText = "Türkçe karakter içeren metin: ğĞıİöÖüÜşŞçÇ";
 
         // When
-        EncryptionUtil encryptionUtil = new EncryptionUtil(testEncryptionKey);
         String encrypted = encryptionUtil.encrypt(turkishText);
         String decrypted = encryptionUtil.decrypt(encrypted);
 
@@ -72,7 +71,7 @@ class EncryptionUtilTest {
     })
     void shouldHandleVariousTurkishNamesCorrectly(String turkishName) {
         // When
-        String encrypted = EncryptionUtil.encrypt(turkishName, testEncryptionKey);
+        String encrypted = encryptionUtil.encrypt(turkishName);
         String decrypted = encryptionUtil.decrypt(encrypted);
 
         // Then
@@ -86,7 +85,7 @@ class EncryptionUtilTest {
         String tcKimlik = "12345678901";
 
         // When
-        String encrypted = EncryptionUtil.encrypt(tcKimlik, testEncryptionKey);
+        String encrypted = encryptionUtil.encrypt(tcKimlik);
         String decrypted = encryptionUtil.decrypt(encrypted);
 
         // Then
@@ -103,7 +102,7 @@ class EncryptionUtilTest {
         String phoneNumber = "+905551234567";
 
         // When
-        String encrypted = EncryptionUtil.encrypt(phoneNumber, testEncryptionKey);
+        String encrypted = encryptionUtil.encrypt(phoneNumber);
         String decrypted = encryptionUtil.decrypt(encrypted);
 
         // Then
@@ -115,16 +114,16 @@ class EncryptionUtilTest {
     @DisplayName("Should handle null input gracefully")
     void shouldHandleNullInputGracefully() {
         // When & Then
-        assertThat(EncryptionUtil.encrypt(null, testEncryptionKey)).isNull();
-        assertThat(EncryptionUtil.decrypt(null, testEncryptionKey)).isNull();
+        assertThat(encryptionUtil.encrypt(null)).isNull();
+        assertThat(encryptionUtil.decrypt(null)).isNull();
     }
 
     @Test
     @DisplayName("Should handle empty input gracefully")
     void shouldHandleEmptyInputGracefully() {
         // When
-        String encrypted = EncryptionUtil.encrypt("", testEncryptionKey);
-        String decrypted = EncryptionUtil.decrypt("", testEncryptionKey);
+        String encrypted = encryptionUtil.encrypt("");
+        String decrypted = encryptionUtil.decrypt("");
 
         // Then
         assertThat(encrypted).isEmpty();
@@ -138,13 +137,13 @@ class EncryptionUtilTest {
         String plainText = "Same input text";
 
         // When
-        String encrypted1 = EncryptionUtil.encrypt(plainText, testEncryptionKey);
-        String encrypted2 = EncryptionUtil.encrypt(plainText, testEncryptionKey);
+        String encrypted1 = encryptionUtil.encrypt(plainText);
+        String encrypted2 = encryptionUtil.encrypt(plainText);
 
         // Then
         assertThat(encrypted1).isNotEqualTo(encrypted2); // Due to random IV
-        assertThat(EncryptionUtil.decrypt(encrypted1, testEncryptionKey)).isEqualTo(plainText);
-        assertThat(EncryptionUtil.decrypt(encrypted2, testEncryptionKey)).isEqualTo(plainText);
+        assertThat(encryptionUtil.decrypt(encrypted1)).isEqualTo(plainText);
+        assertThat(encryptionUtil.decrypt(encrypted2)).isEqualTo(plainText);
     }
 
     @Test
@@ -154,7 +153,7 @@ class EncryptionUtilTest {
         String longText = "Lorem ipsum dolor sit amet, consectetur adipiscing elit. ".repeat(100);
 
         // When
-        String encrypted = EncryptionUtil.encrypt(longText, testEncryptionKey);
+        String encrypted = encryptionUtil.encrypt(longText);
         String decrypted = encryptionUtil.decrypt(encrypted);
 
         // Then
@@ -169,7 +168,7 @@ class EncryptionUtilTest {
         String specialChars = "!@#$%^&*()_+-=[]{}|;':\",./<>?`~";
 
         // When
-        String encrypted = EncryptionUtil.encrypt(specialChars, testEncryptionKey);
+        String encrypted = encryptionUtil.encrypt(specialChars);
         String decrypted = encryptionUtil.decrypt(encrypted);
 
         // Then
@@ -183,8 +182,8 @@ class EncryptionUtilTest {
         String numbers = "1234567890";
 
         // When
-        String encrypted = EncryptionUtil.encrypt(numbers, testEncryptionKey);
-        String decrypted = EncryptionUtil.decrypt(numbers, testEncryptionKey);
+        String encrypted = encryptionUtil.encrypt(numbers);
+        String decrypted = encryptionUtil.decrypt(encrypted);
 
         // Then
         assertThat(decrypted).isEqualTo(numbers);
@@ -197,7 +196,7 @@ class EncryptionUtilTest {
         String textWithWhitespace = "Line 1\nLine 2\tTabbed\r\nWindows line ending";
 
         // When
-        String encrypted = EncryptionUtil.encrypt(textWithWhitespace, testEncryptionKey);
+        String encrypted = encryptionUtil.encrypt(textWithWhitespace);
         String decrypted = encryptionUtil.decrypt(encrypted);
 
         // Then
@@ -211,7 +210,6 @@ class EncryptionUtilTest {
         String plainText = "Test validation";
 
         // When
-        EncryptionUtil encryptionUtil = new EncryptionUtil(testEncryptionKey);
         String encrypted = encryptionUtil.encrypt(plainText);
 
         // Then
@@ -223,12 +221,11 @@ class EncryptionUtilTest {
     void shouldHandleCorruptedEncryptedDataGracefully() {
         // Given
         String plainText = "Test data";
-        EncryptionUtil encryptionUtil = new EncryptionUtil(testEncryptionKey);
         String encrypted = encryptionUtil.encrypt(plainText);
         String corrupted = encrypted.substring(0, encrypted.length() - 5) + "XXXXX";
 
         // When & Then
-        assertThatThrownBy(() -> EncryptionUtil.decrypt(corrupted, testEncryptionKey))
+        assertThatThrownBy(() -> encryptionUtil.decrypt(corrupted))
             .isInstanceOf(RuntimeException.class);
     }
 
@@ -239,7 +236,7 @@ class EncryptionUtilTest {
         String invalidBase64 = "This is not base64 data!@#$%";
 
         // When & Then
-        assertThatThrownBy(() -> EncryptionUtil.decrypt(invalidBase64, testEncryptionKey))
+        assertThatThrownBy(() -> encryptionUtil.decrypt(invalidBase64))
             .isInstanceOf(RuntimeException.class);
     }
 
@@ -250,7 +247,7 @@ class EncryptionUtilTest {
         String jsonData = "{\"name\":\"John Doe\",\"age\":30,\"city\":\"İstanbul\"}";
 
         // When
-        String encrypted = EncryptionUtil.encrypt(jsonData, testEncryptionKey);
+        String encrypted = encryptionUtil.encrypt(jsonData);
         String decrypted = encryptionUtil.decrypt(encrypted);
 
         // Then
@@ -276,7 +273,7 @@ class EncryptionUtilTest {
 
         // When & Then
         for (String testCase : testCases) {
-            String encrypted = EncryptionUtil.encrypt(testCase, testEncryptionKey);
+            String encrypted = encryptionUtil.encrypt(testCase);
             String decrypted = encryptionUtil.decrypt(encrypted);
 
             assertThat(decrypted)
@@ -294,7 +291,7 @@ class EncryptionUtilTest {
 
         // When
         for (int i = 0; i < 1000; i++) {
-            String encrypted = EncryptionUtil.encrypt(testData, testEncryptionKey);
+            String encrypted = encryptionUtil.encrypt(testData);
             String decrypted = encryptionUtil.decrypt(encrypted);
             assertThat(decrypted).isEqualTo(testData);
         }
@@ -317,9 +314,8 @@ class EncryptionUtilTest {
         CompletableFuture<String>[] futures = new CompletableFuture[threadCount];
         for (int i = 0; i < threadCount; i++) {
             futures[i] = CompletableFuture.supplyAsync(() -> {
-                EncryptionUtil encryptionUtil = new EncryptionUtil(testEncryptionKey);
-        String encrypted = encryptionUtil.encrypt(plainText);
-                return EncryptionUtil.decrypt(encrypted, testEncryptionKey);
+                String encrypted = encryptionUtil.encrypt(plainText);
+                return encryptionUtil.decrypt(encrypted);
             }, executor);
         }
 
@@ -343,7 +339,7 @@ class EncryptionUtilTest {
         // When
         String[] encryptions = new String[10];
         for (int i = 0; i < 10; i++) {
-            encryptions[i] = EncryptionUtil.encrypt(plainText, testEncryptionKey);
+            encryptions[i] = encryptionUtil.encrypt(plainText);
         }
 
         // Then
@@ -358,30 +354,7 @@ class EncryptionUtilTest {
 
         // But all should decrypt to same plaintext
         for (String encryption : encryptions) {
-            assertThat(EncryptionUtil.decrypt(encryption, testEncryptionKey)).isEqualTo(plainText);
+            assertThat(encryptionUtil.decrypt(encryption)).isEqualTo(plainText);
         }
-    }
-
-    @Test
-    @DisplayName("Should reject invalid encryption key")
-    void shouldRejectInvalidEncryptionKey() {
-        // Given
-        String plainText = "Test data";
-        String invalidKey = "invalid-key";
-
-        // When & Then
-        assertThatThrownBy(() -> EncryptionUtil.encrypt(plainText, invalidKey))
-            .isInstanceOf(RuntimeException.class);
-    }
-
-    @Test
-    @DisplayName("Should reject null encryption key")
-    void shouldRejectNullEncryptionKey() {
-        // Given
-        String plainText = "Test data";
-
-        // When & Then
-        assertThatThrownBy(() -> EncryptionUtil.encrypt(plainText, null))
-            .isInstanceOf(IllegalArgumentException.class);
     }
 }

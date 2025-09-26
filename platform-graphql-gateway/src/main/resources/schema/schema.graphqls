@@ -1,0 +1,1102 @@
+# BIST Trading Platform GraphQL Schema
+# Version: 1.0.0
+# Date: 2025-09-26
+
+# Custom Scalars
+scalar DateTime
+scalar Decimal
+scalar UUID
+scalar BigInteger
+scalar Upload
+
+# ================================
+# ROOT OPERATIONS
+# ================================
+
+type Query {
+    # User Operations
+    me: User
+    user(id: ID!): User
+    users(filter: UserFilter, first: Int, after: String): UserConnection
+
+    # Order Operations
+    order(id: ID!): Order
+    orders(filter: OrderFilter, sortBy: OrderSortBy, first: Int, after: String): OrderConnection
+    orderStatistics(userId: ID, dateRange: DateRange): OrderStatistics
+
+    # Market Data Operations
+    marketData(symbol: String!): MarketData
+    marketDataMultiple(symbols: [String!]!): [MarketData!]!
+    marketSearch(query: String!, limit: Int = 10): [MarketSymbol!]!
+    technicalAnalysis(symbol: String!, indicators: [TechnicalIndicator!]!, period: TimePeriod!): TechnicalAnalysisResult
+
+    # Portfolio Operations
+    portfolio(userId: ID): Portfolio
+    position(userId: ID, symbol: String!): Position
+    portfolioPerformance(userId: ID, period: TimePeriod!): PerformanceMetrics
+
+    # Trading Operations
+    tradingHours: TradingSession
+    marketStatus: MarketStatus
+    brokerStatus: BrokerStatus
+    availableSymbols: [MarketSymbol!]!
+}
+
+type Mutation {
+    # Authentication
+    login(input: LoginInput!): AuthPayload!
+    register(input: RegisterInput!): AuthPayload!
+    refreshToken(refreshToken: String!): AuthPayload!
+    logout: Boolean!
+
+    # Order Management
+    createOrder(input: CreateOrderInput!): OrderResult!
+    updateOrder(id: ID!, input: UpdateOrderInput!): OrderResult!
+    cancelOrder(id: ID!, reason: String): OrderResult!
+    createBatchOrders(input: BatchOrderInput!): BatchOrderResult!
+
+    # User Profile
+    updateProfile(input: UpdateProfileInput!): User!
+    updatePreferences(input: UserPreferencesInput!): UserPreferences!
+    changePassword(input: ChangePasswordInput!): Boolean!
+    verifyEmail(code: String!): Boolean!
+    verifyPhone(code: String!): Boolean!
+
+    # Portfolio Management
+    transferFunds(input: FundTransferInput!): TransferResult!
+}
+
+type Subscription {
+    # Real-time Market Data
+    marketDataUpdates(symbols: [String!]!): MarketDataUpdate!
+    priceAlerts(userId: ID!): PriceAlert!
+
+    # Order Status Updates
+    orderStatusUpdates(userId: ID!): OrderStatusUpdate!
+    orderFillUpdates(userId: ID!): OrderFill!
+
+    # Portfolio Updates
+    portfolioUpdates(userId: ID!): PortfolioUpdate!
+    positionUpdates(userId: ID!, symbols: [String!]): PositionUpdate!
+
+    # System Notifications
+    tradingNotifications(userId: ID!): TradingNotification!
+    systemAlerts: SystemAlert!
+}
+
+# ================================
+# USER DOMAIN
+# ================================
+
+type User {
+    id: ID!
+    email: String!
+    username: String!
+    profile: UserProfile!
+    preferences: UserPreferences
+    orders(filter: OrderFilter, first: Int, after: String): OrderConnection!
+    portfolio: Portfolio!
+    sessions: [UserSession!]!
+    createdAt: DateTime!
+    lastLoginAt: DateTime
+    isActive: Boolean!
+    roles: [UserRole!]!
+}
+
+type UserProfile {
+    firstName: String!
+    lastName: String!
+    tckn: String!           # Turkish Identity Number
+    phone: String!
+    address: Address
+    riskProfile: RiskProfile!
+    isVerified: Boolean!
+    emailVerified: Boolean!
+    phoneVerified: Boolean!
+    kycCompleted: Boolean!
+    kycLevel: KYCLevel!
+    profileCompletionPercentage: Int!
+}
+
+type UserPreferences {
+    language: String!
+    timezone: String!
+    currency: String!
+    notifications: NotificationPreferences!
+    tradingPreferences: TradingPreferences!
+    displayPreferences: DisplayPreferences!
+}
+
+type NotificationPreferences {
+    emailNotifications: Boolean!
+    smsNotifications: Boolean!
+    pushNotifications: Boolean!
+    tradingAlerts: Boolean!
+    newsAlerts: Boolean!
+    priceAlerts: Boolean!
+}
+
+type TradingPreferences {
+    defaultOrderType: OrderType!
+    defaultTimeInForce: TimeInForce!
+    confirmationRequired: Boolean!
+    autoConfirmOrders: Boolean!
+    riskWarnings: Boolean!
+    advancedFeatures: Boolean!
+}
+
+type DisplayPreferences {
+    theme: String!
+    dateFormat: String!
+    numberFormat: String!
+    chartStyle: String!
+    defaultTimeframe: String!
+}
+
+type Address {
+    street: String!
+    city: String!
+    district: String!
+    postalCode: String!
+    country: String!
+    coordinates: Coordinates
+}
+
+type Coordinates {
+    latitude: Float!
+    longitude: Float!
+}
+
+type UserSession {
+    id: ID!
+    deviceInfo: String!
+    ipAddress: String!
+    location: String
+    isActive: Boolean!
+    lastActivity: DateTime!
+    createdAt: DateTime!
+    expiresAt: DateTime!
+}
+
+type UserConnection {
+    edges: [UserEdge!]!
+    pageInfo: PageInfo!
+    totalCount: Int!
+}
+
+type UserEdge {
+    node: User!
+    cursor: String!
+}
+
+# ================================
+# ORDER DOMAIN
+# ================================
+
+type Order {
+    id: ID!
+    clientOrderId: String!
+    externalOrderId: String
+    user: User!
+    symbol: String!
+    side: OrderSide!
+    type: OrderType!
+    status: OrderStatus!
+    quantity: Decimal!
+    price: Decimal
+    stopPrice: Decimal
+    timeInForce: TimeInForce!
+    filledQuantity: Decimal!
+    remainingQuantity: Decimal!
+    averagePrice: Decimal
+    commission: Decimal!
+    marketData: MarketData
+    fills: [OrderFill!]!
+    notes: String
+    createdAt: DateTime!
+    updatedAt: DateTime!
+    filledAt: DateTime
+    cancelledAt: DateTime
+    expireTime: DateTime
+    rejectReason: String
+    cancelReason: String
+
+    # Computed fields
+    totalValue: Decimal!
+    fillPercentage: Decimal!
+    isActive: Boolean!
+    isFilled: Boolean!
+    isCancelled: Boolean!
+    isRejected: Boolean!
+}
+
+type OrderFill {
+    id: ID!
+    order: Order!
+    quantity: Decimal!
+    price: Decimal!
+    commission: Decimal!
+    timestamp: DateTime!
+    tradeId: String!
+}
+
+type OrderConnection {
+    edges: [OrderEdge!]!
+    pageInfo: PageInfo!
+    totalCount: Int!
+    statistics: OrderStatistics
+}
+
+type OrderEdge {
+    node: Order!
+    cursor: String!
+}
+
+type OrderStatistics {
+    totalOrders: Int!
+    activeOrders: Int!
+    filledOrders: Int!
+    cancelledOrders: Int!
+    totalVolume: Decimal!
+    averageOrderSize: Decimal!
+    successRate: Decimal!
+    periodStart: DateTime!
+    periodEnd: DateTime!
+}
+
+type OrderResult {
+    success: Boolean!
+    order: Order
+    errors: [ValidationError!]
+    warnings: [String!]
+    warningsTR: [String!]  # Turkish warnings for compliance
+}
+
+type BatchOrderResult {
+    success: Boolean!
+    orders: [Order!]!
+    failedOrders: [FailedOrder!]!
+    summary: BatchOrderSummary!
+}
+
+type FailedOrder {
+    input: CreateOrderInput!
+    errors: [ValidationError!]!
+    reason: String!
+}
+
+type BatchOrderSummary {
+    totalRequested: Int!
+    successful: Int!
+    failed: Int!
+    totalValue: Decimal!
+}
+
+# ================================
+# MARKET DATA DOMAIN
+# ================================
+
+type MarketData {
+    symbol: String!
+    name: String!
+    price: Decimal!
+    bid: Decimal
+    ask: Decimal
+    volume: Decimal!
+    change: Decimal
+    changePercent: Decimal
+    high: Decimal
+    low: Decimal
+    open: Decimal
+    previousClose: Decimal
+    high52Week: Decimal
+    low52Week: Decimal
+    marketCap: Decimal
+    averageVolume: Decimal
+    lastTradeTime: DateTime!
+    depth: MarketDepth
+    technicalIndicators: TechnicalIndicators
+    isHalted: Boolean!
+    haltReason: String
+    sector: String
+    industry: String
+}
+
+type MarketDepth {
+    bids: [PriceLevel!]!
+    asks: [PriceLevel!]!
+    lastUpdate: DateTime!
+    totalBidVolume: Decimal!
+    totalAskVolume: Decimal!
+    spread: Decimal!
+    spreadPercent: Decimal!
+}
+
+type PriceLevel {
+    price: Decimal!
+    quantity: Decimal!
+    orderCount: Int!
+}
+
+type TechnicalIndicators {
+    sma20: Decimal
+    sma50: Decimal
+    sma200: Decimal
+    ema12: Decimal
+    ema26: Decimal
+    rsi: Decimal
+    macd: MACD
+    bollinger: BollingerBands
+    volume: VolumeIndicators
+    momentum: MomentumIndicators
+}
+
+type MACD {
+    macdLine: Decimal
+    signalLine: Decimal
+    histogram: Decimal
+}
+
+type BollingerBands {
+    upper: Decimal
+    middle: Decimal
+    lower: Decimal
+    width: Decimal
+}
+
+type VolumeIndicators {
+    volumeMA: Decimal
+    volumeRatio: Decimal
+    onBalanceVolume: Decimal
+    volumeWeightedAveragePrice: Decimal
+}
+
+type MomentumIndicators {
+    stochasticK: Decimal
+    stochasticD: Decimal
+    williamsR: Decimal
+    cci: Decimal
+}
+
+type MarketSymbol {
+    symbol: String!
+    name: String!
+    type: SecurityType!
+    exchange: String!
+    currency: String!
+    sector: String
+    industry: String
+    isActive: Boolean!
+    minOrderQuantity: Decimal!
+    maxOrderQuantity: Decimal!
+    tickSize: Decimal!
+    lotSize: Decimal!
+}
+
+type TechnicalAnalysisResult {
+    symbol: String!
+    indicators: TechnicalIndicators!
+    signals: TradingSignals!
+    trend: TrendAnalysis!
+    support: [SupportResistance!]!
+    resistance: [SupportResistance!]!
+    recommendation: TradingRecommendation!
+}
+
+type TradingSignals {
+    overall: SignalType!
+    shortTerm: SignalType!
+    mediumTerm: SignalType!
+    longTerm: SignalType!
+    confidence: Decimal!
+}
+
+type TrendAnalysis {
+    direction: TrendDirection!
+    strength: TrendStrength!
+    duration: Int!  # days
+    startDate: DateTime!
+}
+
+type SupportResistance {
+    level: Decimal!
+    strength: Decimal!
+    touchCount: Int!
+    lastTouchDate: DateTime!
+    type: SupportResistanceType!
+}
+
+type TradingRecommendation {
+    action: RecommendationAction!
+    confidence: Decimal!
+    targetPrice: Decimal
+    stopLoss: Decimal
+    timeHorizon: TimeHorizon!
+    reasoning: String!
+    reasoningTR: String!  # Turkish explanation
+}
+
+# ================================
+# PORTFOLIO DOMAIN
+# ================================
+
+type Portfolio {
+    user: User!
+    totalValue: Decimal!
+    totalCost: Decimal!
+    totalPnl: Decimal!
+    totalPnlPercent: Decimal!
+    cashBalance: Decimal!
+    availableCash: Decimal!
+    usedMargin: Decimal!
+    freeMargin: Decimal!
+    positions: [Position!]!
+    orders: [Order!]!
+    performance: PortfolioPerformance!
+    riskMetrics: RiskMetrics!
+    diversification: DiversificationMetrics!
+    lastUpdateTime: DateTime!
+}
+
+type Position {
+    symbol: String!
+    name: String!
+    quantity: Decimal!
+    averagePrice: Decimal!
+    currentPrice: Decimal!
+    marketValue: Decimal!
+    cost: Decimal!
+    unrealizedPnL: Decimal!
+    unrealizedPnLPercent: Decimal!
+    realizedPnL: Decimal!
+    dayPnL: Decimal!
+    dayPnLPercent: Decimal!
+    weight: Decimal!  # Portfolio weight percentage
+    marketData: MarketData!
+    firstBuyDate: DateTime!
+    lastTransactionDate: DateTime!
+}
+
+type PortfolioPerformance {
+    totalReturn: Decimal!
+    totalReturnPercent: Decimal!
+    dayReturn: Decimal!
+    dayReturnPercent: Decimal!
+    weekReturn: Decimal!
+    monthReturn: Decimal!
+    quarterReturn: Decimal!
+    yearReturn: Decimal!
+    bestDay: DayPerformance
+    worstDay: DayPerformance
+    winRate: Decimal!
+    profitFactor: Decimal!
+    sharpeRatio: Decimal
+    maxDrawdown: Decimal
+    maxDrawdownPercent: Decimal
+    volatility: Decimal
+}
+
+type DayPerformance {
+    date: DateTime!
+    return: Decimal!
+    returnPercent: Decimal!
+    volume: Decimal!
+}
+
+type RiskMetrics {
+    beta: Decimal
+    alpha: Decimal
+    var95: Decimal      # Value at Risk 95%
+    var99: Decimal      # Value at Risk 99%
+    expectedShortfall: Decimal
+    correlationWithMarket: Decimal
+    concentrationRisk: Decimal
+    liquidityScore: Decimal
+    riskScore: Int!     # 1-10 scale
+}
+
+type DiversificationMetrics {
+    sectorWeights: [SectorWeight!]!
+    concentrationRatio: Decimal!
+    effectiveNumberOfStocks: Decimal!
+    herfindahlIndex: Decimal!
+    diversificationRatio: Decimal!
+}
+
+type SectorWeight {
+    sector: String!
+    weight: Decimal!
+    value: Decimal!
+    count: Int!
+}
+
+# ================================
+# BROKER INTEGRATION
+# ================================
+
+type BrokerStatus {
+    connected: Boolean!
+    authenticated: Boolean!
+    lastCheckTime: DateTime!
+    sessionExpiresAt: DateTime
+    brokerName: String!
+    capabilities: [BrokerCapability!]!
+    connectionLatency: Int  # milliseconds
+    lastError: String
+    maintenanceMode: Boolean!
+    tradingEnabled: Boolean!
+}
+
+# ================================
+# REAL-TIME UPDATES
+# ================================
+
+type MarketDataUpdate {
+    symbol: String!
+    price: Decimal!
+    change: Decimal!
+    changePercent: Decimal!
+    volume: Decimal!
+    timestamp: DateTime!
+    bid: Decimal
+    ask: Decimal
+    lastTradeTime: DateTime!
+}
+
+type OrderStatusUpdate {
+    orderId: ID!
+    userId: ID!
+    status: OrderStatus!
+    filledQuantity: Decimal!
+    averagePrice: Decimal
+    timestamp: DateTime!
+    reason: String
+}
+
+type PortfolioUpdate {
+    userId: ID!
+    totalValue: Decimal!
+    dayPnL: Decimal!
+    dayPnLPercent: Decimal!
+    positions: [PositionUpdate!]!
+    timestamp: DateTime!
+}
+
+type PositionUpdate {
+    symbol: String!
+    quantity: Decimal!
+    currentPrice: Decimal!
+    unrealizedPnL: Decimal!
+    dayPnL: Decimal!
+    timestamp: DateTime!
+}
+
+type PriceAlert {
+    id: ID!
+    userId: ID!
+    symbol: String!
+    alertType: AlertType!
+    targetPrice: Decimal!
+    currentPrice: Decimal!
+    message: String!
+    messageTR: String!
+    timestamp: DateTime!
+    isUrgent: Boolean!
+}
+
+type TradingNotification {
+    id: ID!
+    userId: ID!
+    type: NotificationType!
+    title: String!
+    titleTR: String!
+    message: String!
+    messageTR: String!
+    data: String  # JSON data
+    timestamp: DateTime!
+    isRead: Boolean!
+    priority: NotificationPriority!
+}
+
+type SystemAlert {
+    id: ID!
+    type: SystemAlertType!
+    severity: AlertSeverity!
+    title: String!
+    message: String!
+    affectedServices: [String!]!
+    timestamp: DateTime!
+    resolved: Boolean!
+    estimatedResolution: DateTime
+}
+
+# ================================
+# INPUT TYPES
+# ================================
+
+input LoginInput {
+    email: String!
+    password: String!
+    rememberMe: Boolean = false
+    deviceInfo: String
+}
+
+input RegisterInput {
+    email: String!
+    password: String!
+    firstName: String!
+    lastName: String!
+    tckn: String!
+    phone: String!
+    acceptTerms: Boolean!
+    acceptPrivacy: Boolean!
+}
+
+input CreateOrderInput {
+    clientOrderId: String
+    symbol: String!
+    side: OrderSide!
+    type: OrderType!
+    quantity: Decimal!
+    price: Decimal
+    stopPrice: Decimal
+    timeInForce: TimeInForce = DAY
+    notes: String
+}
+
+input UpdateOrderInput {
+    quantity: Decimal
+    price: Decimal
+    stopPrice: Decimal
+}
+
+input BatchOrderInput {
+    orders: [CreateOrderInput!]!
+    validateOnly: Boolean = false
+}
+
+input UpdateProfileInput {
+    firstName: String
+    lastName: String
+    phone: String
+    address: AddressInput
+    riskProfile: RiskProfile
+}
+
+input AddressInput {
+    street: String!
+    city: String!
+    district: String!
+    postalCode: String!
+    country: String!
+}
+
+input UserPreferencesInput {
+    language: String
+    timezone: String
+    currency: String
+    notifications: NotificationPreferencesInput
+    tradingPreferences: TradingPreferencesInput
+    displayPreferences: DisplayPreferencesInput
+}
+
+input NotificationPreferencesInput {
+    emailNotifications: Boolean!
+    smsNotifications: Boolean!
+    pushNotifications: Boolean!
+    orderFills: Boolean!
+    priceAlerts: Boolean!
+    marketNews: Boolean!
+    systemUpdates: Boolean!
+}
+
+input TradingPreferencesInput {
+    defaultOrderType: OrderType!
+    defaultTimeInForce: TimeInForce!
+    autoConfirmOrders: Boolean!
+    riskWarnings: Boolean!
+    advancedFeatures: Boolean!
+}
+
+input DisplayPreferencesInput {
+    theme: String!
+    dateFormat: String!
+    numberFormat: String!
+    chartStyle: String!
+    defaultTimeframe: String!
+}
+
+input ChangePasswordInput {
+    currentPassword: String!
+    newPassword: String!
+}
+
+input FundTransferInput {
+    amount: Decimal!
+    direction: TransferDirection!
+    bankAccount: String
+    description: String
+}
+
+input OrderFilter {
+    status: [OrderStatus!]
+    side: [OrderSide!]
+    symbols: [String!]
+    dateRange: DateRange
+    minQuantity: Decimal
+    maxQuantity: Decimal
+    minPrice: Decimal
+    maxPrice: Decimal
+}
+
+input UserFilter {
+    status: [UserStatus!]
+    kycLevel: [KYCLevel!]
+    registrationDateRange: DateRange
+    lastLoginDateRange: DateRange
+    riskProfile: [RiskProfile!]
+}
+
+input DateRange {
+    start: DateTime!
+    end: DateTime!
+}
+
+input TimePeriod {
+    period: PeriodType!
+    count: Int!
+}
+
+# ================================
+# ENUMERATIONS
+# ================================
+
+enum OrderSide {
+    BUY
+    SELL
+}
+
+enum OrderType {
+    MARKET
+    LIMIT
+    STOP
+    STOP_LIMIT
+}
+
+enum OrderStatus {
+    NEW
+    PARTIALLY_FILLED
+    FILLED
+    CANCELLED
+    REJECTED
+    EXPIRED
+    PENDING_CANCEL
+    PENDING_REPLACE
+}
+
+enum TimeInForce {
+    DAY
+    GTC     # Good Till Cancelled
+    IOC     # Immediate or Cancel
+    FOK     # Fill or Kill
+}
+
+enum UserStatus {
+    ACTIVE
+    INACTIVE
+    SUSPENDED
+    PENDING_VERIFICATION
+    CLOSED
+}
+
+enum KYCLevel {
+    BASIC
+    INTERMEDIATE
+    ADVANCED
+}
+
+enum RiskProfile {
+    CONSERVATIVE
+    MODERATE
+    AGGRESSIVE
+    PROFESSIONAL
+}
+
+enum UserRole {
+    USER
+    PREMIUM_USER
+    PROFESSIONAL
+    ADMIN
+    SUPER_ADMIN
+}
+
+enum SecurityType {
+    STOCK
+    BOND
+    ETF
+    INDEX
+    FUTURE
+    OPTION
+    CRYPTO
+    COMMODITY
+}
+
+enum OrderSortBy {
+    CREATED_AT_DESC
+    CREATED_AT_ASC
+    UPDATED_AT_DESC
+    SYMBOL_ASC
+    QUANTITY_DESC
+    PRICE_DESC
+    STATUS
+}
+
+enum TechnicalIndicator {
+    SMA
+    EMA
+    RSI
+    MACD
+    BOLLINGER_BANDS
+    STOCHASTIC
+    WILLIAMS_R
+    CCI
+    VOLUME_MA
+    OBV
+}
+
+enum SignalType {
+    STRONG_BUY
+    BUY
+    HOLD
+    SELL
+    STRONG_SELL
+}
+
+enum TrendDirection {
+    UPTREND
+    DOWNTREND
+    SIDEWAYS
+    REVERSAL
+}
+
+enum TrendStrength {
+    WEAK
+    MODERATE
+    STRONG
+    VERY_STRONG
+}
+
+enum SupportResistanceType {
+    SUPPORT
+    RESISTANCE
+    PIVOT
+}
+
+enum RecommendationAction {
+    BUY
+    SELL
+    HOLD
+    REDUCE
+    INCREASE
+}
+
+enum TimeHorizon {
+    INTRADAY
+    SHORT_TERM
+    MEDIUM_TERM
+    LONG_TERM
+}
+
+enum BrokerCapability {
+    EQUITY_TRADING
+    OPTION_TRADING
+    FUTURE_TRADING
+    MARGIN_TRADING
+    REAL_TIME_DATA
+    HISTORICAL_DATA
+    ORDER_ROUTING
+    PORTFOLIO_MANAGEMENT
+}
+
+enum AlertType {
+    PRICE_ABOVE
+    PRICE_BELOW
+    VOLUME_SPIKE
+    PERCENTAGE_CHANGE
+    TECHNICAL_SIGNAL
+    NEWS_ALERT
+}
+
+enum NotificationType {
+    ORDER_FILL
+    PRICE_ALERT
+    MARKET_NEWS
+    SYSTEM_UPDATE
+    ACCOUNT_UPDATE
+    RISK_WARNING
+    COMPLIANCE_ALERT
+}
+
+enum NotificationPriority {
+    LOW
+    NORMAL
+    HIGH
+    URGENT
+}
+
+enum SystemAlertType {
+    SYSTEM_MAINTENANCE
+    DATA_DELAY
+    SERVICE_OUTAGE
+    MARKET_CLOSURE
+    REGULATORY_NOTICE
+    SECURITY_ALERT
+}
+
+enum AlertSeverity {
+    INFO
+    WARNING
+    ERROR
+    CRITICAL
+}
+
+enum TransferDirection {
+    DEPOSIT
+    WITHDRAWAL
+}
+
+enum PeriodType {
+    MINUTES
+    HOURS
+    DAYS
+    WEEKS
+    MONTHS
+    YEARS
+}
+
+enum MarketStatus {
+    PRE_MARKET
+    OPEN
+    CLOSED
+    POST_MARKET
+    HOLIDAY
+    MAINTENANCE
+}
+
+# ================================
+# UTILITY TYPES
+# ================================
+
+type PageInfo {
+    hasNextPage: Boolean!
+    hasPreviousPage: Boolean!
+    startCursor: String
+    endCursor: String
+}
+
+type ValidationError {
+    field: String!
+    message: String!
+    messageTR: String
+    code: String
+}
+
+type TradingSession {
+    isOpen: Boolean!
+    nextOpen: DateTime
+    nextClose: DateTime
+    currentSession: String!
+    marketHours: MarketHours!
+    holidays: [Holiday!]!
+}
+
+type MarketHours {
+    preMarket: TimeRange
+    regular: TimeRange!
+    postMarket: TimeRange
+    timezone: String!
+}
+
+type TimeRange {
+    start: String!  # HH:MM format
+    end: String!    # HH:MM format
+}
+
+type Holiday {
+    date: DateTime!
+    name: String!
+    nameTR: String!
+    type: HolidayType!
+}
+
+enum HolidayType {
+    NATIONAL
+    RELIGIOUS
+    MARKET_SPECIFIC
+    BANK_HOLIDAY
+}
+
+type AuthPayload {
+    accessToken: String!
+    refreshToken: String!
+    expiresIn: Int!
+    user: User!
+    permissions: [String!]!
+}
+
+type TransferResult {
+    success: Boolean!
+    transferId: String
+    amount: Decimal!
+    status: TransferStatus!
+    estimatedCompletion: DateTime
+    fees: [TransferFee!]!
+    errors: [ValidationError!]
+}
+
+type TransferFee {
+    type: String!
+    amount: Decimal!
+    currency: String!
+}
+
+enum TransferStatus {
+    PENDING
+    PROCESSING
+    COMPLETED
+    FAILED
+    CANCELLED
+}
+
+# ================================
+# PERFORMANCE METRICS
+# ================================
+
+type PerformanceMetrics {
+    totalReturn: Decimal!
+    annualizedReturn: Decimal!
+    volatility: Decimal!
+    sharpeRatio: Decimal
+    maxDrawdown: Decimal!
+    winRate: Decimal!
+    profitFactor: Decimal!
+    calmarRatio: Decimal
+    sortinoRatio: Decimal
+    informationRatio: Decimal
+    beta: Decimal
+    alpha: Decimal
+    treynorRatio: Decimal
+    trackingError: Decimal
+    benchmark: String!
+    startDate: DateTime!
+    endDate: DateTime!
+}
+
+# ================================
+# DIRECTIVES
+# ================================
+
+directive @auth(roles: [UserRole!]) on FIELD_DEFINITION
+directive @rateLimit(max: Int!, window: Int!) on FIELD_DEFINITION
+directive @deprecated(reason: String!) on FIELD_DEFINITION | ENUM_VALUE
+directive @complexity(multiplier: Int!, maximum: Int!) on FIELD_DEFINITION

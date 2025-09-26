@@ -36,9 +36,12 @@ services:
 ```
 
 **Service Configuration**:
+- GraphQL Gateway: `localhost:8090` (NEW!)
+- REST API Gateway: `localhost:8080`
 - User Management Service: `localhost:8081`
-- Market Data Service: `localhost:8082`
-- Broker Integration Service: `localhost:8083`
+- Order Management Service: `localhost:8082`
+- Market Data Service: `localhost:8083`
+- Broker Integration Service: `localhost:8084`
 
 ### 2. Staging Environment
 
@@ -51,7 +54,10 @@ services:
 │                    Staging Environment                      │
 ├─────────────────────────────────────────────────────────────┤
 │  Load Balancer (nginx)                                     │
+│  ├─ graphql-gateway (2 instances)                         │
+│  ├─ rest-api-gateway (2 instances)                        │
 │  ├─ user-management-service (2 instances)                  │
+│  ├─ order-management-service (2 instances)                 │
 │  ├─ market-data-service (2 instances)                      │
 │  └─ broker-integration-service (2 instances)               │
 ├─────────────────────────────────────────────────────────────┤
@@ -82,7 +88,10 @@ services:
 │  └─ SSL Termination                                        │
 ├─────────────────────────────────────────────────────────────┤
 │  Kubernetes Cluster (3+ nodes)                             │
+│  ├─ graphql-gateway (3 replicas)                          │
+│  ├─ rest-api-gateway (3 replicas)                         │
 │  ├─ user-management-service (3 replicas)                   │
+│  ├─ order-management-service (3 replicas)                  │
 │  ├─ market-data-service (5 replicas)                       │
 │  ├─ broker-integration-service (3 replicas)                │
 │  └─ Auto-scaling (HPA)                                     │

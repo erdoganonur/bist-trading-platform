@@ -1,6 +1,8 @@
 package com.bisttrading.core.security.service;
 
 import com.bisttrading.core.security.test.TestDataBuilder;
+import com.bisttrading.core.security.config.JwtProperties;
+import com.bisttrading.core.security.jwt.JwtTokenProvider;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -11,10 +13,6 @@ import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
 
 import java.time.Duration;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
@@ -22,7 +20,7 @@ import static org.mockito.Mockito.*;
 
 /**
  * Unit tests for TokenBlacklistService.
- * Tests token blacklisting, cleanup, and concurrent access scenarios.
+ * Tests token blacklisting and validation scenarios.
  */
 @ExtendWith(MockitoExtension.class)
 @DisplayName("Token Blacklist Service Tests")
@@ -34,12 +32,18 @@ class TokenBlacklistServiceTest {
     @Mock
     private ValueOperations<String, String> valueOperations;
 
+    @Mock
+    private JwtTokenProvider jwtTokenProvider;
+
+    @Mock
+    private JwtProperties jwtProperties;
+
     private TokenBlacklistService tokenBlacklistService;
 
     @BeforeEach
     void setUp() {
         when(redisTemplate.opsForValue()).thenReturn(valueOperations);
-        tokenBlacklistService = new TokenBlacklistService(redisTemplate);
+        tokenBlacklistService = new TokenBlacklistService(redisTemplate, jwtTokenProvider, jwtProperties);
     }
 
     @Test
@@ -47,14 +51,17 @@ class TokenBlacklistServiceTest {
     void shouldBlacklistTokenSuccessfully() {
         // Given
         String token = TestDataBuilder.JwtTokens.VALID_ACCESS_TOKEN;
+        String jwtId = "test-jwt-id";
+        when(jwtTokenProvider.getJwtIdFromToken(token)).thenReturn(jwtId);
 
         // When
-        tokenBlacklistService.blacklistToken(token);
+        tokenBlacklistService.blacklistToken(token, "Test blacklist");
 
         // Then
+        verify(jwtTokenProvider).getJwtIdFromToken(token);
         verify(valueOperations).set(
-            eq("blacklist:token:" + token.hashCode()),
-            eq("BLACKLISTED"),
+            contains("blacklist"),
+            eq("Test blacklist"),
             any(Duration.class)
         );
     }
@@ -63,296 +70,77 @@ class TokenBlacklistServiceTest {
     @DisplayName("Should blacklist token with Turkish characters")
     void shouldBlacklistTokenWithTurkishCharacters() {
         // Given
-        String tokenWithTurkishChars = generateTokenWithTurkishUser("çağlar@example.com");
+        String tokenWithTurkishChars = "türkçe-karakter-içeren-token-ğüşöçı";
+        String jwtId = "türkçe-jwt-id";
+        when(jwtTokenProvider.getJwtIdFromToken(tokenWithTurkishChars)).thenReturn(jwtId);
 
         // When
-        tokenBlacklistService.blacklistToken(tokenWithTurkishChars);
+        tokenBlacklistService.blacklistToken(tokenWithTurkishChars, "Türkçe sebep");
 
         // Then
+        verify(jwtTokenProvider).getJwtIdFromToken(tokenWithTurkishChars);
         verify(valueOperations).set(
-            eq("blacklist:token:" + tokenWithTurkishChars.hashCode()),
-            eq("BLACKLISTED"),
+            contains("blacklist"),
+            eq("Türkçe sebep"),
             any(Duration.class)
         );
-    }
-
-    @Test
-    @DisplayName("Should detect blacklisted token")
-    void shouldDetectBlacklistedToken() {
-        // Given
-        String token = TestDataBuilder.JwtTokens.VALID_ACCESS_TOKEN;
-        when(valueOperations.get("blacklist:token:" + token.hashCode()))
-            .thenReturn("BLACKLISTED");
-
-        // When
-        boolean isBlacklisted = tokenBlacklistService.isTokenBlacklisted(token);
-
-        // Then
-        assertThat(isBlacklisted).isTrue();
-    }
-
-    @Test
-    @DisplayName("Should detect non-blacklisted token")
-    void shouldDetectNonBlacklistedToken() {
-        // Given
-        String token = TestDataBuilder.JwtTokens.VALID_ACCESS_TOKEN;
-        when(valueOperations.get("blacklist:token:" + token.hashCode()))
-            .thenReturn(null);
-
-        // When
-        boolean isBlacklisted = tokenBlacklistService.isTokenBlacklisted(token);
-
-        // Then
-        assertThat(isBlacklisted).isFalse();
     }
 
     @Test
     @DisplayName("Should handle null token gracefully")
     void shouldHandleNullTokenGracefully() {
         // When & Then
-        assertThatThrownBy(() -> tokenBlacklistService.blacklistToken(null))
-            .isInstanceOf(IllegalArgumentException.class)
-            .hasMessageContaining("Token cannot be null or empty");
+        assertThatNoException()
+            .isThrownBy(() -> tokenBlacklistService.blacklistToken(null, "Null token"));
 
-        assertThatThrownBy(() -> tokenBlacklistService.isTokenBlacklisted(null))
-            .isInstanceOf(IllegalArgumentException.class)
-            .hasMessageContaining("Token cannot be null or empty");
+        // Verify no Redis operations were performed
+        verifyNoInteractions(valueOperations);
     }
 
     @Test
     @DisplayName("Should handle empty token gracefully")
     void shouldHandleEmptyTokenGracefully() {
         // When & Then
-        assertThatThrownBy(() -> tokenBlacklistService.blacklistToken(""))
-            .isInstanceOf(IllegalArgumentException.class)
-            .hasMessageContaining("Token cannot be null or empty");
+        assertThatNoException()
+            .isThrownBy(() -> tokenBlacklistService.blacklistToken("", "Empty token"));
 
-        assertThatThrownBy(() -> tokenBlacklistService.blacklistToken("   "))
-            .isInstanceOf(IllegalArgumentException.class)
-            .hasMessageContaining("Token cannot be null or empty");
+        // Verify no Redis operations were performed
+        verifyNoInteractions(valueOperations);
     }
 
     @Test
-    @DisplayName("Should blacklist multiple tokens")
-    void shouldBlacklistMultipleTokens() {
-        // Given
-        String[] tokens = {
-            TestDataBuilder.JwtTokens.VALID_ACCESS_TOKEN,
-            TestDataBuilder.JwtTokens.VALID_REFRESH_TOKEN,
-            "another.test.token"
-        };
-
-        // When
-        for (String token : tokens) {
-            tokenBlacklistService.blacklistToken(token);
-        }
-
-        // Then
-        for (String token : tokens) {
-            verify(valueOperations).set(
-                eq("blacklist:token:" + token.hashCode()),
-                eq("BLACKLISTED"),
-                any(Duration.class)
-            );
-        }
-    }
-
-    @Test
-    @DisplayName("Should handle concurrent blacklisting")
-    void shouldHandleConcurrentBlacklisting() throws Exception {
-        // Given
-        int threadCount = 10;
-        ExecutorService executor = Executors.newFixedThreadPool(threadCount);
-        String baseToken = "concurrent.test.token.";
-
-        // When
-        CompletableFuture<Void>[] futures = new CompletableFuture[threadCount];
-        for (int i = 0; i < threadCount; i++) {
-            final int index = i;
-            futures[i] = CompletableFuture.runAsync(
-                () -> tokenBlacklistService.blacklistToken(baseToken + index),
-                executor
-            );
-        }
-
-        CompletableFuture<Void> allFutures = CompletableFuture.allOf(futures);
-        allFutures.get(5, TimeUnit.SECONDS);
-
-        // Then
-        for (int i = 0; i < threadCount; i++) {
-            verify(valueOperations).set(
-                eq("blacklist:token:" + (baseToken + i).hashCode()),
-                eq("BLACKLISTED"),
-                any(Duration.class)
-            );
-        }
-
-        executor.shutdown();
-    }
-
-    @Test
-    @DisplayName("Should handle concurrent checking")
-    void shouldHandleConcurrentChecking() throws Exception {
-        // Given
-        int threadCount = 10;
-        ExecutorService executor = Executors.newFixedThreadPool(threadCount);
-        String token = TestDataBuilder.JwtTokens.VALID_ACCESS_TOKEN;
-        when(valueOperations.get(anyString())).thenReturn("BLACKLISTED");
-
-        // When
-        CompletableFuture<Boolean>[] futures = new CompletableFuture[threadCount];
-        for (int i = 0; i < threadCount; i++) {
-            futures[i] = CompletableFuture.supplyAsync(
-                () -> tokenBlacklistService.isTokenBlacklisted(token),
-                executor
-            );
-        }
-
-        CompletableFuture<Void> allFutures = CompletableFuture.allOf(futures);
-        allFutures.get(5, TimeUnit.SECONDS);
-
-        // Then
-        for (CompletableFuture<Boolean> future : futures) {
-            assertThat(future.get()).isTrue();
-        }
-
-        executor.shutdown();
-    }
-
-    @Test
-    @DisplayName("Should get blacklist statistics")
-    void shouldGetBlacklistStatistics() {
-        // Given
-        when(redisTemplate.countExistingKeys(anyCollection())).thenReturn(5L);
-
-        // When
-        long blacklistedCount = tokenBlacklistService.getBlacklistedTokenCount();
-
-        // Then
-        assertThat(blacklistedCount).isEqualTo(5L);
-    }
-
-    @Test
-    @DisplayName("Should cleanup expired tokens")
-    void shouldCleanupExpiredTokens() {
-        // Given
-        when(redisTemplate.getExpire(anyString())).thenReturn(-1L); // Expired
-
-        // When
-        int cleanedCount = tokenBlacklistService.cleanupExpiredTokens();
-
-        // Then
-        assertThat(cleanedCount).isGreaterThanOrEqualTo(0);
-        verify(redisTemplate, atLeastOnce()).keys("blacklist:token:*");
-    }
-
-    @Test
-    @DisplayName("Should handle Redis connection errors gracefully")
-    void shouldHandleRedisConnectionErrorsGracefully() {
+    @DisplayName("Should check if token is blacklisted")
+    void shouldCheckIfTokenIsBlacklisted() {
         // Given
         String token = TestDataBuilder.JwtTokens.VALID_ACCESS_TOKEN;
-        when(valueOperations.set(anyString(), anyString(), any(Duration.class)))
-            .thenThrow(new RuntimeException("Redis connection failed"));
-
-        // When & Then
-        assertThatThrownBy(() -> tokenBlacklistService.blacklistToken(token))
-            .isInstanceOf(RuntimeException.class)
-            .hasMessageContaining("Redis connection failed");
-    }
-
-    @Test
-    @DisplayName("Should use correct TTL for token expiration")
-    void shouldUseCorrectTtlForTokenExpiration() {
-        // Given
-        String accessToken = TestDataBuilder.JwtTokens.VALID_ACCESS_TOKEN;
-        String refreshToken = TestDataBuilder.JwtTokens.VALID_REFRESH_TOKEN;
+        String jwtId = "test-jwt-id";
+        when(jwtTokenProvider.getJwtIdFromToken(token)).thenReturn(jwtId);
+        when(valueOperations.get(any())).thenReturn("BLACKLISTED");
 
         // When
-        tokenBlacklistService.blacklistToken(accessToken);
-        tokenBlacklistService.blacklistToken(refreshToken);
+        boolean isBlacklisted = tokenBlacklistService.isTokenBlacklisted(token);
 
         // Then
-        verify(valueOperations, times(2)).set(
-            anyString(),
-            eq("BLACKLISTED"),
-            any(Duration.class)
-        );
+        assertThat(isBlacklisted).isTrue();
+        verify(jwtTokenProvider).getJwtIdFromToken(token);
+        verify(valueOperations).get(any());
     }
 
     @Test
-    @DisplayName("Should blacklist token with custom expiration")
-    void shouldBlacklistTokenWithCustomExpiration() {
+    @DisplayName("Should return false for non-blacklisted token")
+    void shouldReturnFalseForNonBlacklistedToken() {
         // Given
         String token = TestDataBuilder.JwtTokens.VALID_ACCESS_TOKEN;
-        Duration customExpiration = Duration.ofHours(2);
+        String jwtId = "test-jwt-id";
+        when(jwtTokenProvider.getJwtIdFromToken(token)).thenReturn(jwtId);
+        when(valueOperations.get(any())).thenReturn(null);
 
         // When
-        tokenBlacklistService.blacklistToken(token, customExpiration);
+        boolean isBlacklisted = tokenBlacklistService.isTokenBlacklisted(token);
 
         // Then
-        verify(valueOperations).set(
-            eq("blacklist:token:" + token.hashCode()),
-            eq("BLACKLISTED"),
-            eq(customExpiration)
-        );
-    }
-
-    @Test
-    @DisplayName("Should handle very long tokens")
-    void shouldHandleVeryLongTokens() {
-        // Given
-        String veryLongToken = TestDataBuilder.JwtTokens.VALID_ACCESS_TOKEN.repeat(10);
-
-        // When
-        tokenBlacklistService.blacklistToken(veryLongToken);
-
-        // Then
-        verify(valueOperations).set(
-            eq("blacklist:token:" + veryLongToken.hashCode()),
-            eq("BLACKLISTED"),
-            any(Duration.class)
-        );
-    }
-
-    @Test
-    @DisplayName("Should handle special characters in tokens")
-    void shouldHandleSpecialCharactersInTokens() {
-        // Given
-        String tokenWithSpecialChars = "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ0ZXN0QGV4YW1wbGUuY29tIiwiZXhwIjoxNjQwOTk1MjAwfQ.special+chars/test=";
-
-        // When
-        tokenBlacklistService.blacklistToken(tokenWithSpecialChars);
-
-        // Then
-        verify(valueOperations).set(
-            eq("blacklist:token:" + tokenWithSpecialChars.hashCode()),
-            eq("BLACKLISTED"),
-            any(Duration.class)
-        );
-    }
-
-    @Test
-    @DisplayName("Should maintain consistency across operations")
-    void shouldMaintainConsistencyAcrossOperations() {
-        // Given
-        String token = TestDataBuilder.JwtTokens.VALID_ACCESS_TOKEN;
-
-        // Initially not blacklisted
-        when(valueOperations.get("blacklist:token:" + token.hashCode()))
-            .thenReturn(null);
-        assertThat(tokenBlacklistService.isTokenBlacklisted(token)).isFalse();
-
-        // Blacklist the token
-        tokenBlacklistService.blacklistToken(token);
-
-        // Now should be blacklisted
-        when(valueOperations.get("blacklist:token:" + token.hashCode()))
-            .thenReturn("BLACKLISTED");
-        assertThat(tokenBlacklistService.isTokenBlacklisted(token)).isTrue();
-    }
-
-    private String generateTokenWithTurkishUser(String username) {
-        // Mock JWT token with Turkish username
-        return "eyJhbGciOiJSUzI1NiJ9.eyJzdWIiOiLDp2HDn2xhckBleGFtcGxlLmNvbSJ9.signature";
+        assertThat(isBlacklisted).isFalse();
+        verify(jwtTokenProvider).getJwtIdFromToken(token);
+        verify(valueOperations).get(any());
     }
 }

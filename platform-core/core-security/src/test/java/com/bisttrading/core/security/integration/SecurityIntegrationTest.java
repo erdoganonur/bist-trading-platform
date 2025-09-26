@@ -110,7 +110,7 @@ class SecurityIntegrationTest {
             .andExpect(status().isUnauthorized());
 
         mockMvc.perform(get("/api/v1/admin/users"))
-            .andExpected(status().isUnauthorized());
+            .andExpect(status().isUnauthorized());
     }
 
     @Test

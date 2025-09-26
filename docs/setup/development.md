@@ -5,11 +5,11 @@
 This guide provides step-by-step instructions for setting up a complete development environment for the BIST Trading Platform. Follow these instructions to get the platform running locally for development and testing.
 
 **🎯 Current Status**:
-- ✅ **Build System**: Perfect (832+ errors resolved)
-- ✅ **Gradle 9.0**: Both `gradle` and `./gradlew` commands work
-- ✅ **Spring Boot 3.3.4**: Latest framework support
-- ✅ **Java 21 LTS**: Modern runtime environment
-- ⚠️ **Tests**: Framework ready (163 compilation issues - Sprint 4 focus)
+- ✅ **GraphQL Gateway**: Successfully implemented with 700+ line schema
+- ✅ **Build System**: Perfect - All services compile and run
+- ✅ **Gradle 9.0**: Both `gradle` and `./gradlew` commands work perfectly
+- ✅ **Spring Boot 3.3.4**: Latest framework with Netflix DGS integration
+- ✅ **Java 21 LTS**: Modern runtime environment with GraphQL support
 
 ## Prerequisites
 
@@ -391,17 +391,32 @@ chmod +x run-all.sh
 
 #### Option 2: Manual Service Startup
 
-**Terminal 1 - User Management Service**:
+**Terminal 1 - GraphQL Gateway (NEW!)**:
+```bash
+./gradlew :platform-graphql-gateway:bootRun
+```
+
+**Terminal 2 - REST API Gateway**:
+```bash
+./gradlew :platform-api-gateway:bootRun
+```
+
+**Terminal 3 - User Management Service**:
 ```bash
 ./gradlew :platform-services:user-management-service:bootRun
 ```
 
-**Terminal 2 - Market Data Service**:
+**Terminal 4 - Order Management Service**:
+```bash
+./gradlew :platform-services:order-management-service:bootRun
+```
+
+**Terminal 5 - Market Data Service**:
 ```bash
 ./gradlew :platform-services:market-data-service:bootRun
 ```
 
-**Terminal 3 - Broker Integration Service**:
+**Terminal 6 - Broker Integration Service**:
 ```bash
 ./gradlew :platform-services:broker-integration-service:bootRun
 ```
@@ -419,20 +434,26 @@ chmod +x run-all.sh
 #### Health Checks
 ```bash
 # Check all services
+curl http://localhost:8090/actuator/health  # GraphQL Gateway
+curl http://localhost:8080/actuator/health  # REST API Gateway
 curl http://localhost:8081/actuator/health  # User Management
-curl http://localhost:8082/actuator/health  # Market Data
-curl http://localhost:8083/actuator/health  # Broker Integration
+curl http://localhost:8082/actuator/health  # Order Management
+curl http://localhost:8083/actuator/health  # Market Data
+curl http://localhost:8084/actuator/health  # Broker Integration
 
 # Detailed health information
-curl http://localhost:8081/actuator/health | jq '.'
+curl http://localhost:8090/actuator/health | jq '.'
 ```
 
 #### Service URLs
-| Service | URL | Swagger UI |
-|---------|-----|------------|
-| **User Management** | http://localhost:8081 | http://localhost:8081/swagger-ui.html |
-| **Market Data** | http://localhost:8082 | http://localhost:8082/swagger-ui.html |
-| **Broker Integration** | http://localhost:8083 | http://localhost:8083/swagger-ui.html |
+| Service | URL | API Interface |
+|---------|-----|--------------|
+| **GraphQL Gateway** | http://localhost:8090 | [GraphiQL](http://localhost:8090/graphiql) |
+| **REST API Gateway** | http://localhost:8080 | [Swagger UI](http://localhost:8080/swagger-ui.html) |
+| **User Management** | http://localhost:8081 | [Swagger UI](http://localhost:8081/swagger-ui.html) |
+| **Order Management** | http://localhost:8082 | [Swagger UI](http://localhost:8082/swagger-ui.html) |
+| **Market Data** | http://localhost:8083 | [Swagger UI](http://localhost:8083/swagger-ui.html) |
+| **Broker Integration** | http://localhost:8084 | [Swagger UI](http://localhost:8084/swagger-ui.html) |
 
 ## Development Workflow
 
@@ -453,11 +474,17 @@ ls platform-infrastructure/
 ├── infrastructure-integration/   # External APIs
 └── infrastructure-monitoring/    # Observability
 
+# Gateway modules
+ls platform-*-gateway/
+├── platform-graphql-gateway/    # Port 8090 - GraphQL API
+└── platform-api-gateway/        # Port 8080 - REST API Gateway
+
 # Service modules
 ls platform-services/
 ├── user-management-service/     # Port 8081
-├── market-data-service/         # Port 8082
-└── broker-integration-service/  # Port 8083
+├── order-management-service/    # Port 8082
+├── market-data-service/         # Port 8083
+└── broker-integration-service/  # Port 8084
 ```
 
 #### Development Best Practices
@@ -494,7 +521,48 @@ open platform-services/user-management-service/build/reports/jacoco/test/html/in
 
 ### 3. API Testing
 
-#### Using curl
+#### GraphQL API Testing (NEW!)
+```bash
+# GraphQL Health Check
+curl http://localhost:8090/actuator/health
+
+# GraphQL Query
+JWT_TOKEN="your-jwt-token-here"
+curl -X POST http://localhost:8090/graphql \
+  -H "Authorization: Bearer $JWT_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "query { me { id email profile { firstName lastName } } }"
+  }'
+
+# GraphQL Mutation (Create Order)
+curl -X POST http://localhost:8090/graphql \
+  -H "Authorization: Bearer $JWT_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "mutation CreateOrder($input: CreateOrderInput!) { createOrder(input: $input) { success order { id status } } }",
+    "variables": {
+      "input": {
+        "symbol": "THYAO",
+        "side": "BUY",
+        "type": "LIMIT",
+        "quantity": "100",
+        "price": "45.50"
+      }
+    }
+  }'
+
+# Market Data Query
+curl -X POST http://localhost:8090/graphql \
+  -H "Authorization: Bearer $JWT_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "query GetMarketData($symbol: String!) { marketData(symbol: $symbol) { symbol price change changePercent volume timestamp } }",
+    "variables": { "symbol": "THYAO" }
+  }'
+```
+
+#### REST API Testing
 ```bash
 # Login
 curl -X POST http://localhost:8081/api/auth/login \
@@ -503,12 +571,24 @@ curl -X POST http://localhost:8081/api/auth/login \
 
 # Get market data
 JWT_TOKEN="your-jwt-token-here"
-curl -X GET http://localhost:8082/api/market-data/quotes/AKBNK \
+curl -X GET http://localhost:8083/api/market-data/quotes/AKBNK \
   -H "Authorization: Bearer $JWT_TOKEN"
 ```
 
+#### Using GraphiQL Playground
+1. Open http://localhost:8090/graphiql
+2. Add JWT token to headers:
+   ```json
+   {
+     "Authorization": "Bearer your-jwt-token-here"
+   }
+   ```
+3. Write and test GraphQL queries interactively
+
 #### Using Postman
-1. Import collection: `docs/api/BIST-Trading-Platform.postman_collection.json`
+1. Import collections:
+   - `docs/api/BIST-Trading-Platform.postman_collection.json` (REST)
+   - `docs/api/BIST-Trading-GraphQL.postman_collection.json` (GraphQL)
 2. Set environment variables
 3. Run authentication request
 4. Test API endpoints

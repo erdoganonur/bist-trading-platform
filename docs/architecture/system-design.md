@@ -2,10 +2,11 @@
 
 ## 1. System Overview
 
-The BIST Trading Platform is built using a **microservices architecture** with a modular monolith approach, providing flexibility, scalability, and maintainability for high-frequency trading operations on Borsa Istanbul (BIST). The system processes real-time market data, manages user accounts, and executes trading operations with sub-second latency requirements.
+The BIST Trading Platform is built using a **microservices architecture** with a modular monolith approach, featuring a **unified GraphQL Gateway** that provides type-safe API access alongside traditional REST endpoints. The system processes real-time market data, manages user accounts, and executes trading operations with sub-second latency requirements and comprehensive Turkish market compliance.
 
 ### Architecture Principles
 
+- **GraphQL-First API Design**: Unified, type-safe API layer with comprehensive schema
 - **Domain-Driven Design**: Business logic organized around trading domain concepts
 - **Event-Driven Architecture**: Asynchronous communication for high-performance operations
 - **Cloud-Native**: Containerized services ready for Kubernetes deployment
@@ -13,15 +14,23 @@ The BIST Trading Platform is built using a **microservices architecture** with a
 
 ### Service Architecture Overview
 
-The platform consists of three main microservices, each with specific responsibilities:
+The platform consists of gateway layer and core microservices, each with specific responsibilities:
 
-#### Service List and Responsibilities
+#### Gateway Layer
+
+| Service | Port | Primary Responsibility | Key Features |
+|---------|------|----------------------|--------------|
+| **GraphQL Gateway** | 8090 | **NEW!** Unified GraphQL API | Type-safe schema, JWT security, Turkish market validation, N+1 prevention |
+| **REST API Gateway** | 8080 | Traditional REST API Gateway | Spring Cloud Gateway, circuit breakers, rate limiting, routing |
+
+#### Core Services
 
 | Service | Port | Primary Responsibility | Key Features |
 |---------|------|----------------------|--------------|
 | **User Management Service** | 8081 | Authentication & User Operations | JWT authentication, user profiles, permissions, Turkish ID validation |
-| **Market Data Service** | 8082 | Real-time Market Data Processing | WebSocket streaming, TimescaleDB storage, 50,000+ ticks/sec processing |
-| **Broker Integration Service** | 8083 | Trading & Order Management | AlgoLab API integration, order lifecycle, portfolio management |
+| **Order Management Service** | 8082 | Order Processing & Management | Order lifecycle, validation, execution tracking, compliance |
+| **Market Data Service** | 8083 | Real-time Market Data Processing | WebSocket streaming, TimescaleDB storage, 50,000+ ticks/sec processing |
+| **Broker Integration Service** | 8084 | Trading & External Broker APIs | AlgoLab API integration, portfolio management, external connectivity |
 
 #### Port Mapping
 
@@ -29,29 +38,45 @@ The platform consists of three main microservices, each with specific responsibi
 ┌─────────────────────────────────────────────────────────────┐
 │                    BIST Trading Platform                     │
 ├─────────────────────────────────────────────────────────────┤
+│  🚀 GraphQL Gateway             │ Port: 8090               │
+│  • Unified GraphQL API          │ /graphql                 │
+│  • GraphiQL Playground          │ /graphiql                │
+│  • Type-safe schema & security  │ /actuator/*              │
+├─────────────────────────────────────────────────────────────┤
+│  🌐 REST API Gateway            │ Port: 8080               │
+│  • Spring Cloud Gateway         │ /api/users/*             │
+│  • Circuit breakers & routing   │ /api/orders/*            │
+│  • Rate limiting & monitoring   │ /swagger-ui/*            │
+├─────────────────────────────────────────────────────────────┤
 │  🔐 User Management Service     │ Port: 8081               │
 │  • Authentication & JWT          │ /api/auth/*              │
 │  • User profiles & preferences   │ /api/users/*             │
 │  • Role-based access control     │ /actuator/*              │
 ├─────────────────────────────────────────────────────────────┤
-│  📈 Market Data Service          │ Port: 8082               │
+│  📊 Order Management Service    │ Port: 8082               │
+│  • Order processing & lifecycle │ /api/orders/*            │
+│  • Validation & compliance      │ /api/order-history/*     │
+│  • Execution tracking           │ /actuator/*              │
+├─────────────────────────────────────────────────────────────┤
+│  📈 Market Data Service          │ Port: 8083               │
 │  • Real-time market data         │ /api/market-data/*       │
 │  • WebSocket streaming           │ /ws/market-data          │
 │  • Historical data & analytics   │ /api/analytics/*         │
 ├─────────────────────────────────────────────────────────────┤
-│  💼 Broker Integration Service   │ Port: 8083               │
-│  • AlgoLab API integration       │ /api/orders/*            │
-│  • Order management              │ /api/portfolio/*         │
-│  • Trading operations            │ /ws/trading              │
+│  💼 Broker Integration Service   │ Port: 8084               │
+│  • AlgoLab API integration       │ /api/broker/*            │
+│  • Portfolio management          │ /api/portfolio/*         │
+│  • External trading operations   │ /ws/trading              │
 └─────────────────────────────────────────────────────────────┘
 ```
 
 ### Service Communication Patterns
 
-- **Synchronous**: REST API calls for immediate responses
-- **Asynchronous**: Kafka events for decoupled operations
-- **Real-time**: WebSocket connections for streaming data
-- **Caching**: Redis for session management and frequently accessed data
+- **GraphQL**: Type-safe, single endpoint API with efficient data fetching
+- **Synchronous**: REST API calls for immediate responses and legacy integration
+- **Asynchronous**: Kafka events for decoupled operations and event streaming
+- **Real-time**: WebSocket connections for streaming data and live updates
+- **Caching**: Redis for session management, frequently accessed data, and GraphQL caching
 
 ## 2. Technology Stack
 
@@ -60,7 +85,8 @@ The platform consists of three main microservices, each with specific responsibi
 | Category | Technology | Version | Purpose |
 |----------|------------|---------|---------|
 | **Runtime** | Java (OpenJDK) | 21 LTS | Application runtime environment |
-| **Framework** | Spring Boot | 3.3.0 | Microservices framework |
+| **Framework** | Spring Boot | 3.3.4 | Microservices framework |
+| **GraphQL** | Netflix DGS | 8.7.1 | GraphQL framework and schema-first development |
 | **Build System** | Gradle | 8.8 | Build automation and dependency management |
 
 ### Data Layer
@@ -113,7 +139,8 @@ graph TB
     %% Gateway Layer
     subgraph "Gateway Layer"
         LB[Load Balancer<br/>NGINX/ALB]
-        GW[API Gateway<br/>Spring Cloud Gateway]
+        GQL[GraphQL Gateway<br/>Netflix DGS :8090]
+        REST[REST API Gateway<br/>Spring Cloud Gateway :8080]
         AUTH[Authentication<br/>JWT Validation]
     end
 
@@ -124,13 +151,18 @@ graph TB
             UMS_DB[(User Database<br/>PostgreSQL)]
         end
 
-        subgraph "Market Data Service (8082)"
+        subgraph "Order Management Service (8082)"
+            OMS[Order Management<br/>Order Processing]
+            OMS_DB[(Order Database<br/>PostgreSQL)]
+        end
+
+        subgraph "Market Data Service (8083)"
             MDS[Market Data Service<br/>Real-time Processing]
             TSDB[(TimescaleDB<br/>Market Data)]
             WS1[WebSocket Server<br/>Market Streaming]
         end
 
-        subgraph "Broker Integration Service (8083)"
+        subgraph "Broker Integration Service (8084)"
             BIS[Broker Integration<br/>Trading Operations]
             BIS_DB[(Trading Database<br/>PostgreSQL)]
             WS2[WebSocket Server<br/>Order Updates]
@@ -156,15 +188,24 @@ graph TB
     MOB --> LB
     API --> LB
 
-    LB --> GW
-    GW --> AUTH
+    LB --> GQL
+    LB --> REST
+
+    GQL --> AUTH
+    REST --> AUTH
+
     AUTH --> UMS
+    AUTH --> OMS
     AUTH --> MDS
     AUTH --> BIS
 
     UMS --> UMS_DB
     UMS --> REDIS
     UMS --> KAFKA
+
+    OMS --> OMS_DB
+    OMS --> REDIS
+    OMS --> KAFKA
 
     MDS --> TSDB
     MDS --> WS1
@@ -179,11 +220,17 @@ graph TB
     BIS --> EXTERNAL
 
     %% Monitoring connections
+    GQL --> PROM
+    REST --> PROM
     UMS --> PROM
+    OMS --> PROM
     MDS --> PROM
     BIS --> PROM
     PROM --> GRAF
+    GQL --> JAEGER
+    REST --> JAEGER
     UMS --> JAEGER
+    OMS --> JAEGER
     MDS --> JAEGER
     BIS --> JAEGER
 
@@ -195,9 +242,9 @@ graph TB
     classDef monitorStyle fill:#fce4ec,stroke:#880e4f,stroke-width:2px
 
     class WEB,MOB,API clientStyle
-    class LB,GW,AUTH gatewayStyle
-    class UMS,MDS,BIS,WS1,WS2 serviceStyle
-    class UMS_DB,TSDB,BIS_DB,REDIS,KAFKA,EXTERNAL dataStyle
+    class LB,GQL,REST,AUTH gatewayStyle
+    class UMS,OMS,MDS,BIS,WS1,WS2 serviceStyle
+    class UMS_DB,OMS_DB,TSDB,BIS_DB,REDIS,KAFKA,EXTERNAL dataStyle
     class PROM,GRAF,JAEGER monitorStyle
 ```
 

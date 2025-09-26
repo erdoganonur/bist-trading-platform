@@ -1,0 +1,509 @@
+package com.bisttrading.graphql.datafetcher;
+
+import com.bisttrading.graphql.client.MarketDataServiceClient;
+import com.bisttrading.graphql.security.GraphQLSecurityContext;
+import com.bisttrading.marketdata.dto.MarketDataResponse;
+import com.bisttrading.marketdata.dto.MarketSymbolResponse;
+import com.bisttrading.marketdata.dto.TechnicalAnalysisResponse;
+import com.bisttrading.marketdata.dto.MarketOverviewResponse;
+import com.bisttrading.marketdata.dto.TechnicalIndicatorRequest;
+import com.netflix.graphql.dgs.DgsComponent;
+import com.netflix.graphql.dgs.DgsData;
+import com.netflix.graphql.dgs.DgsQuery;
+import com.netflix.graphql.dgs.DgsSubscription;
+import com.netflix.graphql.dgs.InputArgument;
+import com.netflix.graphql.dgs.DgsDataFetchingEnvironment;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.dataloader.DataLoader;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.security.access.prepost.PreAuthorize;
+import reactor.core.publisher.Flux;
+
+import java.util.List;
+import java.util.concurrent.CompletableFuture;
+
+/**
+ * GraphQL DataFetcher for Market Data domain operations
+ *
+ * Provides unified access to real-time and historical market data with Turkish market focus
+ */
+@Slf4j
+@DgsComponent
+@RequiredArgsConstructor
+public class MarketDataFetcher {
+
+    private final MarketDataServiceClient marketDataServiceClient;
+    private final GraphQLSecurityContext securityContext;
+
+    /**
+     * Get market data for a single symbol
+     */
+    @DgsQuery
+    @PreAuthorize("hasRole('USER')")
+    @Cacheable(value = "marketData", key = "#symbol", unless = "#result.lastTradeTime.isBefore(T(java.time.OffsetDateTime).now().minusMinutes(1))")
+    public CompletableFuture<MarketDataResponse> marketData(@InputArgument String symbol) {
+        log.debug("Fetching market data for symbol: {}", symbol);
+
+        return marketDataServiceClient.getMarketData(symbol)
+            .exceptionally(throwable -> {
+                log.error("Error fetching market data for {}: ", symbol, throwable);
+                throw new RuntimeException("Failed to fetch market data for: " + symbol, throwable);
+            });
+    }
+
+    /**
+     * Get market data for multiple symbols (batch operation)
+     */
+    @DgsQuery
+    @PreAuthorize("hasRole('USER')")
+    public CompletableFuture<List<MarketDataResponse>> marketDataMultiple(@InputArgument List<String> symbols) {
+        log.debug("Fetching market data for {} symbols", symbols.size());
+
+        if (symbols.isEmpty()) {
+            return CompletableFuture.completedFuture(List.of());
+        }
+
+        if (symbols.size() > 50) {
+            throw new RuntimeException("Maximum 50 symbols allowed per request");
+        }
+
+        return marketDataServiceClient.getMarketDataBatch(symbols)
+            .exceptionally(throwable -> {
+                log.error("Error fetching batch market data: ", throwable);
+                throw new RuntimeException("Failed to fetch batch market data", throwable);
+            });
+    }
+
+    /**
+     * Search for market symbols
+     */
+    @DgsQuery
+    @PreAuthorize("hasRole('USER')")
+    @Cacheable(value = "symbolSearch", key = "#query + ':' + #limit")
+    public CompletableFuture<List<MarketSymbolResponse>> marketSearch(
+            @InputArgument String query,
+            @InputArgument Integer limit) {
+
+        log.debug("Searching symbols with query: '{}', limit: {}", query, limit);
+
+        int searchLimit = limit != null ? Math.min(limit, 100) : 10;
+
+        return marketDataServiceClient.searchSymbols(query, searchLimit)
+            .exceptionally(throwable -> {
+                log.error("Error searching symbols: ", throwable);
+                throw new RuntimeException("Failed to search symbols", throwable);
+            });
+    }
+
+    /**
+     * Get technical analysis for a symbol
+     */
+    @DgsQuery
+    @PreAuthorize("hasRole('USER')")
+    @Cacheable(value = "technicalAnalysis", key = "#symbol + ':' + #indicators.hashCode() + ':' + #period.hashCode()")
+    public CompletableFuture<TechnicalAnalysisResponse> technicalAnalysis(
+            @InputArgument String symbol,
+            @InputArgument List<String> indicators,
+            @InputArgument TimePeriod period) {
+
+        log.debug("Fetching technical analysis for symbol: {}, indicators: {}", symbol, indicators);
+
+        TechnicalIndicatorRequest request = TechnicalIndicatorRequest.builder()
+            .symbol(symbol)
+            .indicators(indicators)
+            .period(period.getPeriod())
+            .count(period.getCount())
+            .build();
+
+        return marketDataServiceClient.getTechnicalAnalysis(request)
+            .exceptionally(throwable -> {
+                log.error("Error fetching technical analysis for {}: ", symbol, throwable);
+                throw new RuntimeException("Failed to fetch technical analysis for: " + symbol, throwable);
+            });
+    }
+
+    /**
+     * Get market overview with Turkish market focus
+     */
+    @DgsQuery
+    @PreAuthorize("hasRole('USER')")
+    @Cacheable(value = "marketOverview", key = "#period != null ? #period.hashCode() : 'default'")
+    public CompletableFuture<MarketOverviewResponse> marketOverview(@InputArgument DateRange period) {
+        log.debug("Fetching market overview");
+
+        return marketDataServiceClient.getMarketOverview(period)
+            .exceptionally(throwable -> {
+                log.error("Error fetching market overview: ", throwable);
+                throw new RuntimeException("Failed to fetch market overview", throwable);
+            });
+    }
+
+    /**
+     * Get current market status (BIST trading hours)
+     */
+    @DgsQuery
+    @PreAuthorize("hasRole('USER')")
+    @Cacheable(value = "marketStatus", key = "'current'")
+    public CompletableFuture<String> marketStatus() {
+        log.debug("Fetching current market status");
+
+        return marketDataServiceClient.getMarketStatus()
+            .exceptionally(throwable -> {
+                log.error("Error fetching market status: ", throwable);
+                return "UNKNOWN";
+            });
+    }
+
+    /**
+     * Get BIST trading hours and holiday information
+     */
+    @DgsQuery
+    @PreAuthorize("hasRole('USER')")
+    @Cacheable(value = "tradingHours", key = "'bist'")
+    public CompletableFuture<TradingSessionResponse> tradingHours() {
+        log.debug("Fetching BIST trading hours");
+
+        return marketDataServiceClient.getTradingHours()
+            .exceptionally(throwable -> {
+                log.error("Error fetching trading hours: ", throwable);
+                throw new RuntimeException("Failed to fetch trading hours", throwable);
+            });
+    }
+
+    /**
+     * Get available symbols for trading
+     */
+    @DgsQuery
+    @PreAuthorize("hasRole('USER')")
+    @Cacheable(value = "availableSymbols", key = "'all'")
+    public CompletableFuture<List<MarketSymbolResponse>> availableSymbols() {
+        log.debug("Fetching available trading symbols");
+
+        return marketDataServiceClient.getAvailableSymbols()
+            .exceptionally(throwable -> {
+                log.error("Error fetching available symbols: ", throwable);
+                throw new RuntimeException("Failed to fetch available symbols", throwable);
+            });
+    }
+
+    // ===============================
+    // Real-time Subscriptions
+    // ===============================
+
+    /**
+     * Subscribe to real-time market data updates for multiple symbols
+     */
+    @DgsSubscription
+    @PreAuthorize("hasRole('USER')")
+    public Flux<MarketDataUpdate> marketDataUpdates(@InputArgument List<String> symbols) {
+        log.debug("Subscribing to market data updates for symbols: {}", symbols);
+
+        if (symbols.isEmpty()) {
+            return Flux.empty();
+        }
+
+        if (symbols.size() > 20) {
+            throw new RuntimeException("Maximum 20 symbols allowed for real-time subscription");
+        }
+
+        // Log subscription for compliance (Turkish market regulations)
+        String userId = securityContext.getCurrentUserId();
+        log.info("User {} subscribed to market data for symbols: {}", userId, symbols);
+
+        return marketDataServiceClient.subscribeToMarketDataUpdates(symbols)
+            .doOnNext(update -> log.trace("Market data update: {} @ {}", update.getSymbol(), update.getPrice()))
+            .doOnError(error -> log.error("Error in market data subscription: ", error))
+            .onErrorResume(error -> {
+                log.warn("Resuming market data subscription after error: {}", error.getMessage());
+                return Flux.empty();
+            });
+    }
+
+    /**
+     * Subscribe to price alerts for specific user
+     */
+    @DgsSubscription
+    @PreAuthorize("hasRole('USER')")
+    public Flux<PriceAlert> priceAlerts(@InputArgument String userId) {
+        String targetUserId = userId != null ? userId : securityContext.getCurrentUserId();
+
+        // Verify access
+        if (!targetUserId.equals(securityContext.getCurrentUserId()) && !securityContext.hasRole("ADMIN")) {
+            throw new RuntimeException("Access denied to user price alerts: " + targetUserId);
+        }
+
+        log.debug("Subscribing to price alerts for user: {}", targetUserId);
+
+        return marketDataServiceClient.subscribeToPriceAlerts(targetUserId)
+            .doOnNext(alert -> log.info("Price alert triggered for user {}: {} {} {}",
+                targetUserId, alert.getSymbol(), alert.getAlertType(), alert.getTargetPrice()))
+            .doOnError(error -> log.error("Error in price alerts subscription: ", error));
+    }
+
+    // ===============================
+    // Field resolvers (DataLoader usage)
+    // ===============================
+
+    /**
+     * Resolve market depth data using DataLoader
+     */
+    @DgsData(parentType = "MarketData", field = "depth")
+    public CompletableFuture<MarketDepthResponse> marketDepth(DgsDataFetchingEnvironment dfe) {
+        MarketDataResponse marketData = dfe.getSource();
+        DataLoader<String, MarketDepthResponse> dataLoader =
+            dfe.getDataLoader("marketDepthLoader");
+
+        return dataLoader.load(marketData.getSymbol());
+    }
+
+    /**
+     * Resolve technical indicators using DataLoader
+     */
+    @DgsData(parentType = "MarketData", field = "technicalIndicators")
+    public CompletableFuture<TechnicalIndicatorsResponse> technicalIndicators(DgsDataFetchingEnvironment dfe) {
+        MarketDataResponse marketData = dfe.getSource();
+        DataLoader<String, TechnicalIndicatorsResponse> dataLoader =
+            dfe.getDataLoader("technicalIndicatorsLoader");
+
+        return dataLoader.load(marketData.getSymbol());
+    }
+
+    // ===============================
+    // Helper classes and types
+    // ===============================
+
+    public static class TimePeriod {
+        private String period;
+        private int count;
+
+        public String getPeriod() { return period; }
+        public void setPeriod(String period) { this.period = period; }
+        public int getCount() { return count; }
+        public void setCount(int count) { this.count = count; }
+
+        @Override
+        public int hashCode() {
+            return java.util.Objects.hash(period, count);
+        }
+    }
+
+    public static class DateRange {
+        private String start;
+        private String end;
+
+        public String getStart() { return start; }
+        public void setStart(String start) { this.start = start; }
+        public String getEnd() { return end; }
+        public void setEnd(String end) { this.end = end; }
+
+        @Override
+        public int hashCode() {
+            return java.util.Objects.hash(start, end);
+        }
+    }
+
+    // Real-time update types
+    public static class MarketDataUpdate {
+        private String symbol;
+        private java.math.BigDecimal price;
+        private java.math.BigDecimal change;
+        private java.math.BigDecimal changePercent;
+        private java.math.BigDecimal volume;
+        private java.time.OffsetDateTime timestamp;
+        private java.math.BigDecimal bid;
+        private java.math.BigDecimal ask;
+        private java.time.OffsetDateTime lastTradeTime;
+
+        // Getters and setters
+        public String getSymbol() { return symbol; }
+        public void setSymbol(String symbol) { this.symbol = symbol; }
+        public java.math.BigDecimal getPrice() { return price; }
+        public void setPrice(java.math.BigDecimal price) { this.price = price; }
+        public java.math.BigDecimal getChange() { return change; }
+        public void setChange(java.math.BigDecimal change) { this.change = change; }
+        public java.math.BigDecimal getChangePercent() { return changePercent; }
+        public void setChangePercent(java.math.BigDecimal changePercent) { this.changePercent = changePercent; }
+        public java.math.BigDecimal getVolume() { return volume; }
+        public void setVolume(java.math.BigDecimal volume) { this.volume = volume; }
+        public java.time.OffsetDateTime getTimestamp() { return timestamp; }
+        public void setTimestamp(java.time.OffsetDateTime timestamp) { this.timestamp = timestamp; }
+        public java.math.BigDecimal getBid() { return bid; }
+        public void setBid(java.math.BigDecimal bid) { this.bid = bid; }
+        public java.math.BigDecimal getAsk() { return ask; }
+        public void setAsk(java.math.BigDecimal ask) { this.ask = ask; }
+        public java.time.OffsetDateTime getLastTradeTime() { return lastTradeTime; }
+        public void setLastTradeTime(java.time.OffsetDateTime lastTradeTime) { this.lastTradeTime = lastTradeTime; }
+    }
+
+    public static class PriceAlert {
+        private String id;
+        private String userId;
+        private String symbol;
+        private String alertType;
+        private java.math.BigDecimal targetPrice;
+        private java.math.BigDecimal currentPrice;
+        private String message;
+        private String messageTR;
+        private java.time.OffsetDateTime timestamp;
+        private boolean isUrgent;
+
+        // Getters and setters
+        public String getId() { return id; }
+        public void setId(String id) { this.id = id; }
+        public String getUserId() { return userId; }
+        public void setUserId(String userId) { this.userId = userId; }
+        public String getSymbol() { return symbol; }
+        public void setSymbol(String symbol) { this.symbol = symbol; }
+        public String getAlertType() { return alertType; }
+        public void setAlertType(String alertType) { this.alertType = alertType; }
+        public java.math.BigDecimal getTargetPrice() { return targetPrice; }
+        public void setTargetPrice(java.math.BigDecimal targetPrice) { this.targetPrice = targetPrice; }
+        public java.math.BigDecimal getCurrentPrice() { return currentPrice; }
+        public void setCurrentPrice(java.math.BigDecimal currentPrice) { this.currentPrice = currentPrice; }
+        public String getMessage() { return message; }
+        public void setMessage(String message) { this.message = message; }
+        public String getMessageTR() { return messageTR; }
+        public void setMessageTR(String messageTR) { this.messageTR = messageTR; }
+        public java.time.OffsetDateTime getTimestamp() { return timestamp; }
+        public void setTimestamp(java.time.OffsetDateTime timestamp) { this.timestamp = timestamp; }
+        public boolean isUrgent() { return isUrgent; }
+        public void setUrgent(boolean urgent) { isUrgent = urgent; }
+    }
+
+    public static class TradingSessionResponse {
+        private boolean isOpen;
+        private java.time.OffsetDateTime nextOpen;
+        private java.time.OffsetDateTime nextClose;
+        private String currentSession;
+        private MarketHoursResponse marketHours;
+        private List<HolidayResponse> holidays;
+
+        // Getters and setters
+        public boolean isOpen() { return isOpen; }
+        public void setOpen(boolean open) { isOpen = open; }
+        public java.time.OffsetDateTime getNextOpen() { return nextOpen; }
+        public void setNextOpen(java.time.OffsetDateTime nextOpen) { this.nextOpen = nextOpen; }
+        public java.time.OffsetDateTime getNextClose() { return nextClose; }
+        public void setNextClose(java.time.OffsetDateTime nextClose) { this.nextClose = nextClose; }
+        public String getCurrentSession() { return currentSession; }
+        public void setCurrentSession(String currentSession) { this.currentSession = currentSession; }
+        public MarketHoursResponse getMarketHours() { return marketHours; }
+        public void setMarketHours(MarketHoursResponse marketHours) { this.marketHours = marketHours; }
+        public List<HolidayResponse> getHolidays() { return holidays; }
+        public void setHolidays(List<HolidayResponse> holidays) { this.holidays = holidays; }
+    }
+
+    public static class MarketHoursResponse {
+        private TimeRangeResponse preMarket;
+        private TimeRangeResponse regular;
+        private TimeRangeResponse postMarket;
+        private String timezone;
+
+        // Getters and setters
+        public TimeRangeResponse getPreMarket() { return preMarket; }
+        public void setPreMarket(TimeRangeResponse preMarket) { this.preMarket = preMarket; }
+        public TimeRangeResponse getRegular() { return regular; }
+        public void setRegular(TimeRangeResponse regular) { this.regular = regular; }
+        public TimeRangeResponse getPostMarket() { return postMarket; }
+        public void setPostMarket(TimeRangeResponse postMarket) { this.postMarket = postMarket; }
+        public String getTimezone() { return timezone; }
+        public void setTimezone(String timezone) { this.timezone = timezone; }
+    }
+
+    public static class TimeRangeResponse {
+        private String start;
+        private String end;
+
+        public String getStart() { return start; }
+        public void setStart(String start) { this.start = start; }
+        public String getEnd() { return end; }
+        public void setEnd(String end) { this.end = end; }
+    }
+
+    public static class HolidayResponse {
+        private java.time.OffsetDateTime date;
+        private String name;
+        private String nameTR;
+        private String type;
+
+        public java.time.OffsetDateTime getDate() { return date; }
+        public void setDate(java.time.OffsetDateTime date) { this.date = date; }
+        public String getName() { return name; }
+        public void setName(String name) { this.name = name; }
+        public String getNameTR() { return nameTR; }
+        public void setNameTR(String nameTR) { this.nameTR = nameTR; }
+        public String getType() { return type; }
+        public void setType(String type) { this.type = type; }
+    }
+
+    public static class MarketDepthResponse {
+        private List<PriceLevelResponse> bids;
+        private List<PriceLevelResponse> asks;
+        private java.time.OffsetDateTime lastUpdate;
+        private java.math.BigDecimal totalBidVolume;
+        private java.math.BigDecimal totalAskVolume;
+        private java.math.BigDecimal spread;
+        private java.math.BigDecimal spreadPercent;
+
+        // Getters and setters - simplified for brevity
+    }
+
+    public static class PriceLevelResponse {
+        private java.math.BigDecimal price;
+        private java.math.BigDecimal quantity;
+        private int orderCount;
+
+        // Getters and setters - simplified for brevity
+    }
+
+    public static class TechnicalIndicatorsResponse {
+        private java.math.BigDecimal sma20;
+        private java.math.BigDecimal sma50;
+        private java.math.BigDecimal sma200;
+        private java.math.BigDecimal ema12;
+        private java.math.BigDecimal ema26;
+        private java.math.BigDecimal rsi;
+        private MACDResponse macd;
+        private BollingerBandsResponse bollinger;
+        private VolumeIndicatorsResponse volume;
+        private MomentumIndicatorsResponse momentum;
+
+        // Getters and setters - simplified for brevity
+    }
+
+    public static class MACDResponse {
+        private java.math.BigDecimal macdLine;
+        private java.math.BigDecimal signalLine;
+        private java.math.BigDecimal histogram;
+
+        // Getters and setters - simplified for brevity
+    }
+
+    public static class BollingerBandsResponse {
+        private java.math.BigDecimal upper;
+        private java.math.BigDecimal middle;
+        private java.math.BigDecimal lower;
+        private java.math.BigDecimal width;
+
+        // Getters and setters - simplified for brevity
+    }
+
+    public static class VolumeIndicatorsResponse {
+        private java.math.BigDecimal volumeMA;
+        private java.math.BigDecimal volumeRatio;
+        private java.math.BigDecimal onBalanceVolume;
+        private java.math.BigDecimal volumeWeightedAveragePrice;
+
+        // Getters and setters - simplified for brevity
+    }
+
+    public static class MomentumIndicatorsResponse {
+        private java.math.BigDecimal stochasticK;
+        private java.math.BigDecimal stochasticD;
+        private java.math.BigDecimal williamsR;
+        private java.math.BigDecimal cci;
+
+        // Getters and setters - simplified for brevity
+    }
+}

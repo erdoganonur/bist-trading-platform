@@ -1,0 +1,89 @@
+version: '3.8'
+
+services:
+  # API Gateway
+  bist-trading-gateway:
+    build: .
+    container_name: bist-trading-gateway
+    ports:
+      - "8080:8080"
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+      - SPRING_DATA_REDIS_HOST=redis
+      - SPRING_DATA_REDIS_PORT=6379
+      - LOGGING_LEVEL_COM_BISTTRADING=DEBUG
+    depends_on:
+      - redis
+      - user-management-service
+    networks:
+      - bist-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health/live"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  # Redis for Rate Limiting and Caching
+  redis:
+    image: redis:7-alpine
+    container_name: bist-redis
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes
+    volumes:
+      - redis-data:/data
+    networks:
+      - bist-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # User Management Service (mock)
+  user-management-service:
+    image: nginx:alpine
+    container_name: user-management-mock
+    ports:
+      - "8081:80"
+    volumes:
+      - ./mock-responses/user-service:/usr/share/nginx/html
+    networks:
+      - bist-network
+    restart: unless-stopped
+
+  # Market Data Service (mock)
+  market-data-service:
+    image: nginx:alpine
+    container_name: market-data-mock
+    ports:
+      - "8083:80"
+    volumes:
+      - ./mock-responses/market-data:/usr/share/nginx/html
+    networks:
+      - bist-network
+    restart: unless-stopped
+
+  # Order Management Service (mock)
+  order-management-service:
+    image: nginx:alpine
+    container_name: order-management-mock
+    ports:
+      - "8082:80"
+    volumes:
+      - ./mock-responses/order-service:/usr/share/nginx/html
+    networks:
+      - bist-network
+    restart: unless-stopped
+
+volumes:
+  redis-data:
+    driver: local
+
+networks:
+  bist-network:
+    driver: bridge
+    name: bist-trading-network

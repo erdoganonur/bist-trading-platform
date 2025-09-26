@@ -1,0 +1,541 @@
+package com.bisttrading.graphql.datafetcher;
+
+import com.bisttrading.graphql.client.OrderManagementServiceClient;
+import com.bisttrading.graphql.security.GraphQLSecurityContext;
+import com.bisttrading.oms.dto.CreateOrderRequest;
+import com.bisttrading.oms.dto.OrderResponse;
+import com.bisttrading.oms.dto.OrderStatisticsResponse;
+import com.bisttrading.oms.dto.UpdateOrderRequest;
+import com.bisttrading.oms.dto.BatchOrderRequest;
+import com.bisttrading.oms.dto.BatchOrderResponse;
+import com.bisttrading.common.dto.PagedResponse;
+import com.netflix.graphql.dgs.DgsComponent;
+import com.netflix.graphql.dgs.DgsData;
+import com.netflix.graphql.dgs.DgsQuery;
+import com.netflix.graphql.dgs.DgsMutation;
+import com.netflix.graphql.dgs.DgsSubscription;
+import com.netflix.graphql.dgs.InputArgument;
+import com.netflix.graphql.dgs.DgsDataFetchingEnvironment;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.dataloader.DataLoader;
+import org.springframework.security.access.prepost.PreAuthorize;
+import reactor.core.publisher.Flux;
+
+import java.math.BigDecimal;
+import java.time.OffsetDateTime;
+import java.util.List;
+import java.util.concurrent.CompletableFuture;
+
+/**
+ * GraphQL DataFetcher for Order domain operations
+ *
+ * Provides unified access to order management functionality with real-time subscriptions
+ */
+@Slf4j
+@DgsComponent
+@RequiredArgsConstructor
+public class OrderDataFetcher {
+
+    private final OrderManagementServiceClient orderServiceClient;
+    private final GraphQLSecurityContext securityContext;
+
+    /**
+     * Get order by ID
+     */
+    @DgsQuery
+    @PreAuthorize("hasRole('USER')")
+    public CompletableFuture<OrderResponse> order(@InputArgument String id) {
+        log.debug("Fetching order by ID: {}", id);
+        String userId = securityContext.getCurrentUserId();
+
+        return orderServiceClient.getOrder(id)
+            .thenApply(order -> {
+                // Verify user can access this order
+                if (!order.getUserId().equals(userId) && !securityContext.hasRole("ADMIN")) {
+                    throw new RuntimeException("Access denied to order: " + id);
+                }
+                return order;
+            })
+            .exceptionally(throwable -> {
+                log.error("Error fetching order {}: ", id, throwable);
+                throw new RuntimeException("Failed to fetch order: " + id, throwable);
+            });
+    }
+
+    /**
+     * Get orders with filtering and pagination
+     */
+    @DgsQuery
+    @PreAuthorize("hasRole('USER')")
+    public CompletableFuture<PagedResponse<OrderResponse>> orders(
+            @InputArgument OrderFilter filter,
+            @InputArgument OrderSortBy sortBy,
+            @InputArgument Integer first,
+            @InputArgument String after) {
+
+        log.debug("Fetching orders with filter: {}", filter);
+        String userId = securityContext.getCurrentUserId();
+
+        // Add user filter if not admin
+        if (!securityContext.hasRole("ADMIN")) {
+            if (filter == null) {
+                filter = new OrderFilter();
+            }
+            filter.setUserId(userId);
+        }
+
+        int page = after != null ? Integer.parseInt(after) : 0;
+        int size = first != null ? first : 20;
+
+        return orderServiceClient.getOrders(filter, sortBy, page, size)
+            .exceptionally(throwable -> {
+                log.error("Error fetching orders: ", throwable);
+                throw new RuntimeException("Failed to fetch orders", throwable);
+            });
+    }
+
+    /**
+     * Get order statistics
+     */
+    @DgsQuery
+    @PreAuthorize("hasRole('USER')")
+    public CompletableFuture<OrderStatisticsResponse> orderStatistics(
+            @InputArgument String userId,
+            @InputArgument DateRange dateRange) {
+
+        log.debug("Fetching order statistics for userId: {}", userId);
+
+        // If userId not provided, use current user
+        String targetUserId = userId != null ? userId : securityContext.getCurrentUserId();
+
+        // Verify access
+        if (!targetUserId.equals(securityContext.getCurrentUserId()) && !securityContext.hasRole("ADMIN")) {
+            throw new RuntimeException("Access denied to user statistics: " + targetUserId);
+        }
+
+        return orderServiceClient.getOrderStatistics(targetUserId, dateRange)
+            .exceptionally(throwable -> {
+                log.error("Error fetching order statistics: ", throwable);
+                throw new RuntimeException("Failed to fetch order statistics", throwable);
+            });
+    }
+
+    /**
+     * Create new order
+     */
+    @DgsMutation
+    @PreAuthorize("hasRole('USER')")
+    public CompletableFuture<OrderResult> createOrder(@InputArgument CreateOrderInput input) {
+        log.debug("Creating order: {} {} {} @ {}", input.getSide(), input.getQuantity(), input.getSymbol(), input.getPrice());
+        String userId = securityContext.getCurrentUserId();
+
+        CreateOrderRequest request = mapToCreateOrderRequest(input, userId);
+
+        return orderServiceClient.createOrder(request)
+            .thenApply(order -> OrderResult.builder()
+                .success(true)
+                .order(order)
+                .build())
+            .exceptionally(throwable -> {
+                log.error("Error creating order: ", throwable);
+                return OrderResult.builder()
+                    .success(false)
+                    .errors(List.of(ValidationError.builder()
+                        .field("order")
+                        .message("Failed to create order: " + throwable.getMessage())
+                        .messageTR("Emir oluşturulamadı: " + throwable.getMessage())
+                        .build()))
+                    .build();
+            });
+    }
+
+    /**
+     * Update existing order
+     */
+    @DgsMutation
+    @PreAuthorize("hasRole('USER')")
+    public CompletableFuture<OrderResult> updateOrder(
+            @InputArgument String id,
+            @InputArgument UpdateOrderInput input) {
+
+        log.debug("Updating order: {}", id);
+        String userId = securityContext.getCurrentUserId();
+
+        // First verify user owns the order
+        return orderServiceClient.getOrder(id)
+            .thenCompose(existingOrder -> {
+                if (!existingOrder.getUserId().equals(userId) && !securityContext.hasRole("ADMIN")) {
+                    throw new RuntimeException("Access denied to order: " + id);
+                }
+
+                UpdateOrderRequest request = mapToUpdateOrderRequest(input, id);
+                return orderServiceClient.updateOrder(id, request);
+            })
+            .thenApply(order -> OrderResult.builder()
+                .success(true)
+                .order(order)
+                .build())
+            .exceptionally(throwable -> {
+                log.error("Error updating order {}: ", id, throwable);
+                return OrderResult.builder()
+                    .success(false)
+                    .errors(List.of(ValidationError.builder()
+                        .field("order")
+                        .message("Failed to update order: " + throwable.getMessage())
+                        .messageTR("Emir güncellenemedi: " + throwable.getMessage())
+                        .build()))
+                    .build();
+            });
+    }
+
+    /**
+     * Cancel order
+     */
+    @DgsMutation
+    @PreAuthorize("hasRole('USER')")
+    public CompletableFuture<OrderResult> cancelOrder(
+            @InputArgument String id,
+            @InputArgument String reason) {
+
+        log.debug("Cancelling order: {}", id);
+        String userId = securityContext.getCurrentUserId();
+
+        // First verify user owns the order
+        return orderServiceClient.getOrder(id)
+            .thenCompose(existingOrder -> {
+                if (!existingOrder.getUserId().equals(userId) && !securityContext.hasRole("ADMIN")) {
+                    throw new RuntimeException("Access denied to order: " + id);
+                }
+
+                return orderServiceClient.cancelOrder(id, reason);
+            })
+            .thenApply(order -> OrderResult.builder()
+                .success(true)
+                .order(order)
+                .build())
+            .exceptionally(throwable -> {
+                log.error("Error cancelling order {}: ", id, throwable);
+                return OrderResult.builder()
+                    .success(false)
+                    .errors(List.of(ValidationError.builder()
+                        .field("order")
+                        .message("Failed to cancel order: " + throwable.getMessage())
+                        .messageTR("Emir iptal edilemedi: " + throwable.getMessage())
+                        .build()))
+                    .build();
+            });
+    }
+
+    /**
+     * Create batch orders
+     */
+    @DgsMutation
+    @PreAuthorize("hasRole('USER')")
+    public CompletableFuture<BatchOrderResult> createBatchOrders(@InputArgument BatchOrderInput input) {
+        log.debug("Creating batch orders: {} orders", input.getOrders().size());
+        String userId = securityContext.getCurrentUserId();
+
+        BatchOrderRequest request = BatchOrderRequest.builder()
+            .orders(input.getOrders().stream()
+                .map(orderInput -> mapToCreateOrderRequest(orderInput, userId))
+                .toList())
+            .validateOnly(input.getValidateOnly())
+            .build();
+
+        return orderServiceClient.createBatchOrders(request)
+            .thenApply(response -> mapToBatchOrderResult(response))
+            .exceptionally(throwable -> {
+                log.error("Error creating batch orders: ", throwable);
+                throw new RuntimeException("Failed to create batch orders", throwable);
+            });
+    }
+
+    // ===============================
+    // Subscriptions for real-time updates
+    // ===============================
+
+    /**
+     * Subscribe to order status updates
+     */
+    @DgsSubscription
+    @PreAuthorize("hasRole('USER')")
+    public Flux<OrderStatusUpdate> orderStatusUpdates(@InputArgument String userId) {
+        String targetUserId = userId != null ? userId : securityContext.getCurrentUserId();
+
+        // Verify access
+        if (!targetUserId.equals(securityContext.getCurrentUserId()) && !securityContext.hasRole("ADMIN")) {
+            throw new RuntimeException("Access denied to user order updates: " + targetUserId);
+        }
+
+        log.debug("Subscribing to order status updates for user: {}", targetUserId);
+        return orderServiceClient.subscribeToOrderUpdates(targetUserId);
+    }
+
+    /**
+     * Subscribe to order fill updates
+     */
+    @DgsSubscription
+    @PreAuthorize("hasRole('USER')")
+    public Flux<OrderFill> orderFillUpdates(@InputArgument String userId) {
+        String targetUserId = userId != null ? userId : securityContext.getCurrentUserId();
+
+        // Verify access
+        if (!targetUserId.equals(securityContext.getCurrentUserId()) && !securityContext.hasRole("ADMIN")) {
+            throw new RuntimeException("Access denied to user order fills: " + targetUserId);
+        }
+
+        log.debug("Subscribing to order fill updates for user: {}", targetUserId);
+        return orderServiceClient.subscribeToOrderFills(targetUserId);
+    }
+
+    // ===============================
+    // Field resolvers (DataLoader usage)
+    // ===============================
+
+    /**
+     * Resolve order market data using DataLoader
+     */
+    @DgsData(parentType = "Order", field = "marketData")
+    public CompletableFuture<MarketDataResponse> orderMarketData(DgsDataFetchingEnvironment dfe) {
+        OrderResponse order = dfe.getSource();
+        DataLoader<String, MarketDataResponse> dataLoader =
+            dfe.getDataLoader("marketDataLoader");
+
+        return dataLoader.load(order.getSymbol());
+    }
+
+    /**
+     * Resolve order fills using DataLoader
+     */
+    @DgsData(parentType = "Order", field = "fills")
+    public CompletableFuture<List<OrderFillResponse>> orderFills(DgsDataFetchingEnvironment dfe) {
+        OrderResponse order = dfe.getSource();
+        DataLoader<String, List<OrderFillResponse>> dataLoader =
+            dfe.getDataLoader("orderFillsLoader");
+
+        return dataLoader.load(order.getId());
+    }
+
+    // ===============================
+    // Helper methods
+    // ===============================
+
+    private CreateOrderRequest mapToCreateOrderRequest(CreateOrderInput input, String userId) {
+        return CreateOrderRequest.builder()
+            .clientOrderId(input.getClientOrderId())
+            .userId(userId)
+            .symbol(input.getSymbol())
+            .side(input.getSide())
+            .type(input.getType())
+            .quantity(input.getQuantity())
+            .price(input.getPrice())
+            .stopPrice(input.getStopPrice())
+            .timeInForce(input.getTimeInForce() != null ? input.getTimeInForce() : "DAY")
+            .notes(input.getNotes())
+            .build();
+    }
+
+    private UpdateOrderRequest mapToUpdateOrderRequest(UpdateOrderInput input, String orderId) {
+        return UpdateOrderRequest.builder()
+            .orderId(orderId)
+            .quantity(input.getQuantity())
+            .price(input.getPrice())
+            .stopPrice(input.getStopPrice())
+            .build();
+    }
+
+    private BatchOrderResult mapToBatchOrderResult(BatchOrderResponse response) {
+        return BatchOrderResult.builder()
+            .success(response.isSuccess())
+            .orders(response.getSuccessfulOrders())
+            .failedOrders(response.getFailedOrders().stream()
+                .map(failed -> FailedOrder.builder()
+                    .input(failed.getOriginalInput())
+                    .errors(failed.getErrors())
+                    .reason(failed.getReason())
+                    .build())
+                .toList())
+            .summary(BatchOrderSummary.builder()
+                .totalRequested(response.getTotalRequested())
+                .successful(response.getSuccessful())
+                .failed(response.getFailed())
+                .totalValue(response.getTotalValue())
+                .build())
+            .build();
+    }
+
+    // Inner classes for GraphQL types (normally generated)
+    public static class CreateOrderInput {
+        private String clientOrderId;
+        private String symbol;
+        private String side;
+        private String type;
+        private BigDecimal quantity;
+        private BigDecimal price;
+        private BigDecimal stopPrice;
+        private String timeInForce;
+        private String notes;
+
+        // Getters and setters
+        public String getClientOrderId() { return clientOrderId; }
+        public void setClientOrderId(String clientOrderId) { this.clientOrderId = clientOrderId; }
+        public String getSymbol() { return symbol; }
+        public void setSymbol(String symbol) { this.symbol = symbol; }
+        public String getSide() { return side; }
+        public void setSide(String side) { this.side = side; }
+        public String getType() { return type; }
+        public void setType(String type) { this.type = type; }
+        public BigDecimal getQuantity() { return quantity; }
+        public void setQuantity(BigDecimal quantity) { this.quantity = quantity; }
+        public BigDecimal getPrice() { return price; }
+        public void setPrice(BigDecimal price) { this.price = price; }
+        public BigDecimal getStopPrice() { return stopPrice; }
+        public void setStopPrice(BigDecimal stopPrice) { this.stopPrice = stopPrice; }
+        public String getTimeInForce() { return timeInForce; }
+        public void setTimeInForce(String timeInForce) { this.timeInForce = timeInForce; }
+        public String getNotes() { return notes; }
+        public void setNotes(String notes) { this.notes = notes; }
+    }
+
+    public static class UpdateOrderInput {
+        private BigDecimal quantity;
+        private BigDecimal price;
+        private BigDecimal stopPrice;
+
+        public BigDecimal getQuantity() { return quantity; }
+        public void setQuantity(BigDecimal quantity) { this.quantity = quantity; }
+        public BigDecimal getPrice() { return price; }
+        public void setPrice(BigDecimal price) { this.price = price; }
+        public BigDecimal getStopPrice() { return stopPrice; }
+        public void setStopPrice(BigDecimal stopPrice) { this.stopPrice = stopPrice; }
+    }
+
+    public static class BatchOrderInput {
+        private List<CreateOrderInput> orders;
+        private Boolean validateOnly;
+
+        public List<CreateOrderInput> getOrders() { return orders; }
+        public void setOrders(List<CreateOrderInput> orders) { this.orders = orders; }
+        public Boolean getValidateOnly() { return validateOnly; }
+        public void setValidateOnly(Boolean validateOnly) { this.validateOnly = validateOnly; }
+    }
+
+    public static class OrderFilter {
+        private String userId;
+        private List<String> status;
+        private List<String> side;
+        private List<String> symbols;
+        private DateRange dateRange;
+        private BigDecimal minQuantity;
+        private BigDecimal maxQuantity;
+        private BigDecimal minPrice;
+        private BigDecimal maxPrice;
+
+        // Getters and setters
+        public String getUserId() { return userId; }
+        public void setUserId(String userId) { this.userId = userId; }
+
+        @Override
+        public int hashCode() {
+            return java.util.Objects.hash(userId, status, side, symbols, dateRange, minQuantity, maxQuantity, minPrice, maxPrice);
+        }
+    }
+
+    // Result types
+    public static class OrderResult {
+        private boolean success;
+        private OrderResponse order;
+        private List<ValidationError> errors;
+        private List<String> warnings;
+        private List<String> warningsTR;
+
+        public static OrderResultBuilder builder() {
+            return new OrderResultBuilder();
+        }
+
+        // Getters and setters
+        public boolean isSuccess() { return success; }
+        public void setSuccess(boolean success) { this.success = success; }
+        public OrderResponse getOrder() { return order; }
+        public void setOrder(OrderResponse order) { this.order = order; }
+        public List<ValidationError> getErrors() { return errors; }
+        public void setErrors(List<ValidationError> errors) { this.errors = errors; }
+        public List<String> getWarnings() { return warnings; }
+        public void setWarnings(List<String> warnings) { this.warnings = warnings; }
+        public List<String> getWarningsTR() { return warningsTR; }
+        public void setWarningsTR(List<String> warningsTR) { this.warningsTR = warningsTR; }
+
+        public static class OrderResultBuilder {
+            private OrderResult result = new OrderResult();
+
+            public OrderResultBuilder success(boolean success) {
+                result.setSuccess(success);
+                return this;
+            }
+
+            public OrderResultBuilder order(OrderResponse order) {
+                result.setOrder(order);
+                return this;
+            }
+
+            public OrderResultBuilder errors(List<ValidationError> errors) {
+                result.setErrors(errors);
+                return this;
+            }
+
+            public OrderResult build() {
+                return result;
+            }
+        }
+    }
+
+    public static class ValidationError {
+        private String field;
+        private String message;
+        private String messageTR;
+        private String code;
+
+        public static ValidationErrorBuilder builder() {
+            return new ValidationErrorBuilder();
+        }
+
+        // Getters and setters
+        public String getField() { return field; }
+        public void setField(String field) { this.field = field; }
+        public String getMessage() { return message; }
+        public void setMessage(String message) { this.message = message; }
+        public String getMessageTR() { return messageTR; }
+        public void setMessageTR(String messageTR) { this.messageTR = messageTR; }
+        public String getCode() { return code; }
+        public void setCode(String code) { this.code = code; }
+
+        public static class ValidationErrorBuilder {
+            private ValidationError error = new ValidationError();
+
+            public ValidationErrorBuilder field(String field) {
+                error.setField(field);
+                return this;
+            }
+
+            public ValidationErrorBuilder message(String message) {
+                error.setMessage(message);
+                return this;
+            }
+
+            public ValidationErrorBuilder messageTR(String messageTR) {
+                error.setMessageTR(messageTR);
+                return this;
+            }
+
+            public ValidationErrorBuilder code(String code) {
+                error.setCode(code);
+                return this;
+            }
+
+            public ValidationError build() {
+                return error;
+            }
+        }
+    }
+}

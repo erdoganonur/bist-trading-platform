@@ -1,12 +1,14 @@
 package com.bisttrading.core.security.test;
 
 import com.bisttrading.core.security.dto.*;
+import com.bisttrading.core.security.service.CustomUserDetails;
 import lombok.experimental.UtilityClass;
 
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -73,9 +75,17 @@ public class TestDataBuilder {
             .refreshToken("eyJhbGciOiJSUzI1NiJ9.eyJzdWIiOiJ0ZXN0QGV4YW1wbGUuY29tIiwidHlwIjoicmVmcmVzaCJ9.signature")
             .tokenType("Bearer")
             .expiresIn(900L)
-            // .userId(UUID.randomUUID().toString()) // TODO: Fix JwtResponse builder
-            .username("test@example.com")
-            .authorities(List.of("ROLE_USER"));
+            .user(JwtResponse.UserInfo.builder()
+                .userId(UUID.randomUUID().toString())
+                .username("test@example.com")
+                .email("test@example.com")
+                .fullName("Test User")
+                .roles(Set.of("ROLE_USER"))
+                .active(true)
+                .emailVerified(true)
+                .phoneVerified(true)
+                .kycCompleted(true)
+                .build());
     }
 
     /**
@@ -290,6 +300,54 @@ public class TestDataBuilder {
         public static final String EMPTY_TOKEN = "";
 
         public static final String NULL_TOKEN = null;
+    }
+
+    /**
+     * Creates test CustomUserDetails instances.
+     */
+    public static CustomUserDetails createTestUserDetails() {
+        return CustomUserDetails.builder()
+            .userId("test-user-123")
+            .username("test@example.com")
+            .email("test@example.com")
+            .password("$2a$10$encoded.password.hash")
+            .firstName("Test")
+            .lastName("User")
+            .phoneNumber("+905551234567")
+            .tcKimlik("12345678901")
+            .active(true)
+            .emailVerified(true)
+            .phoneVerified(true)
+            .kycCompleted(true)
+            .accountNonExpired(true)
+            .accountNonLocked(true)
+            .credentialsNonExpired(true)
+            .enabled(true)
+            .build();
+    }
+
+    /**
+     * Creates test CustomUserDetails with Turkish characters.
+     */
+    public static CustomUserDetails createTurkishUserDetails() {
+        return CustomUserDetails.builder()
+            .userId("türk-kullanıcı-456")
+            .username("çağlar@example.com")
+            .email("çağlar@example.com")
+            .password("$2a$10$encoded.password.hash")
+            .firstName("Çağlar")
+            .lastName("Şıktırıkoğlu")
+            .phoneNumber("+905559876543")
+            .tcKimlik("98765432109")
+            .active(true)
+            .emailVerified(true)
+            .phoneVerified(true)
+            .kycCompleted(true)
+            .accountNonExpired(true)
+            .accountNonLocked(true)
+            .credentialsNonExpired(true)
+            .enabled(true)
+            .build();
     }
 
     /**

@@ -27,6 +27,12 @@ include 'platform-services:market-data-service'
 include 'platform-services:broker-integration-service'
 include 'platform-services:order-management-service'
 
+// API Gateway
+include 'platform-api-gateway'
+
+// GraphQL Gateway
+include 'platform-graphql-gateway'
+
 // Set project directories
 project(':platform-core:core-common').projectDir = file('platform-core/core-common')
 project(':platform-core:core-domain').projectDir = file('platform-core/core-domain')
@@ -41,6 +47,10 @@ project(':platform-services:user-management-service').projectDir = file('platfor
 project(':platform-services:market-data-service').projectDir = file('platform-services/market-data-service')
 project(':platform-services:broker-integration-service').projectDir = file('platform-services/broker-integration-service')
 project(':platform-services:order-management-service').projectDir = file('platform-services/order-management-service')
+
+project(':platform-api-gateway').projectDir = file('platform-api-gateway')
+
+project(':platform-graphql-gateway').projectDir = file('platform-graphql-gateway')
 
 // Dependency resolution
 dependencyResolutionManagement {

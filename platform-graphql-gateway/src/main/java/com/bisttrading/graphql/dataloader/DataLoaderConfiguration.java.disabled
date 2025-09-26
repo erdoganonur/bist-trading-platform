@@ -1,0 +1,416 @@
+package com.bisttrading.graphql.dataloader;
+
+import com.bisttrading.graphql.client.UserManagementServiceClient;
+import com.bisttrading.graphql.client.OrderManagementServiceClient;
+import com.bisttrading.graphql.client.MarketDataServiceClient;
+import com.bisttrading.graphql.client.BrokerIntegrationServiceClient;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.dataloader.BatchLoader;
+import org.dataloader.DataLoader;
+import org.dataloader.DataLoaderOptions;
+import org.dataloader.DataLoaderRegistry;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
+import java.time.Duration;
+import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+import java.util.List;
+
+/**
+ * DataLoader configuration for preventing N+1 query problems in GraphQL
+ *
+ * Implements efficient batch loading for:
+ * - User orders and portfolios
+ * - Market data for multiple symbols
+ * - Order fills and related data
+ * - Technical indicators
+ */
+@Slf4j
+@Configuration
+@RequiredArgsConstructor
+public class DataLoaderConfiguration {
+
+    private final UserManagementServiceClient userServiceClient;
+    private final OrderManagementServiceClient orderServiceClient;
+    private final MarketDataServiceClient marketDataServiceClient;
+    private final BrokerIntegrationServiceClient brokerServiceClient;
+
+    /**
+     * Executor for DataLoader operations
+     */
+    @Bean("dataLoaderExecutor")
+    public Executor dataLoaderExecutor() {
+        return Executors.newFixedThreadPool(10, r -> {
+            Thread t = new Thread(r);
+            t.setName("graphql-dataloader-" + t.getId());
+            t.setDaemon(true);
+            return t;
+        });
+    }
+
+    /**
+     * DataLoader registry with all configured loaders
+     */
+    @Bean
+    public DataLoaderRegistry dataLoaderRegistry() {
+        DataLoaderRegistry registry = new DataLoaderRegistry();
+
+        // User-related loaders
+        registry.register("userOrdersLoader", createUserOrdersLoader());
+        registry.register("userPortfolioLoader", createUserPortfolioLoader());
+        registry.register("userSessionsLoader", createUserSessionsLoader());
+
+        // Market data loaders
+        registry.register("marketDataLoader", createMarketDataLoader());
+        registry.register("marketDepthLoader", createMarketDepthLoader());
+        registry.register("technicalIndicatorsLoader", createTechnicalIndicatorsLoader());
+
+        // Order-related loaders
+        registry.register("orderFillsLoader", createOrderFillsLoader());
+        registry.register("orderStatisticsLoader", createOrderStatisticsLoader());
+
+        // Portfolio loaders
+        registry.register("positionsLoader", createPositionsLoader());
+        registry.register("portfolioPerformanceLoader", createPortfolioPerformanceLoader());
+
+        return registry;
+    }
+
+    // ===============================
+    // User Domain DataLoaders
+    // ===============================
+
+    /**
+     * Load user orders in batches
+     */
+    private DataLoader<String, PagedResponse<OrderResponse>> createUserOrdersLoader() {
+        BatchLoader<String, PagedResponse<OrderResponse>> batchLoader = userIds ->
+            CompletableFuture.supplyAsync(() -> {
+                log.debug("Batch loading orders for {} users", userIds.size());
+
+                return userIds.stream()
+                    .map(userId -> {
+                        try {
+                            // Parse cache key to extract filters
+                            OrderFilter filter = extractOrderFilterFromCacheKey(userId);
+                            return orderServiceClient.getOrders(filter, null, 0, 50).join();
+                        } catch (Exception e) {
+                            log.error("Error loading orders for user {}: ", userId, e);
+                            return PagedResponse.<OrderResponse>empty();
+                        }
+                    })
+                    .toList();
+            }, dataLoaderExecutor());
+
+        return DataLoader.newDataLoader(batchLoader, createDataLoaderOptions(100));
+    }
+
+    /**
+     * Load user portfolios in batches
+     */
+    private DataLoader<String, PortfolioResponse> createUserPortfolioLoader() {
+        BatchLoader<String, PortfolioResponse> batchLoader = userIds ->
+            CompletableFuture.supplyAsync(() -> {
+                log.debug("Batch loading portfolios for {} users", userIds.size());
+
+                return userIds.stream()
+                    .map(userId -> {
+                        try {
+                            return brokerServiceClient.getPortfolio(userId).join();
+                        } catch (Exception e) {
+                            log.error("Error loading portfolio for user {}: ", userId, e);
+                            return PortfolioResponse.empty();
+                        }
+                    })
+                    .toList();
+            }, dataLoaderExecutor());
+
+        return DataLoader.newDataLoader(batchLoader, createDataLoaderOptions(50));
+    }
+
+    /**
+     * Load user sessions in batches
+     */
+    private DataLoader<String, List<UserSessionResponse>> createUserSessionsLoader() {
+        BatchLoader<String, List<UserSessionResponse>> batchLoader = userIds ->
+            CompletableFuture.supplyAsync(() -> {
+                log.debug("Batch loading sessions for {} users", userIds.size());
+
+                return userIds.stream()
+                    .map(userId -> {
+                        try {
+                            return userServiceClient.getUserSessions(userId).join();
+                        } catch (Exception e) {
+                            log.error("Error loading sessions for user {}: ", userId, e);
+                            return List.<UserSessionResponse>of();
+                        }
+                    })
+                    .toList();
+            }, dataLoaderExecutor());
+
+        return DataLoader.newDataLoader(batchLoader, createDataLoaderOptions(200));
+    }
+
+    // ===============================
+    // Market Data Domain DataLoaders
+    // ===============================
+
+    /**
+     * Load market data for multiple symbols
+     */
+    private DataLoader<String, MarketDataResponse> createMarketDataLoader() {
+        BatchLoader<String, MarketDataResponse> batchLoader = symbols ->
+            CompletableFuture.supplyAsync(() -> {
+                log.debug("Batch loading market data for {} symbols", symbols.size());
+
+                try {
+                    List<MarketDataResponse> marketDataList =
+                        marketDataServiceClient.getMarketDataBatch(symbols).join();
+
+                    // Create a map for O(1) lookup and maintain order
+                    Map<String, MarketDataResponse> marketDataMap = marketDataList.stream()
+                        .collect(Collectors.toMap(
+                            MarketDataResponse::getSymbol,
+                            Function.identity()
+                        ));
+
+                    return symbols.stream()
+                        .map(symbol -> marketDataMap.getOrDefault(symbol, MarketDataResponse.empty(symbol)))
+                        .toList();
+
+                } catch (Exception e) {
+                    log.error("Error batch loading market data: ", e);
+                    return symbols.stream()
+                        .map(MarketDataResponse::empty)
+                        .toList();
+                }
+            }, dataLoaderExecutor());
+
+        return DataLoader.newDataLoader(batchLoader, createDataLoaderOptions(100));
+    }
+
+    /**
+     * Load market depth data in batches
+     */
+    private DataLoader<String, MarketDepthResponse> createMarketDepthLoader() {
+        BatchLoader<String, MarketDepthResponse> batchLoader = symbols ->
+            CompletableFuture.supplyAsync(() -> {
+                log.debug("Batch loading market depth for {} symbols", symbols.size());
+
+                return symbols.stream()
+                    .map(symbol -> {
+                        try {
+                            return marketDataServiceClient.getMarketDepth(symbol).join();
+                        } catch (Exception e) {
+                            log.error("Error loading market depth for {}: ", symbol, e);
+                            return MarketDepthResponse.empty(symbol);
+                        }
+                    })
+                    .toList();
+            }, dataLoaderExecutor());
+
+        return DataLoader.newDataLoader(batchLoader, createDataLoaderOptions(50));
+    }
+
+    /**
+     * Load technical indicators in batches
+     */
+    private DataLoader<String, TechnicalIndicatorsResponse> createTechnicalIndicatorsLoader() {
+        BatchLoader<String, TechnicalIndicatorsResponse> batchLoader = symbols ->
+            CompletableFuture.supplyAsync(() -> {
+                log.debug("Batch loading technical indicators for {} symbols", symbols.size());
+
+                return symbols.stream()
+                    .map(symbol -> {
+                        try {
+                            return marketDataServiceClient.getTechnicalIndicators(symbol).join();
+                        } catch (Exception e) {
+                            log.error("Error loading technical indicators for {}: ", symbol, e);
+                            return TechnicalIndicatorsResponse.empty(symbol);
+                        }
+                    })
+                    .toList();
+            }, dataLoaderExecutor());
+
+        return DataLoader.newDataLoader(batchLoader, createDataLoaderOptions(30));
+    }
+
+    // ===============================
+    // Order Domain DataLoaders
+    // ===============================
+
+    /**
+     * Load order fills in batches
+     */
+    private DataLoader<String, List<OrderFillResponse>> createOrderFillsLoader() {
+        BatchLoader<String, List<OrderFillResponse>> batchLoader = orderIds ->
+            CompletableFuture.supplyAsync(() -> {
+                log.debug("Batch loading order fills for {} orders", orderIds.size());
+
+                return orderIds.stream()
+                    .map(orderId -> {
+                        try {
+                            return orderServiceClient.getOrderFills(orderId).join();
+                        } catch (Exception e) {
+                            log.error("Error loading fills for order {}: ", orderId, e);
+                            return List.<OrderFillResponse>of();
+                        }
+                    })
+                    .toList();
+            }, dataLoaderExecutor());
+
+        return DataLoader.newDataLoader(batchLoader, createDataLoaderOptions(200));
+    }
+
+    /**
+     * Load order statistics in batches
+     */
+    private DataLoader<String, OrderStatisticsResponse> createOrderStatisticsLoader() {
+        BatchLoader<String, OrderStatisticsResponse> batchLoader = userIds ->
+            CompletableFuture.supplyAsync(() -> {
+                log.debug("Batch loading order statistics for {} users", userIds.size());
+
+                return userIds.stream()
+                    .map(userId -> {
+                        try {
+                            return orderServiceClient.getOrderStatistics(userId, null).join();
+                        } catch (Exception e) {
+                            log.error("Error loading order statistics for user {}: ", userId, e);
+                            return OrderStatisticsResponse.empty();
+                        }
+                    })
+                    .toList();
+            }, dataLoaderExecutor());
+
+        return DataLoader.newDataLoader(batchLoader, createDataLoaderOptions(100));
+    }
+
+    // ===============================
+    // Portfolio Domain DataLoaders
+    // ===============================
+
+    /**
+     * Load positions in batches
+     */
+    private DataLoader<String, List<PositionResponse>> createPositionsLoader() {
+        BatchLoader<String, List<PositionResponse>> batchLoader = userIds ->
+            CompletableFuture.supplyAsync(() -> {
+                log.debug("Batch loading positions for {} users", userIds.size());
+
+                return userIds.stream()
+                    .map(userId -> {
+                        try {
+                            return brokerServiceClient.getPositions(userId).join();
+                        } catch (Exception e) {
+                            log.error("Error loading positions for user {}: ", userId, e);
+                            return List.<PositionResponse>of();
+                        }
+                    })
+                    .toList();
+            }, dataLoaderExecutor());
+
+        return DataLoader.newDataLoader(batchLoader, createDataLoaderOptions(100));
+    }
+
+    /**
+     * Load portfolio performance in batches
+     */
+    private DataLoader<String, PortfolioPerformanceResponse> createPortfolioPerformanceLoader() {
+        BatchLoader<String, PortfolioPerformanceResponse> batchLoader = userIds ->
+            CompletableFuture.supplyAsync(() -> {
+                log.debug("Batch loading portfolio performance for {} users", userIds.size());
+
+                return userIds.stream()
+                    .map(userId -> {
+                        try {
+                            return brokerServiceClient.getPortfolioPerformance(userId).join();
+                        } catch (Exception e) {
+                            log.error("Error loading portfolio performance for user {}: ", userId, e);
+                            return PortfolioPerformanceResponse.empty();
+                        }
+                    })
+                    .toList();
+            }, dataLoaderExecutor());
+
+        return DataLoader.newDataLoader(batchLoader, createDataLoaderOptions(50));
+    }
+
+    // ===============================
+    // Helper Methods
+    // ===============================
+
+    /**
+     * Create DataLoader options with Turkish market optimizations
+     */
+    private DataLoaderOptions createDataLoaderOptions(int maxBatchSize) {
+        return DataLoaderOptions.newOptions()
+            .setMaxBatchSize(maxBatchSize)
+            .setBatchingEnabled(true)
+            .setCachingEnabled(true)
+            .setCacheKeyFunction(key -> key.toString())
+            .setBatchLoaderContextProvider(() -> BatchLoaderEnvironment.newBatchLoaderEnvironment()
+                .context("timestamp", System.currentTimeMillis())
+                .context("source", "graphql-gateway")
+                .build());
+    }
+
+    /**
+     * Extract order filter from cache key
+     * Cache key format: "userId:filterHashCode:first=X:after=Y"
+     */
+    private OrderFilter extractOrderFilterFromCacheKey(String cacheKey) {
+        String[] parts = cacheKey.split(":");
+        String userId = parts[0];
+
+        OrderFilter filter = new OrderFilter();
+        filter.setUserId(userId);
+
+        // For now, return basic filter - in production, this would parse the full filter
+        return filter;
+    }
+
+    /**
+     * DataLoader instrumentation for performance monitoring
+     */
+    @Bean
+    public DataLoaderInstrumentation dataLoaderInstrumentation() {
+        return new DataLoaderInstrumentation() {
+            @Override
+            public void onBatchLoadStart(String loaderName, int batchSize) {
+                log.debug("DataLoader {} starting batch load of {} items", loaderName, batchSize);
+            }
+
+            @Override
+            public void onBatchLoadEnd(String loaderName, int batchSize, long duration) {
+                log.debug("DataLoader {} completed batch load of {} items in {}ms",
+                    loaderName, batchSize, duration);
+
+                // Monitor performance for Turkish market compliance
+                if (duration > 1000) { // > 1 second
+                    log.warn("PERFORMANCE_WARNING - DataLoader {} took {}ms for {} items",
+                        loaderName, duration, batchSize);
+                }
+            }
+
+            @Override
+            public void onBatchLoadError(String loaderName, int batchSize, Throwable error) {
+                log.error("DataLoader {} failed batch load of {} items: ",
+                    loaderName, batchSize, error);
+            }
+        };
+    }
+
+    // Supporting interfaces and classes
+    public interface DataLoaderInstrumentation {
+        default void onBatchLoadStart(String loaderName, int batchSize) {}
+        default void onBatchLoadEnd(String loaderName, int batchSize, long duration) {}
+        default void onBatchLoadError(String loaderName, int batchSize, Throwable error) {}
+    }
+
+}

@@ -14,5 +14,6 @@ public class OrderFilledEvent {
     private String symbol;
     private BigDecimal filledQuantity;
     private BigDecimal averagePrice;
+    @Builder.Default
     private LocalDateTime timestamp = LocalDateTime.now();
 }

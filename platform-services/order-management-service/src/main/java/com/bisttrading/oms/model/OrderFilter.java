@@ -14,6 +14,11 @@ import java.util.List;
 public class OrderFilter {
 
     private String symbol;
+    private OMSOrder.OrderSide side;
+    private OMSOrder.OrderType type;
+    private OMSOrder.OrderStatus status;
+    private OMSOrder.TimeInForce timeInForce;
+
     private List<OMSOrder.OrderSide> sides;
     private List<OMSOrder.OrderType> types;
     private List<OMSOrder.OrderStatus> statuses;

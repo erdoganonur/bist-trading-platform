@@ -1,0 +1,232 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: bist-trading-gateway
+
+  profiles:
+    active: dev
+
+  cloud:
+    gateway:
+      default-filters:
+        - DedupeResponseHeader=Access-Control-Allow-Credentials Access-Control-Allow-Origin
+      globalcors:
+        cors-configurations:
+          '[/**]':
+            allowedOriginPatterns:
+              - "http://localhost:*"
+              - "https://localhost:*"
+              - "https://*.bisttrading.com.tr"
+              - "https://*.bist.com.tr"
+            allowedMethods: "*"
+            allowedHeaders: "*"
+            allowCredentials: true
+            maxAge: 3600
+
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          jwk-set-uri: http://localhost:8081/oauth2/jwks
+
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      timeout: 2s
+      lettuce:
+        pool:
+          max-active: 8
+          max-idle: 8
+          min-idle: 0
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus,gateway
+      base-path: /actuator
+  endpoint:
+    health:
+      show-details: when-authorized
+    gateway:
+      enabled: true
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+  tracing:
+    sampling:
+      probability: 0.1
+
+logging:
+  level:
+    com.bisttrading: DEBUG
+    org.springframework.cloud.gateway: DEBUG
+    org.springframework.security: DEBUG
+  pattern:
+    console: "%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
+
+---
+# Development Profile
+spring:
+  config:
+    activate:
+      on-profile: dev
+
+  cloud:
+    gateway:
+      routes:
+        # User Management Service
+        - id: user-management
+          uri: http://localhost:8081
+          predicates:
+            - Path=/api/v1/users/**,/api/v1/auth/**
+          filters:
+            - StripPrefix=0
+
+        # Market Data Service
+        - id: market-data
+          uri: http://localhost:8083
+          predicates:
+            - Path=/api/v1/market-data/**,/api/v1/symbols/**
+          filters:
+            - StripPrefix=0
+
+        # Order Management Service
+        - id: order-management
+          uri: http://localhost:8082
+          predicates:
+            - Path=/api/v1/orders/**,/api/v1/positions/**
+          filters:
+            - StripPrefix=0
+
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          jwk-set-uri: http://localhost:8081/oauth2/jwks
+
+logging:
+  level:
+    root: INFO
+    com.bisttrading: DEBUG
+
+---
+# Staging Profile
+spring:
+  config:
+    activate:
+      on-profile: staging
+
+  cloud:
+    gateway:
+      routes:
+        # User Management Service
+        - id: user-management
+          uri: http://user-management-service:8081
+          predicates:
+            - Path=/api/v1/users/**,/api/v1/auth/**
+
+        # Market Data Service
+        - id: market-data
+          uri: http://market-data-service:8083
+          predicates:
+            - Path=/api/v1/market-data/**,/api/v1/symbols/**
+
+        # Order Management Service
+        - id: order-management
+          uri: http://order-management-service:8082
+          predicates:
+            - Path=/api/v1/orders/**,/api/v1/positions/**
+
+  data:
+    redis:
+      host: redis-staging
+      port: 6379
+
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          jwk-set-uri: http://user-management-service:8081/oauth2/jwks
+
+logging:
+  level:
+    root: INFO
+    com.bisttrading: DEBUG
+
+management:
+  tracing:
+    sampling:
+      probability: 1.0
+
+---
+# Production Profile
+spring:
+  config:
+    activate:
+      on-profile: prod
+
+  cloud:
+    gateway:
+      routes:
+        # User Management Service
+        - id: user-management
+          uri: lb://user-management-service
+          predicates:
+            - Path=/api/v1/users/**,/api/v1/auth/**
+          filters:
+            - name: CircuitBreaker
+              args:
+                name: user-management-cb
+                fallbackUri: forward:/fallback/user-management
+
+        # Market Data Service
+        - id: market-data
+          uri: lb://market-data-service
+          predicates:
+            - Path=/api/v1/market-data/**,/api/v1/symbols/**
+          filters:
+            - name: CircuitBreaker
+              args:
+                name: market-data-cb
+                fallbackUri: forward:/fallback/market-data
+
+        # Order Management Service
+        - id: order-management
+          uri: lb://order-management-service
+          predicates:
+            - Path=/api/v1/orders/**,/api/v1/positions/**
+          filters:
+            - name: CircuitBreaker
+              args:
+                name: order-management-cb
+                fallbackUri: forward:/fallback/order-management
+
+  data:
+    redis:
+      cluster:
+        nodes:
+          - redis-cluster-1:6379
+          - redis-cluster-2:6379
+          - redis-cluster-3:6379
+      password: ${REDIS_PASSWORD}
+
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          jwk-set-uri: https://auth.bisttrading.com.tr/oauth2/jwks
+
+logging:
+  level:
+    root: WARN
+    com.bisttrading: INFO
+
+management:
+  tracing:
+    sampling:
+      probability: 0.01

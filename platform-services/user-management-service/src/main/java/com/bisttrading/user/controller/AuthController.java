@@ -1,10 +1,11 @@
 package com.bisttrading.user.controller;
 
-import com.bisttrading.core.security.dto.JwtResponse;
-import com.bisttrading.core.security.dto.LoginRequest;
-import com.bisttrading.core.security.dto.LogoutRequest;
-import com.bisttrading.core.security.dto.RefreshTokenRequest;
-import com.bisttrading.core.security.dto.RegisterRequest;
+import com.bisttrading.user.dto.JwtResponse;
+import com.bisttrading.user.dto.LoginRequest;
+import com.bisttrading.user.dto.LogoutRequest;
+import com.bisttrading.user.dto.RefreshTokenRequest;
+import com.bisttrading.user.dto.UserRegistrationRequest;
+import com.bisttrading.user.dto.UserRegistrationResponse;
 import com.bisttrading.user.service.AuthenticationService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -107,10 +108,10 @@ public class AuthController {
             )
         )
     })
-    public ResponseEntity<JwtResponse> register(
+    public ResponseEntity<UserRegistrationResponse> register(
             @Valid @RequestBody
             @Parameter(description = "Kullanıcı kayıt bilgileri", required = true)
-            RegisterRequest registerRequest,
+            UserRegistrationRequest registerRequest,
             HttpServletRequest request) {
 
         log.info("User registration attempt for email: {}", registerRequest.getEmail());
@@ -118,7 +119,7 @@ public class AuthController {
         String clientIp = getClientIpAddress(request);
         String userAgent = request.getHeader("User-Agent");
 
-        JwtResponse response = authenticationService.register(registerRequest, clientIp, userAgent);
+        UserRegistrationResponse response = authenticationService.register(registerRequest);
 
         log.info("User registered successfully with ID: {}", response.getUserId());
         return ResponseEntity.ok(response);
@@ -201,12 +202,12 @@ public class AuthController {
             LoginRequest loginRequest,
             HttpServletRequest request) {
 
-        log.info("Login attempt for user: {}", loginRequest.getEmailOrUsername());
+        log.info("Login attempt for user: {}", loginRequest.getUsername());
 
         String clientIp = getClientIpAddress(request);
         String userAgent = request.getHeader("User-Agent");
 
-        JwtResponse response = authenticationService.login(loginRequest, clientIp, userAgent);
+        JwtResponse response = authenticationService.authenticate(loginRequest);
 
         log.info("User logged in successfully: {}", response.getUsername());
         return ResponseEntity.ok(response);
@@ -276,7 +277,7 @@ public class AuthController {
         String clientIp = getClientIpAddress(request);
         String userAgent = request.getHeader("User-Agent");
 
-        JwtResponse response = authenticationService.refresh(refreshRequest, clientIp, userAgent);
+        JwtResponse response = authenticationService.refreshToken(refreshRequest);
 
         log.debug("Token refreshed successfully for user: {}", response.getUsername());
         return ResponseEntity.ok(response);
@@ -341,7 +342,7 @@ public class AuthController {
         String clientIp = getClientIpAddress(request);
         String userAgent = request.getHeader("User-Agent");
 
-        authenticationService.logout(logoutRequest, clientIp, userAgent);
+        authenticationService.logout(logoutRequest);
 
         log.info("User logged out successfully");
         return ResponseEntity.ok()
@@ -402,7 +403,11 @@ public class AuthController {
     })
     public ResponseEntity<?> validate() {
         return ResponseEntity.ok()
-            .body(authenticationService.validateCurrentUser());
+            .body(java.util.Map.of(
+                "valid", true,
+                "message", "Token is valid",
+                "timestamp", java.time.Instant.now()
+            ));
     }
 
     /**
