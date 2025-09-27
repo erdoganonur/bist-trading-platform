@@ -43,9 +43,9 @@
 							"raw": "{\n  \"firstName\": \"Ahmet\",\n  \"lastName\": \"Yılmaz\",\n  \"email\": \"ahmet.yilmaz@example.com\",\n  \"password\": \"SecurePassword123!\",\n  \"tcknNumber\": \"12345678901\",\n  \"phoneNumber\": \"+905551234567\",\n  \"dateOfBirth\": \"1985-03-15\",\n  \"address\": {\n    \"street\": \"Atatürk Caddesi No: 123\",\n    \"city\": \"İstanbul\",\n    \"country\": \"Turkey\",\n    \"postalCode\": \"34000\"\n  }\n}"
 						},
 						"url": {
-							"raw": "{{userServiceUrl}}/api/auth/register",
+							"raw": "{{gatewayUrl}}/api/auth/register",
 							"host": [
-								"{{userServiceUrl}}"
+								"{{gatewayUrl}}"
 							],
 							"path": [
 								"api",
@@ -96,9 +96,9 @@
 							"raw": "{\n  \"username\": \"ahmet.yilmaz@example.com\",\n  \"password\": \"SecurePassword123!\"\n}"
 						},
 						"url": {
-							"raw": "{{userServiceUrl}}/api/auth/login",
+							"raw": "{{gatewayUrl}}/api/auth/login",
 							"host": [
-								"{{userServiceUrl}}"
+								"{{gatewayUrl}}"
 							],
 							"path": [
 								"api",
@@ -145,9 +145,9 @@
 							"raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}"
 						},
 						"url": {
-							"raw": "{{userServiceUrl}}/api/auth/refresh",
+							"raw": "{{gatewayUrl}}/api/auth/refresh",
 							"host": [
-								"{{userServiceUrl}}"
+								"{{gatewayUrl}}"
 							],
 							"path": [
 								"api",
@@ -197,9 +197,9 @@
 							"raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}"
 						},
 						"url": {
-							"raw": "{{userServiceUrl}}/api/auth/logout",
+							"raw": "{{gatewayUrl}}/api/auth/logout",
 							"host": [
-								"{{userServiceUrl}}"
+								"{{gatewayUrl}}"
 							],
 							"path": [
 								"api",
