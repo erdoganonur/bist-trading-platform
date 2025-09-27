@@ -34,6 +34,10 @@ public class FieldEncryptionConverter implements AttributeConverter<String, Stri
     private final SecretKey secretKey;
     private final SecureRandom secureRandom;
 
+    public FieldEncryptionConverter() {
+        this("");
+    }
+
     public FieldEncryptionConverter(@Value("${bist.security.encryption.key:}") String encryptionKey) {
         this.secureRandom = new SecureRandom();
 

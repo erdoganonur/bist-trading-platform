@@ -85,6 +85,7 @@ public final class ValidationUtils {
         return check11 == digits[10];
     }
 
+
     /**
      * Validates a Turkish IBAN number.
      *

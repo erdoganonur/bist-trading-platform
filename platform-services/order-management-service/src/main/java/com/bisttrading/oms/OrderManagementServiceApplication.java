@@ -10,7 +10,9 @@ import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
  */
 @SpringBootApplication(scanBasePackages = {
     "com.bisttrading.oms",
-    "com.bisttrading.infrastructure.persistence"
+    "com.bisttrading.infrastructure.persistence.entity",
+    "com.bisttrading.infrastructure.persistence.repository",
+    "com.bisttrading.infrastructure.persistence.converter"
 })
 @EntityScan(basePackages = {
     "com.bisttrading.oms.model",

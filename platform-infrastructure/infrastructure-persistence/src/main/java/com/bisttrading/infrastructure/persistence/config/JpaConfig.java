@@ -54,10 +54,10 @@ public class JpaConfig {
     @Value("${spring.jpa.properties.hibernate.use_sql_comments:false}")
     private boolean useSqlComments;
 
-    @Value("${spring.jpa.hibernate.naming.physical-strategy:org.springframework.boot.orm.jpa.hibernate.SpringPhysicalNamingStrategy}")
+    @Value("${spring.jpa.hibernate.naming.physical-strategy:org.hibernate.boot.model.naming.CamelCaseToUnderscoresNamingStrategy}")
     private String physicalNamingStrategy;
 
-    @Value("${spring.jpa.hibernate.naming.implicit-strategy:org.springframework.boot.orm.jpa.hibernate.SpringImplicitNamingStrategy}")
+    @Value("${spring.jpa.hibernate.naming.implicit-strategy:org.hibernate.boot.model.naming.ImplicitNamingStrategyJpaCompliantImpl}")
     private String implicitNamingStrategy;
 
     /**
@@ -129,10 +129,9 @@ public class JpaConfig {
         // Connection pooling with Hikari (handled by DataSource)
         properties.setProperty("hibernate.connection.provider_disables_autocommit", "true");
 
-        // Cache settings
-        properties.setProperty("hibernate.cache.use_second_level_cache", "true");
-        properties.setProperty("hibernate.cache.use_query_cache", "true");
-        properties.setProperty("hibernate.cache.region.factory_class", "org.hibernate.cache.jcache.JCacheRegionFactory");
+        // Cache settings - completely disabled
+        properties.setProperty("hibernate.cache.use_second_level_cache", "false");
+        properties.setProperty("hibernate.cache.use_query_cache", "false");
 
         // Statistics and monitoring
         properties.setProperty("hibernate.generate_statistics", "true");
@@ -142,8 +141,8 @@ public class JpaConfig {
         properties.setProperty("hibernate.jdbc.lob.non_contextual_creation", "true");
         properties.setProperty("hibernate.temp.use_jdbc_metadata_defaults", "false");
 
-        // JSON support for PostgreSQL
-        properties.setProperty("hibernate.type_contributors", "io.hypersistence.utils.hibernate.type.json.JsonTypeContributor");
+        // JSON support for PostgreSQL - disabled due to compatibility issues
+        // properties.setProperty("hibernate.type_contributors", "io.hypersistence.utils.hibernate.type.json.JsonTypeContributor");
 
         // Timezone handling
         properties.setProperty("hibernate.jdbc.time_zone", "UTC");

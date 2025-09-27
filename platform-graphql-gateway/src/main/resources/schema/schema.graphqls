@@ -279,8 +279,20 @@ type BatchOrderResult {
     summary: BatchOrderSummary!
 }
 
+type CreateOrderData {
+    clientOrderId: String
+    symbol: String!
+    side: OrderSide!
+    type: OrderType!
+    quantity: Decimal!
+    price: Decimal
+    stopPrice: Decimal
+    timeInForce: TimeInForce!
+    notes: String
+}
+
 type FailedOrder {
-    input: CreateOrderInput!
+    input: CreateOrderData!
     errors: [ValidationError!]!
     reason: String!
 }

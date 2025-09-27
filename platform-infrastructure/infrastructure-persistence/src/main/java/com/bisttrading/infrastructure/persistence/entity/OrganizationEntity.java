@@ -63,6 +63,13 @@ public class OrganizationEntity {
     private String displayName;
 
     /**
+     * Organization trade name.
+     */
+    @Column(name = "trade_name", length = 255)
+    @Size(max = 255, message = "Ticari isim en fazla 255 karakter olabilir")
+    private String tradeName;
+
+    /**
      * Organization type.
      */
     @Enumerated(EnumType.STRING)
@@ -258,6 +265,7 @@ public class OrganizationEntity {
      */
     public enum OrganizationType {
         BROKER,           // Investment broker
+        BROKERAGE,        // Brokerage firm
         BANK,             // Bank with investment services
         INVESTMENT_FIRM,  // Investment management firm
         ASSET_MANAGER,    // Asset management company

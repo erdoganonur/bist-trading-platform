@@ -26,6 +26,9 @@ spring:
         format_sql: true
         use_sql_comments: true
         generate_statistics: false
+        cache:
+          use_second_level_cache: false
+          use_query_cache: false
 
   # Development Redis Configuration
   data:

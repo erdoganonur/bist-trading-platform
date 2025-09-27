@@ -2,7 +2,7 @@
 	"info": {
 		"_postman_id": "a1b2c3d4-e5f6-7890-1234-567890abcdef",
 		"name": "BIST Trading Platform API",
-		"description": "Comprehensive Postman collection for BIST Trading Platform APIs including User Management, Broker Integration, and Market Data services.\n\n## 🚀 Getting Started\n\n1. **Import Environment**: Import the included environment variables\n2. **Authentication**: Run the login request to get JWT tokens\n3. **Explore APIs**: Use the organized folders to test different services\n\n## 🔐 Authentication\n\nAll endpoints (except registration/login) require JWT Bearer token authentication:\n- Login to get `accessToken` and `refreshToken`\n- Tokens are automatically stored in environment variables\n- Access token expires in 15 minutes, use refresh token to renew\n\n## 📊 Services\n\n- **User Management** (Port 8081): Authentication, user profiles\n- **Broker Integration** (Port 8083): Trading operations, portfolio management  \n- **Market Data** (Port 8082): Real-time data, analytics\n\n## 🇹🇷 Turkish Market Support\n\n- TCKN validation for Turkish users\n- BIST symbol support (AKBNK, THYAO, GARAN, etc.)\n- Turkish Lira (TRY) currency\n- Istanbul timezone\n\n**Last Updated**: September 2024\n**Version**: 1.0.0",
+		"description": "Comprehensive Postman collection for BIST Trading Platform APIs including User Management, Order Management, Market Data, and Broker Integration services.\n\n## 🚀 Getting Started\n\n1. **Import Environment**: Import the included environment variables\n2. **Authentication**: Run the login request to get JWT tokens\n3. **Explore APIs**: Use the organized folders to test different services\n\n## 🔐 Authentication\n\nAll endpoints (except registration/login) require JWT Bearer token authentication:\n- Login to get `accessToken` and `refreshToken`\n- Tokens are automatically stored in environment variables\n- Access token expires in 15 minutes, use refresh token to renew\n\n## 📊 Services & Ports\n\n- **API Gateway** (Port 8080): Unified REST API access point\n- **User Management** (Port 8081): Authentication, user profiles\n- **Order Management** (Port 8082): Order lifecycle, trading operations\n- **Market Data** (Port 8083): Real-time data, analytics, technical indicators\n- **Broker Integration** (Port 8084): External broker connectivity, portfolio management\n- **GraphQL Gateway** (Port 8090): Unified GraphQL API access\n\n## 🇹🇷 Turkish Market Support\n\n- TCKN validation for Turkish users\n- BIST symbol support (AKBNK, THYAO, GARAN, etc.)\n- Turkish Lira (TRY) currency\n- Istanbul timezone\n\n**Last Updated**: September 2024\n**Version**: 1.0.0",
 		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
 		"_exporter_id": "12345678"
 	},
@@ -247,12 +247,13 @@
 							}
 						],
 						"url": {
-							"raw": "{{userServiceUrl}}/api/users/profile",
+							"raw": "{{gatewayUrl}}/api/v1/users/profile",
 							"host": [
-								"{{userServiceUrl}}"
+								"{{gatewayUrl}}"
 							],
 							"path": [
 								"api",
+								"v1",
 								"users",
 								"profile"
 							]
@@ -988,6 +989,473 @@
 			"description": "Market data analytics and historical data endpoints."
 		},
 		{
+			"name": "🌐 API Gateway Management",
+			"item": [
+				{
+					"name": "Gateway Routes",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    const responseJson = pm.response.json();",
+									"    console.log('✅ Gateway routes retrieved successfully');",
+									"    console.log('Total routes:', responseJson.length);",
+									"} else {",
+									"    console.log('❌ Failed to get gateway routes:', pm.response.json().message);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{gatewayUrl}}/actuator/gateway/routes",
+							"host": [
+								"{{gatewayUrl}}"
+							],
+							"path": [
+								"actuator",
+								"gateway",
+								"routes"
+							]
+						},
+						"description": "Lists all configured gateway routes and their configurations."
+					},
+					"response": []
+				},
+				{
+					"name": "Gateway Filters",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    const responseJson = pm.response.json();",
+									"    console.log('✅ Gateway filters retrieved successfully');",
+									"    console.log('Available filters:', Object.keys(responseJson));",
+									"} else {",
+									"    console.log('❌ Failed to get gateway filters:', pm.response.json().message);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{gatewayUrl}}/actuator/gateway/globalfilters",
+							"host": [
+								"{{gatewayUrl}}"
+							],
+							"path": [
+								"actuator",
+								"gateway",
+								"globalfilters"
+							]
+						},
+						"description": "Lists all available gateway filters."
+					},
+					"response": []
+				}
+			],
+			"description": "API Gateway management and monitoring endpoints."
+		},
+		{
+			"name": "📊 GraphQL Gateway",
+			"item": [
+				{
+					"name": "GraphQL Query - User Profile",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    const responseJson = pm.response.json();",
+									"    console.log('✅ GraphQL query executed successfully');",
+									"    console.log('User data:', responseJson.data);",
+									"} else {",
+									"    console.log('❌ GraphQL query failed:', pm.response.json().message);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{accessToken}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"query\": \"query GetUserProfile($userId: ID!) { user(id: $userId) { id firstName lastName email accountStatus } }\",\n  \"variables\": {\n    \"userId\": \"{{userId}}\"\n  }\n}"
+						},
+						"url": {
+							"raw": "{{graphqlGatewayUrl}}/graphql",
+							"host": [
+								"{{graphqlGatewayUrl}}"
+							],
+							"path": [
+								"graphql"
+							]
+						},
+						"description": "Execute GraphQL query to get user profile information."
+					},
+					"response": []
+				},
+				{
+					"name": "GraphQL Query - Market Data",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    const responseJson = pm.response.json();",
+									"    console.log('✅ GraphQL market data query executed successfully');",
+									"    console.log('Market data:', responseJson.data);",
+									"} else {",
+									"    console.log('❌ GraphQL query failed:', pm.response.json().message);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{accessToken}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"query\": \"query GetMarketData($symbol: String!) { marketData(symbol: $symbol) { symbol lastPrice volume change changePercent } }\",\n  \"variables\": {\n    \"symbol\": \"AKBNK\"\n  }\n}"
+						},
+						"url": {
+							"raw": "{{graphqlGatewayUrl}}/graphql",
+							"host": [
+								"{{graphqlGatewayUrl}}"
+							],
+							"path": [
+								"graphql"
+							]
+						},
+						"description": "Execute GraphQL query to get market data for a specific symbol."
+					},
+					"response": []
+				},
+				{
+					"name": "GraphQL Schema Introspection",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    const responseJson = pm.response.json();",
+									"    console.log('✅ GraphQL schema retrieved successfully');",
+									"    console.log('Available types:', responseJson.data.__schema.types.length);",
+									"} else {",
+									"    console.log('❌ Schema introspection failed:', pm.response.json().message);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"query\": \"query IntrospectionQuery { __schema { types { name description } } }\"\n}"
+						},
+						"url": {
+							"raw": "{{graphqlGatewayUrl}}/graphql",
+							"host": [
+								"{{graphqlGatewayUrl}}"
+							],
+							"path": [
+								"graphql"
+							]
+						},
+						"description": "Get GraphQL schema information via introspection."
+					},
+					"response": []
+				}
+			],
+			"description": "GraphQL Gateway endpoints for unified API access."
+		},
+		{
+			"name": "🔧 Direct Service Access",
+			"item": [
+				{
+					"name": "User Service - Direct Health Check",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    console.log('✅ User Management Service is healthy (direct access)');",
+									"} else {",
+									"    console.log('❌ User Management Service health check failed (direct access)');",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{userServiceUrl}}/actuator/health",
+							"host": [
+								"{{userServiceUrl}}"
+							],
+							"path": [
+								"actuator",
+								"health"
+							]
+						},
+						"description": "Direct health check for User Management Service."
+					},
+					"response": []
+				},
+				{
+					"name": "User Service - Swagger UI",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    console.log('✅ User Service Swagger UI accessible');",
+									"} else {",
+									"    console.log('❌ User Service Swagger UI not accessible');",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{userServiceUrl}}/swagger-ui.html",
+							"host": [
+								"{{userServiceUrl}}"
+							],
+							"path": [
+								"swagger-ui.html"
+							]
+						},
+						"description": "Access User Management Service Swagger documentation."
+					},
+					"response": []
+				},
+				{
+					"name": "Order Service - Direct Health Check",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    console.log('✅ Order Management Service is healthy (direct access)');",
+									"} else {",
+									"    console.log('❌ Order Management Service health check failed (direct access)');",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{orderServiceUrl}}/actuator/health",
+							"host": [
+								"{{orderServiceUrl}}"
+							],
+							"path": [
+								"actuator",
+								"health"
+							]
+						},
+						"description": "Direct health check for Order Management Service."
+					},
+					"response": []
+				},
+				{
+					"name": "Market Data Service - Direct Health Check",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    console.log('✅ Market Data Service is healthy (direct access)');",
+									"} else {",
+									"    console.log('❌ Market Data Service health check failed (direct access)');",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{marketDataServiceUrl}}/actuator/health",
+							"host": [
+								"{{marketDataServiceUrl}}"
+							],
+							"path": [
+								"actuator",
+								"health"
+							]
+						},
+						"description": "Direct health check for Market Data Service."
+					},
+					"response": []
+				},
+				{
+					"name": "Market Data Service - Swagger UI",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    console.log('✅ Market Data Service Swagger UI accessible');",
+									"} else {",
+									"    console.log('❌ Market Data Service Swagger UI not accessible');",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{marketDataServiceUrl}}/swagger-ui.html",
+							"host": [
+								"{{marketDataServiceUrl}}"
+							],
+							"path": [
+								"swagger-ui.html"
+							]
+						},
+						"description": "Access Market Data Service Swagger documentation."
+					},
+					"response": []
+				},
+				{
+					"name": "Broker Service - Direct Health Check",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    console.log('✅ Broker Integration Service is healthy (direct access)');",
+									"} else {",
+									"    console.log('❌ Broker Integration Service health check failed (direct access)');",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{brokerServiceUrl}}/actuator/health",
+							"host": [
+								"{{brokerServiceUrl}}"
+							],
+							"path": [
+								"actuator",
+								"health"
+							]
+						},
+						"description": "Direct health check for Broker Integration Service."
+					},
+					"response": []
+				},
+				{
+					"name": "Broker Service - Swagger UI",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    console.log('✅ Broker Integration Service Swagger UI accessible');",
+									"} else {",
+									"    console.log('❌ Broker Integration Service Swagger UI not accessible');",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{brokerServiceUrl}}/swagger-ui.html",
+							"host": [
+								"{{brokerServiceUrl}}"
+							],
+							"path": [
+								"swagger-ui.html"
+							]
+						},
+						"description": "Access Broker Integration Service Swagger documentation."
+					},
+					"response": []
+				}
+			],
+			"description": "Direct access to individual services bypassing the gateway."
+		},
+		{
 			"name": "🏥 Health Checks",
 			"item": [
 				{
@@ -1143,54 +1611,82 @@
 	],
 	"variable": [
 		{
-			"key": "userServiceUrl",
-			"value": "http://localhost:8081",
-			"type": "string"
+			"key": "gatewayUrl",
+			"value": "http://localhost:8080",
+			"type": "string",
+			"description": "API Gateway URL for unified REST API access"
 		},
 		{
-			"key": "brokerServiceUrl",
-			"value": "http://localhost:8083",
-			"type": "string"
+			"key": "userServiceUrl",
+			"value": "http://localhost:8081",
+			"type": "string",
+			"description": "User Management Service direct URL"
+		},
+		{
+			"key": "orderServiceUrl",
+			"value": "http://localhost:8082",
+			"type": "string",
+			"description": "Order Management Service direct URL"
 		},
 		{
 			"key": "marketDataServiceUrl",
-			"value": "http://localhost:8082",
-			"type": "string"
+			"value": "http://localhost:8083",
+			"type": "string",
+			"description": "Market Data Service direct URL"
+		},
+		{
+			"key": "brokerServiceUrl",
+			"value": "http://localhost:8084",
+			"type": "string",
+			"description": "Broker Integration Service direct URL"
+		},
+		{
+			"key": "graphqlGatewayUrl",
+			"value": "http://localhost:8090",
+			"type": "string",
+			"description": "GraphQL Gateway URL for unified GraphQL API access"
 		},
 		{
 			"key": "accessToken",
 			"value": "",
-			"type": "string"
+			"type": "string",
+			"description": "JWT access token for authentication"
 		},
 		{
 			"key": "refreshToken",
 			"value": "",
-			"type": "string"
+			"type": "string",
+			"description": "JWT refresh token for token renewal"
 		},
 		{
 			"key": "userId",
 			"value": "",
-			"type": "string"
+			"type": "string",
+			"description": "Current user ID"
 		},
 		{
 			"key": "orderId",
 			"value": "",
-			"type": "string"
+			"type": "string",
+			"description": "Current order ID for testing"
 		},
 		{
 			"key": "brokerOrderId",
 			"value": "",
-			"type": "string"
+			"type": "string",
+			"description": "Broker-assigned order ID"
 		},
 		{
 			"key": "startTime",
 			"value": "",
-			"type": "string"
+			"type": "string",
+			"description": "Start time for market data queries (ISO format)"
 		},
 		{
 			"key": "endTime",
 			"value": "",
-			"type": "string"
+			"type": "string",
+			"description": "End time for market data queries (ISO format)"
 		}
 	]
 }

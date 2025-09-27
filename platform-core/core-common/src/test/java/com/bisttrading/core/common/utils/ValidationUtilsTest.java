@@ -14,8 +14,8 @@ class ValidationUtilsTest {
     @Test
     void shouldValidateCorrectTCKimlik() {
         // Valid TC Kimlik numbers for testing
-        assertThat(ValidationUtils.isValidTCKimlik("12345678901")).isFalse(); // Invalid algorithm
-        assertThat(ValidationUtils.isValidTCKimlik("11111111116")).isTrue(); // Valid test number
+        assertThat(ValidationUtils.isValidTCKimlik("12345678900")).isFalse(); // Invalid algorithm
+        assertThat(ValidationUtils.isValidTCKimlik("10000000146")).isTrue(); // Valid test number
     }
 
     @ParameterizedTest

@@ -319,10 +319,6 @@ public class TestDataBuilder {
             .emailVerified(true)
             .phoneVerified(true)
             .kycCompleted(true)
-            .accountNonExpired(true)
-            .accountNonLocked(true)
-            .credentialsNonExpired(true)
-            .enabled(true)
             .build();
     }
 
@@ -343,10 +339,6 @@ public class TestDataBuilder {
             .emailVerified(true)
             .phoneVerified(true)
             .kycCompleted(true)
-            .accountNonExpired(true)
-            .accountNonLocked(true)
-            .credentialsNonExpired(true)
-            .enabled(true)
             .build();
     }
 

@@ -46,7 +46,7 @@ public enum ErrorCodes {
     USER_UNDER_AGE("BIST_3009", "Yaş sınırı altında kullanıcı kaydı yapılamaz."),
 
     // Trading Errors (4000-4999)
-    INSUFFICIENT_BALANCE("BIST_4000", "Yetersiz bakiye."),
+    INSUFFICIENT_BALANCE("BIST_4000", "Yetersiz bakiye. Mevcut: %s, Gerekli: %s"),
     INVALID_ORDER_QUANTITY("BIST_4001", "Geçersiz emir miktarı."),
     INVALID_ORDER_PRICE("BIST_4002", "Geçersiz emir fiyatı."),
     ORDER_NOT_FOUND("BIST_4003", "Emir bulunamadı."),

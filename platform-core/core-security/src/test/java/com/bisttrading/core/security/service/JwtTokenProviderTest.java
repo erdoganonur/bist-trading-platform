@@ -36,7 +36,7 @@ class JwtTokenProviderTest {
         when(jwtProperties.getAudience()).thenReturn("bist-trading-users");
         when(jwtProperties.getAccessTokenExpiry()).thenReturn(Duration.ofMinutes(15));
         when(jwtProperties.getRefreshTokenExpiry()).thenReturn(Duration.ofDays(7));
-        when(jwtProperties.getClockSkewInSeconds()).thenReturn(60);
+        when(jwtProperties.getClockSkewInSeconds()).thenReturn(60L);
 
         // Mock JwtProperties.Claims
         JwtProperties.Claims claims = mock(JwtProperties.Claims.class);

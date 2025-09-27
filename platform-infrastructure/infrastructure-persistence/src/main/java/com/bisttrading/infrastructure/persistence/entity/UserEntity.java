@@ -368,6 +368,7 @@ public class UserEntity {
         NONE,        // No KYC completed
         BASIC,       // Basic identity verification
         INTERMEDIATE,// Additional document verification
+        ENHANCED,    // Enhanced verification with additional docs
         ADVANCED     // Full KYC with video call
     }
 
@@ -478,6 +479,63 @@ public class UserEntity {
     public boolean isAdult() {
         Integer age = getAge();
         return age != null && age >= 18;
+    }
+
+    /**
+     * Checks if user is a professional investor.
+     *
+     * @return true if professional investor
+     */
+    public boolean isProfessionalInvestor() {
+        return Boolean.TRUE.equals(professionalInvestor);
+    }
+
+    /**
+     * Gets user's address from metadata.
+     *
+     * @return Address string
+     */
+    public String getAddress() {
+        if (metadata != null && metadata.containsKey("address")) {
+            return (String) metadata.get("address");
+        }
+        return null;
+    }
+
+    /**
+     * Sets user's address in metadata.
+     *
+     * @param address Address to set
+     */
+    public void setAddress(String address) {
+        if (metadata == null) {
+            metadata = new java.util.HashMap<>();
+        }
+        metadata.put("address", address);
+    }
+
+    /**
+     * Gets user's city from metadata.
+     *
+     * @return City string
+     */
+    public String getCity() {
+        if (metadata != null && metadata.containsKey("city")) {
+            return (String) metadata.get("city");
+        }
+        return null;
+    }
+
+    /**
+     * Sets user's city in metadata.
+     *
+     * @param city City to set
+     */
+    public void setCity(String city) {
+        if (metadata == null) {
+            metadata = new java.util.HashMap<>();
+        }
+        metadata.put("city", city);
     }
 
     /**

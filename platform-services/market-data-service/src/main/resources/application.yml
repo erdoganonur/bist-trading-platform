@@ -107,7 +107,7 @@ timescaledb:
     order-book-snapshots: "order_book_snapshots"
   batch:
     size: 1000
-    flush-interval: 5s
+    flush-interval: 5000
   hypertable:
     chunk-time-interval: "1 day"
 

@@ -577,7 +577,7 @@ class UserRepositoryTest {
                 UserEntity user = TestDataBuilder.validUser()
                     .email("concurrent" + index + "@example.com")
                     .username("concurrent" + index)
-                    .tcKimlik(generateValidTcKimlik(index))
+                    .tcKimlikNo(generateValidTcKimlik(index))
                     .build();
 
                 entityManager.persist(user);
@@ -607,7 +607,6 @@ class UserRepositoryTest {
             .firstName("Çağlar")
             .lastName("Şıktırıkoğlu")
             .email("çağlar@örnek.com")
-            .address("Çamlıca Mahallesi, Gülşah Sokağı No:12")
             .city("İstanbul")
             .build();
 
@@ -624,7 +623,6 @@ class UserRepositoryTest {
         assertThat(user.getFirstName()).isEqualTo("Çağlar");
         assertThat(user.getLastName()).isEqualTo("Şıktırıkoğlu");
         assertThat(user.getEmail()).isEqualTo("çağlar@örnek.com");
-        assertThat(user.getAddress()).isEqualTo("Çamlıca Mahallesi, Gülşah Sokağı No:12");
         assertThat(user.getCity()).isEqualTo("İstanbul");
     }
 

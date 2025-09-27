@@ -1,6 +1,5 @@
 package com.bisttrading.oms.model;
 
-import com.bisttrading.infrastructure.persistence.entity.BaseEntity;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -8,7 +7,7 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 /**
- * OMS Order entity
+ * OMS Order entity - standalone JPA entity
  */
 @Data
 @Entity
@@ -16,10 +15,10 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 @Table(name = "oms_orders")
-@EqualsAndHashCode(callSuper = true)
-public class OMSOrder extends BaseEntity {
+public class OMSOrder {
 
     @Id
+    @GeneratedValue(strategy = GenerationType.UUID)
     private String orderId;
 
     @Column(name = "client_order_id", nullable = false)
@@ -104,6 +103,15 @@ public class OMSOrder extends BaseEntity {
     @Builder.Default
     private boolean active = true;
 
+    @Column(name = "created_at", nullable = false, updatable = false)
+    private LocalDateTime createdAt;
+
+    @Column(name = "updated_at", nullable = false)
+    private LocalDateTime updatedAt;
+
+    @Version
+    private Long version;
+
     // Enums
     public enum OrderSide {
         BUY, SELL
@@ -155,6 +163,13 @@ public class OMSOrder extends BaseEntity {
 
     @PrePersist
     protected void prePersist() {
+        LocalDateTime now = LocalDateTime.now();
+        if (createdAt == null) {
+            createdAt = now;
+        }
+        if (updatedAt == null) {
+            updatedAt = now;
+        }
         if (remainingQuantity == null && quantity != null) {
             remainingQuantity = quantity.subtract(filledQuantity != null ? filledQuantity : BigDecimal.ZERO);
         }
@@ -162,6 +177,7 @@ public class OMSOrder extends BaseEntity {
 
     @PreUpdate
     protected void preUpdate() {
+        updatedAt = LocalDateTime.now();
         if (quantity != null) {
             remainingQuantity = quantity.subtract(filledQuantity != null ? filledQuantity : BigDecimal.ZERO);
         }

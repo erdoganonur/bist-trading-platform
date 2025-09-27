@@ -53,7 +53,6 @@ public class Resilience4jConfig {
     public Retry algoLabRetry() {
         RetryConfig config = RetryConfig.custom()
             .maxAttempts(3) // Maksimum 3 deneme
-            .waitDuration(Duration.ofSeconds(2)) // İlk bekleme 2 saniye
             .intervalFunction(IntervalFunction.ofExponentialBackoff(
                 Duration.ofSeconds(2), // Başlangıç
                 2.0 // Çarpan (2, 4, 8 saniye şeklinde artar)

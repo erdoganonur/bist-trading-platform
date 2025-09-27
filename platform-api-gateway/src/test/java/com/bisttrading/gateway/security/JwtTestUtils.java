@@ -2,8 +2,6 @@ package com.bisttrading.gateway.security;
 
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
-import lombok.experimental.UtilityClass;
-
 import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
@@ -19,8 +17,11 @@ import java.util.UUID;
  * Provides helper methods for creating test JWT tokens with various
  * configurations and claims for comprehensive testing scenarios.
  */
-@UtilityClass
-public class JwtTestUtils {
+public final class JwtTestUtils {
+
+    private JwtTestUtils() {
+        throw new UnsupportedOperationException("Utility class");
+    }
 
     private static final String TEST_SECRET = "test-secret-key-for-jwt-token-generation-minimum-256-bits-required";
     private static final String TEST_ISSUER = "bist-trading-platform";

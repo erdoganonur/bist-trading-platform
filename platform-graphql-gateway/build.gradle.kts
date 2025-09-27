@@ -2,7 +2,6 @@ plugins {
     id("java")
     id("org.springframework.boot") version "3.3.4"
     id("io.spring.dependency-management") version "1.1.6"
-    id("com.netflix.dgs.codegen") version "6.2.1"
 }
 
 group = "com.bisttrading"
@@ -35,10 +34,8 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-actuator")
     implementation("org.springframework.boot:spring-boot-starter-validation")
 
-    // GraphQL Dependencies
+    // GraphQL Dependencies - Using Spring GraphQL instead of Netflix DGS
     implementation("org.springframework.boot:spring-boot-starter-graphql")
-    implementation("com.netflix.graphql.dgs:graphql-dgs-spring-boot-starter:8.7.1")
-    implementation("com.netflix.graphql.dgs:graphql-dgs-extended-scalars:8.7.1")
     implementation("com.graphql-java:graphql-java-extended-scalars:21.0")
 
     // DataLoader for N+1 prevention
@@ -102,26 +99,4 @@ tasks.withType<Test> {
     useJUnitPlatform()
 }
 
-// GraphQL Code Generation
-tasks.named<com.netflix.graphql.dgs.codegen.gradle.GenerateJavaTask>("generateJava") {
-    generateClient = false
-    packageName = "com.netflix.dgs.codegen.generated"
-    typeMapping = mutableMapOf(
-        "Decimal" to "java.math.BigDecimal",
-        "DateTime" to "java.time.OffsetDateTime",
-        "TCKN" to "java.lang.String"
-    )
-}
-
-// Ensure code generation runs before compilation
-tasks.compileJava {
-    dependsOn("generateJava")
-}
-
-sourceSets {
-    main {
-        java {
-            srcDirs("${layout.buildDirectory.get()}/generated/sources/dgs-codegen/src/main/java")
-        }
-    }
-}
+// Using Spring GraphQL - no code generation needed

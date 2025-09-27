@@ -1,0 +1,11 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="BIST Platform - All Services" type="CompoundRunConfigurationType">
+    <toRun name="BistTradingGatewayApplication" type="SpringBootApplicationConfigurationType" />
+    <toRun name="BistTradingGraphQLGatewayApplication" type="SpringBootApplicationConfigurationType" />
+    <toRun name="BrokerIntegrationServiceApplication" type="SpringBootApplicationConfigurationType" />
+    <toRun name="MarketDataServiceApplication" type="SpringBootApplicationConfigurationType" />
+    <toRun name="OrderManagementServiceApplication" type="SpringBootApplicationConfigurationType" />
+    <toRun name="UserManagementServiceApplication" type="SpringBootApplicationConfigurationType" />
+    <method v="2" />
+  </configuration>
+</component>

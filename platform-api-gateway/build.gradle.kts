@@ -1,8 +1,8 @@
 plugins {
     id("org.springframework.boot") version "3.3.4"
     id("io.spring.dependency-management") version "1.1.6"
-    kotlin("jvm") version "1.9.25"
-    kotlin("plugin.spring") version "1.9.25"
+    kotlin("jvm") version "2.0.10"
+    kotlin("plugin.spring") version "2.0.10"
     id("com.google.cloud.tools.jib") version "3.4.0"
 }
 
@@ -75,8 +75,8 @@ dependencies {
     testImplementation("org.springframework.security:spring-security-test")
     testImplementation("io.projectreactor:reactor-test")
     testImplementation("org.springframework.cloud:spring-cloud-contract-wiremock")
-    testImplementation("org.testcontainers:junit-jupiter")
-    testImplementation("org.testcontainers:redis")
+    testImplementation("org.testcontainers:junit-jupiter:1.19.1")
+    testImplementation("org.testcontainers:testcontainers:1.19.1")
     testImplementation("com.squareup.okhttp3:mockwebserver")
 }
 

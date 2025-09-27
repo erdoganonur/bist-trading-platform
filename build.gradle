@@ -165,9 +165,9 @@ sonar {
 
 task aggregateJacocoReport(type: JacocoReport) {
     dependsOn = subprojects.test
-    additionalSourceDirs.from = files(subprojects.sourceSets.main.allSource.srcDirs)
-    sourceDirectories.from = files(subprojects.sourceSets.main.allSource.srcDirs)
-    classDirectories.from = files(subprojects.sourceSets.main.output)
+    additionalSourceDirs.from = files(subprojects.collect { it.layout.projectDirectory.dir("src/main/java") })
+    sourceDirectories.from = files(subprojects.collect { it.layout.projectDirectory.dir("src/main/java") })
+    classDirectories.from = files(subprojects.collect { it.layout.buildDirectory.dir("classes/java/main") })
     executionData.from = files(subprojects.jacocoTestReport.executionData)
 
     reports {
@@ -183,6 +183,6 @@ task aggregateJacocoReport(type: JacocoReport) {
 }
 
 wrapper {
-    gradleVersion = '8.8'
+    gradleVersion = '9.0'
     distributionType = Wrapper.DistributionType.ALL
 }

@@ -131,6 +131,7 @@ public class RouteConfiguration {
      * Used for public endpoints and fallback scenarios.
      */
     @Bean
+    @org.springframework.context.annotation.Primary
     public KeyResolver ipKeyResolver() {
         return exchange -> Mono.just(
             exchange.getRequest().getRemoteAddress().getAddress().getHostAddress()

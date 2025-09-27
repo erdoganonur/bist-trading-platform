@@ -302,6 +302,26 @@ public class JwtTokenProvider {
     }
 
     /**
+     * Validates JWT token.
+     *
+     * @param token JWT token to validate
+     * @return true if token is valid
+     */
+    public boolean isValidToken(String token) {
+        if (token == null || token.trim().isEmpty()) {
+            return false;
+        }
+
+        try {
+            jwtParser.parseSignedClaims(token);
+            return true;
+        } catch (JwtException | IllegalArgumentException e) {
+            log.debug("Invalid token: {}", e.getMessage());
+            return false;
+        }
+    }
+
+    /**
      * Checks if token is expired.
      *
      * @param token JWT token

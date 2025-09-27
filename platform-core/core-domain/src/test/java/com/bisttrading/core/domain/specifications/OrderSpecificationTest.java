@@ -76,12 +76,8 @@ class OrderSpecificationTest {
             // Given
             OrderSpecification.ValidQuantitySpecification spec = new OrderSpecification.ValidQuantitySpecification();
             // Create a symbol with higher minimum lot size for testing
-            Symbol symbolWithHighLotSize = Symbol.builder()
-                .code("GELISIM")
-                .companyName("Gelişim Pazarı Şirketi")
-                .exchange(Exchange.BIST)
-                .marketType(MarketType.GELISIM_PAZARI)
-                .build();
+            Symbol symbolWithHighLotSize = Symbol.of("GELISIM", "TR1234567890", "Gelişim Pazarı Şirketi",
+                Exchange.BIST, MarketType.GELISIM_PAZARI);
 
             // Gelişim Pazarı has minimum lot size of 10
             Quantity smallQuantity = Quantity.of(5);
@@ -304,12 +300,8 @@ class OrderSpecificationTest {
         void shouldRejectSymbolWithSpecialTradingRules() {
             // Given
             OrderSpecification.ActiveSymbolSpecification spec = new OrderSpecification.ActiveSymbolSpecification();
-            Symbol specialSymbol = Symbol.builder()
-                .code("SPECIAL")
-                .companyName("Özel Kurallar Şirketi")
-                .exchange(Exchange.BIST)
-                .marketType(MarketType.GELISIM_PAZARI) // Has special trading rules
-                .build();
+            Symbol specialSymbol = Symbol.of("SPECIAL", "TR9876543210", "Özel Kurallar Şirketi",
+                Exchange.BIST, MarketType.GELISIM_PAZARI); // Has special trading rules
 
             OrderSpecification.OrderRequest order = new OrderSpecification.OrderRequest(
                 specialSymbol, OrderCreatedEvent.OrderType.LIMIT, OrderCreatedEvent.OrderSide.BUY,

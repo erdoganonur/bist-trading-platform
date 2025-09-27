@@ -4,6 +4,7 @@ import com.bisttrading.core.security.config.JwtProperties;
 import com.bisttrading.core.security.jwt.JwtTokenProvider;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
@@ -19,12 +20,19 @@ import java.util.concurrent.TimeUnit;
  */
 @Slf4j
 @Service
-@RequiredArgsConstructor
 public class TokenBlacklistService {
 
     private final RedisTemplate<String, String> redisTemplate;
     private final JwtTokenProvider jwtTokenProvider;
     private final JwtProperties jwtProperties;
+
+    public TokenBlacklistService(@Qualifier("redisTemplate") RedisTemplate<String, String> redisTemplate,
+                                JwtTokenProvider jwtTokenProvider,
+                                JwtProperties jwtProperties) {
+        this.redisTemplate = redisTemplate;
+        this.jwtTokenProvider = jwtTokenProvider;
+        this.jwtProperties = jwtProperties;
+    }
 
     private static final String BLACKLIST_PREFIX = "bist:security:blacklist:";
     private static final String USER_TOKENS_PREFIX = "bist:security:user-tokens:";

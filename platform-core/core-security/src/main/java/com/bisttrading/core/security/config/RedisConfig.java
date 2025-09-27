@@ -33,9 +33,6 @@ public class RedisConfig {
     @Value("${spring.data.redis.database:0}")
     private int redisDatabase;
 
-    @Value("${spring.data.redis.timeout:2000}")
-    private int redisTimeout;
-
     /**
      * Redis connection factory configuration.
      *

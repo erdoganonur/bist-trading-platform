@@ -32,7 +32,7 @@ public class TestDataBuilder {
             .firstName("Ahmet")
             .lastName("Yılmaz")
             .phoneNumber("+905551234567")
-            .tcKimlik("12345678901")
+            .tcKimlikNo("12345678901")
             .dateOfBirth(LocalDate.of(1990, 5, 15))
             .address("Atatürk Mahallesi, İstiklal Caddesi No:123")
             .city("İstanbul")
@@ -60,7 +60,6 @@ public class TestDataBuilder {
             .username("çağlarşık")
             .firstName("Çağlar")
             .lastName("Şıktırıkoğlu")
-            .address("Çamlıca Mahallesi, Gülşah Sokağı No:45")
             .city("İstanbul");
     }
 
@@ -148,8 +147,7 @@ public class TestDataBuilder {
             .ipAddress("192.168.1.100")
             .userAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
             .deviceType(UserSessionEntity.DeviceType.DESKTOP)
-            .location("İstanbul, Türkiye")
-            .securityLevel(UserSessionEntity.SecurityLevel.STANDARD)
+            .securityLevel(UserSessionEntity.SecurityLevel.MEDIUM)
             .status(UserSessionEntity.SessionStatus.ACTIVE)
             .createdAt(LocalDateTime.now(ISTANBUL_ZONE))
             .lastActivityAt(LocalDateTime.now(ISTANBUL_ZONE));
@@ -398,7 +396,7 @@ public class TestDataBuilder {
 
         public static UserEntity userWithEncryptedData() {
             return validUser()
-                .tcKimlik("12345678901") // Will be encrypted
+                .tcKimlikNo("12345678901") // Will be encrypted
                 .phoneNumber("+905551234567") // Will be encrypted
                 .address("Gizli Adres Bilgisi") // Will be encrypted
                 .build();

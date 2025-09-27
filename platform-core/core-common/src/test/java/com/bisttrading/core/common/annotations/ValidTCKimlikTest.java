@@ -38,7 +38,7 @@ class ValidTCKimlikTest {
     @Test
     void shouldValidateCorrectTCKimlik() {
         TestObject obj = new TestObject();
-        obj.setTcKimlik("11111111116"); // Valid test TC Kimlik
+        obj.setTcKimlik("10000000146"); // Valid test TC Kimlik
 
         Set<ConstraintViolation<TestObject>> violations = validator.validate(obj);
 
@@ -48,7 +48,7 @@ class ValidTCKimlikTest {
     @Test
     void shouldRejectInvalidTCKimlik() {
         TestObject obj = new TestObject();
-        obj.setTcKimlik("12345678901"); // Invalid TC Kimlik
+        obj.setTcKimlik("12345678900"); // Invalid TC Kimlik
 
         Set<ConstraintViolation<TestObject>> violations = validator.validate(obj);
 
@@ -82,7 +82,7 @@ class ValidTCKimlikTest {
     @Test
     void shouldNormalizeInputByDefault() {
         TestObject obj = new TestObject();
-        obj.setTcKimlik("111 111 111 16"); // With spaces
+        obj.setTcKimlik("100 000 001 46"); // Valid TC with spaces
 
         Set<ConstraintViolation<TestObject>> violations = validator.validateProperty(obj, "tcKimlik");
 
@@ -92,7 +92,7 @@ class ValidTCKimlikTest {
     @Test
     void shouldNotNormalizeWhenDisabled() {
         TestObject obj = new TestObject();
-        obj.setExactTcKimlik("111 111 111 16"); // With spaces
+        obj.setExactTcKimlik("100 000 001 46"); // With spaces
 
         Set<ConstraintViolation<TestObject>> violations = validator.validateProperty(obj, "exactTcKimlik");
 

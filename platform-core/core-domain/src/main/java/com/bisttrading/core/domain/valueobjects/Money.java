@@ -43,7 +43,13 @@ public final class Money {
      * @return Money instance
      */
     public static Money of(BigDecimal amount, Currency currency) {
-        if (amount == null || amount.compareTo(BigDecimal.ZERO) < 0) {
+        if (amount == null) {
+            throw new NullPointerException("Miktar boş olamaz");
+        }
+        if (currency == null) {
+            throw new NullPointerException("Para birimi boş olamaz");
+        }
+        if (amount.compareTo(BigDecimal.ZERO) < 0) {
             throw new ValidationException(ErrorCodes.INVALID_AMOUNT,
                 "Miktar negatif olamaz");
         }

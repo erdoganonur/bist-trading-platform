@@ -1,6 +1,5 @@
 package com.bisttrading.graphql.config;
 
-import com.netflix.graphql.dgs.DgsComponent;
 import graphql.execution.instrumentation.Instrumentation;
 import graphql.scalars.ExtendedScalars;
 import graphql.schema.GraphQLScalarType;
@@ -32,6 +31,10 @@ public class GraphQLConfiguration {
             .scalar(ExtendedScalars.PositiveInt)
             .scalar(ExtendedScalars.NonNegativeInt)
             .scalar(ExtendedScalars.UUID)
+
+            // Custom scalars for missing types
+            .scalar(createBigIntegerScalar())
+            .scalar(createUploadScalar())
 
             // Custom Turkish locale scalars
             .scalar(createDecimalScalar())
@@ -86,6 +89,24 @@ public class GraphQLConfiguration {
             .name("TCKN")
             .description("Turkish Citizenship Number with validation")
             .coercing(new TCKNCoercing())
+            .build();
+    }
+
+    /**
+     * Custom BigInteger scalar
+     */
+    private GraphQLScalarType createBigIntegerScalar() {
+        return ExtendedScalars.GraphQLBigInteger;
+    }
+
+    /**
+     * Custom Upload scalar for file uploads
+     */
+    private GraphQLScalarType createUploadScalar() {
+        return GraphQLScalarType.newScalar()
+            .name("Upload")
+            .description("File upload scalar")
+            .coercing(new UploadCoercing())
             .build();
     }
 }
