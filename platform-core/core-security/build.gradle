@@ -4,6 +4,7 @@ plugins {
 
 dependencies {
     api project(':platform-core:core-common')
+    api project(':platform-infrastructure:infrastructure-persistence')
 
     // Spring Security
     api 'org.springframework.boot:spring-boot-starter-security'

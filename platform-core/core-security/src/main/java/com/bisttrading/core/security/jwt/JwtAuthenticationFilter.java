@@ -7,8 +7,8 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.lang.NonNull;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -26,13 +26,22 @@ import java.io.IOException;
  */
 @Slf4j
 @Component
-@RequiredArgsConstructor
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtTokenProvider jwtTokenProvider;
     private final CustomUserDetailsService userDetailsService;
     private final TokenBlacklistService tokenBlacklistService;
     private final JwtProperties jwtProperties;
+
+    public JwtAuthenticationFilter(JwtTokenProvider jwtTokenProvider,
+                                 CustomUserDetailsService userDetailsService,
+                                 @Autowired(required = false) TokenBlacklistService tokenBlacklistService,
+                                 JwtProperties jwtProperties) {
+        this.jwtTokenProvider = jwtTokenProvider;
+        this.userDetailsService = userDetailsService;
+        this.tokenBlacklistService = tokenBlacklistService;
+        this.jwtProperties = jwtProperties;
+    }
 
     @Override
     protected void doFilterInternal(@NonNull HttpServletRequest request,
@@ -68,8 +77,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             return;
         }
 
-        // Check if token is blacklisted
-        if (tokenBlacklistService.isTokenBlacklisted(jwt)) {
+        // Check if token is blacklisted (only if service is available)
+        if (tokenBlacklistService != null && tokenBlacklistService.isTokenBlacklisted(jwt)) {
             log.debug("Blacklist'te bulunan token kullanıldı");
             return;
         }

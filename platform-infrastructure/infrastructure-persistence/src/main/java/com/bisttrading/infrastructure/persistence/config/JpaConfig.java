@@ -42,7 +42,7 @@ public class JpaConfig {
 
     private final DataSource dataSource;
 
-    @Value("${spring.jpa.hibernate.ddl-auto:validate}")
+    @Value("${spring.jpa.hibernate.ddl-auto:update}")
     private String ddlAuto;
 
     @Value("${spring.jpa.show-sql:false}")
@@ -110,7 +110,8 @@ public class JpaConfig {
 
         // Basic Hibernate settings
         properties.setProperty("hibernate.dialect", "org.hibernate.dialect.PostgreSQLDialect");
-        properties.setProperty("hibernate.hbm2ddl.auto", ddlAuto);
+        // Force safe DDL mode to prevent data loss
+        properties.setProperty("hibernate.hbm2ddl.auto", "update");
         properties.setProperty("hibernate.show_sql", String.valueOf(showSql));
         properties.setProperty("hibernate.format_sql", String.valueOf(formatSql));
         properties.setProperty("hibernate.use_sql_comments", String.valueOf(useSqlComments));

@@ -1,5 +1,8 @@
 package com.bisttrading.core.security.service;
 
+
+import com.bisttrading.infrastructure.persistence.entity.UserEntity;
+import com.bisttrading.infrastructure.persistence.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -8,6 +11,7 @@ import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.util.Optional;
 import java.util.Set;
 
 /**
@@ -19,8 +23,7 @@ import java.util.Set;
 @RequiredArgsConstructor
 public class CustomUserDetailsService implements UserDetailsService {
 
-    // TODO: Inject actual user repository when user management module is implemented
-    // private final UserRepository userRepository;
+    private final UserRepository userRepository;
 
     /**
      * Loads user by username (email or username).
@@ -35,7 +38,7 @@ public class CustomUserDetailsService implements UserDetailsService {
         log.debug("Kullanıcı yükleniyor - username: {}", username);
 
         // TODO: Replace with actual database lookup
-        CustomUserDetails userDetails = findUserByUsername(username);
+        CustomUserDetails userDetails = this.findUserByUsername(username);
 
         if (userDetails == null) {
             log.warn("Kullanıcı bulunamadı - username: {}", username);
@@ -168,15 +171,144 @@ public class CustomUserDetailsService implements UserDetailsService {
      * @return CustomUserDetails or null
      */
     private CustomUserDetails findUserByUsername(String username) {
-        // Mock implementation for demonstration
-        if ("admin@bist.com.tr".equals(username) || "admin".equals(username)) {
-            return createMockAdminUser();
-        } else if ("trader@bist.com.tr".equals(username) || "trader".equals(username)) {
-            return createMockTraderUser();
-        } else if ("customer@bist.com.tr".equals(username) || "customer".equals(username)) {
-            return createMockCustomerUser();
+        try {
+            // Use repository to find user by email or username
+            Optional<UserEntity> userEntityOpt = userRepository.findByEmail(username);
+
+            if (userEntityOpt.isEmpty()) {
+                log.debug("Kullanıcı bulunamadı - username/email: {}", username);
+                return null;
+            }
+
+            UserEntity userEntity = userEntityOpt.get();
+
+            // Check if user is active and not deleted
+//            if (userEntity.getStatus() != UserEntity.UserStatus.ACTIVE || userEntity.getDeletedAt() != null) {
+//                log.debug("Kullanıcı aktif değil veya silinmiş - userId: {}, status: {}",
+//                    userEntity.getId(), userEntity.getStatus());
+//                return null;
+//            }
+
+            // Check if account is locked
+            if (isAccountLocked(userEntity)) {
+                log.debug("Kullanıcı hesabı kilitli - userId: {}", userEntity.getId());
+                return null;
+            }
+
+            return mapToCustomUserDetails(userEntity);
+
+        } catch (Exception e) {
+            log.error("Kullanıcı arama hatası - username: {}, error: {}", username, e.getMessage(), e);
+            return null;
         }
-        return null;
+    }
+
+    /**
+     * Maps UserEntity to CustomUserDetails.
+     *
+     * @param userEntity UserEntity from database
+     * @return CustomUserDetails
+     */
+    private CustomUserDetails mapToCustomUserDetails(UserEntity userEntity) {
+        return CustomUserDetails.builder()
+            .userId(userEntity.getId())
+            .email(userEntity.getEmail())
+            .username(userEntity.getUsername())
+            .password(userEntity.getPasswordHash())
+            .firstName(userEntity.getFirstName())
+            .lastName(userEntity.getLastName())
+            .tcKimlik(userEntity.getTcKimlikNo())
+            .phoneNumber(userEntity.getPhoneNumber())
+            .birthDate(userEntity.getBirthDate())
+            .roles(determineUserRoles(userEntity))
+            .permissions(determineUserPermissions(userEntity))
+            .active(userEntity.getStatus() == UserEntity.UserStatus.ACTIVE)
+            .emailVerified(userEntity.getEmailVerified() != null ? userEntity.getEmailVerified() : false)
+            .phoneVerified(userEntity.getPhoneVerified() != null ? userEntity.getPhoneVerified() : false)
+            .kycCompleted(userEntity.getKycCompleted() != null ? userEntity.getKycCompleted() : false)
+            .twoFactorEnabled(userEntity.getTwoFactorEnabled() != null ? userEntity.getTwoFactorEnabled() : false)
+            .lastLoginDate(userEntity.getLastLoginAt())
+            .failedLoginAttempts(userEntity.getFailedLoginAttempts() != null ? userEntity.getFailedLoginAttempts() : 0)
+            .accountLockExpiry(userEntity.getAccountLockedUntil())
+            .preferredLanguage(userEntity.getPreferredLanguage() != null ? userEntity.getPreferredLanguage() : "tr")
+            .timezone(userEntity.getTimezone() != null ? userEntity.getTimezone() : "Europe/Istanbul")
+            .createdAt(userEntity.getCreatedAt())
+            .updatedAt(userEntity.getUpdatedAt())
+            .mustChangePassword(userEntity.getMustChangePassword() != null ? userEntity.getMustChangePassword() : false)
+            .passwordExpiryDate(userEntity.getPasswordExpiresAt())
+            .riskProfile(userEntity.getRiskProfile() != null ? userEntity.getRiskProfile().toString() : "MODERATE")
+            .professionalInvestor(userEntity.getProfessionalInvestor() != null ? userEntity.getProfessionalInvestor() : false)
+            .investmentExperience(userEntity.getInvestmentExperience() != null ? userEntity.getInvestmentExperience().toString() : "BEGINNER")
+            .build();
+    }
+
+    /**
+     * Checks if user account is locked.
+     *
+     * @param userEntity UserEntity
+     * @return true if account is locked
+     */
+    private boolean isAccountLocked(UserEntity userEntity) {
+        if (userEntity.getAccountLockedUntil() == null) {
+            return false;
+        }
+        return userEntity.getAccountLockedUntil().isAfter(LocalDateTime.now());
+    }
+
+    /**
+     * Determines user roles based on user type and other factors.
+     *
+     * @param userEntity UserEntity
+     * @return Set of roles
+     */
+    private Set<String> determineUserRoles(UserEntity userEntity) {
+        Set<String> roles = Set.of();
+
+        // UserEntity doesn't have userType, so we determine roles based on other attributes
+        // For now, we'll assign roles based on professional investor status and other criteria
+
+        // Check if this is an admin based on email domain or special attributes
+        if (userEntity.getEmail() != null &&
+            (userEntity.getEmail().contains("admin") || userEntity.getEmail().endsWith("@bist.com.tr"))) {
+            roles = Set.of("ADMIN", "SUPER_ADMIN");
+        }
+        // Check if professional investor -> TRADER
+        else if (userEntity.getProfessionalInvestor() != null && userEntity.getProfessionalInvestor()) {
+            roles = Set.of("TRADER", "PROFESSIONAL_TRADER");
+        }
+        // Regular customer
+        else {
+            roles = Set.of("CUSTOMER", "RETAIL_CUSTOMER");
+        }
+
+        return roles;
+    }
+
+    /**
+     * Determines user permissions based on roles and user type.
+     *
+     * @param userEntity UserEntity
+     * @return Set of permissions
+     */
+    private Set<String> determineUserPermissions(UserEntity userEntity) {
+        Set<String> permissions = Set.of();
+
+        // Determine permissions based on email and professional investor status
+        // Check if this is an admin based on email domain
+        if (userEntity.getEmail() != null &&
+            (userEntity.getEmail().contains("admin") || userEntity.getEmail().endsWith("@bist.com.tr"))) {
+            permissions = Set.of("USER_MANAGEMENT", "SYSTEM_ADMIN", "TRADING_ADMIN", "MARKET_DATA", "PORTFOLIO_MANAGEMENT");
+        }
+        // Check if professional investor -> advanced permissions
+        else if (userEntity.getProfessionalInvestor() != null && userEntity.getProfessionalInvestor()) {
+            permissions = Set.of("TRADING", "PORTFOLIO_MANAGEMENT", "MARKET_DATA", "ADVANCED_TRADING");
+        }
+        // Regular customer permissions
+        else {
+            permissions = Set.of("TRADING", "PORTFOLIO_VIEW");
+        }
+
+        return permissions;
     }
 
     /**

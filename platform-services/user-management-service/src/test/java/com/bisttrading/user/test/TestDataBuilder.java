@@ -2,7 +2,6 @@ package com.bisttrading.user.test;
 
 import com.bisttrading.user.dto.*;
 import com.bisttrading.infrastructure.persistence.entity.UserEntity;
-import lombok.experimental.UtilityClass;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -13,8 +12,11 @@ import java.util.UUID;
  * Test data builder for user management service tests.
  * Provides consistent test data with Turkish localization support.
  */
-@UtilityClass
-public class TestDataBuilder {
+public final class TestDataBuilder {
+
+    private TestDataBuilder() {
+        throw new UnsupportedOperationException("This is a utility class and cannot be instantiated");
+    }
 
     private static final ZoneId ISTANBUL_ZONE = ZoneId.of("Europe/Istanbul");
 
