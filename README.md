@@ -1,51 +1,47 @@
 # BIST Trading Platform 🚀
 
 [![Build Status](https://img.shields.io/badge/build-passing-brightgreen.svg)](https://github.com/your-org/bist-trading-platform/actions)
-[![Sprint Progress](https://img.shields.io/badge/Sprint%204-100%25%20Complete-brightgreen.svg)](./SPRINT-4-COMPLETION-REPORT.md)
-[![Build Status](https://img.shields.io/badge/Build-Perfect%20✅-brightgreen.svg)](https://github.com/your-org/bist-trading-platform/actions)
-[![Architecture](https://img.shields.io/badge/Architecture-Enterprise%20Grade-blue.svg)](./docs/architecture/system-design.md)
-[![Version](https://img.shields.io/badge/version-1.0.0--SNAPSHOT-blue.svg)](https://github.com/your-org/bist-trading-platform/releases)
+[![Architecture](https://img.shields.io/badge/Architecture-Simplified%20Monolith-blue.svg)](./docs/architecture/system-design.md)
+[![Version](https://img.shields.io/badge/version-2.0.0--SIMPLIFIED-green.svg)](https://github.com/your-org/bist-trading-platform/releases)
 [![Java](https://img.shields.io/badge/Java-21%20LTS-orange.svg)](https://openjdk.org/projects/jdk/21/)
 [![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.3.4-green.svg)](https://spring.io/projects/spring-boot)
 [![Gradle](https://img.shields.io/badge/Gradle-9.0-blue.svg)](https://gradle.org/)
 [![Docker](https://img.shields.io/badge/Docker-24.0+-blue.svg)](https://www.docker.com/)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-A high-performance, enterprise-grade trading platform for Borsa Istanbul (BIST) built with modern Java technologies. Designed as a modular monolith with microservices-ready architecture, supporting real-time market data processing, order execution, and Turkish market compliance.
+A high-performance, enterprise-grade trading platform for Borsa Istanbul (BIST) built with modern Java technologies. **Now simplified into a single, manageable application** that consolidates all trading functionality while maintaining enterprise-grade features and Turkish market compliance.
 
-**🎯 Current Status**: **GraphQL Gateway Successfully Implemented!** 🎉 Complete GraphQL API with 700+ line schema, JWT security, Turkish market compliance, and microservice integration. All builds passing, enterprise-ready for production deployment.
+**🎯 Current Status**: **Architecture Successfully Simplified!** 🎉 From complex microservices to a single, powerful application. All functionality consolidated, simplified deployment, and enterprise-ready for production.
 
 ## 🌟 Project Overview
 
 ### Key Features
 
-- 🚀 **GraphQL Gateway**: Unified API with type-safe schema and N+1 prevention
-- 🔥 **Real-time Market Data**: WebSocket streaming with <50ms latency processing
-- ⚡ **High-Performance Trading**: 50,000+ ticks/second throughput capability
+- 🎯 **Unified Application**: All functionality consolidated into a single, manageable application
+- 🔥 **Real-time Market Data**: WebSocket streaming with comprehensive analytics
+- ⚡ **High-Performance Trading**: Optimized for Turkish market requirements
 - 🏛️ **BIST Market Compliance**: Full Turkish market support with TCKN validation
 - 🔐 **Enterprise Security**: JWT authentication with RBAC and comprehensive validation
-- 🌐 **REST API Gateway**: Spring Cloud Gateway with circuit breakers and fallback mechanisms
-- 📊 **Time-Series Analytics**: TimescaleDB integration for market data analysis
-- 🐳 **Cloud-Ready**: Docker containerization with Kubernetes support
-- 📈 **Comprehensive Monitoring**: Prometheus, Grafana, and Jaeger integration
-- 🧪 **Test-Driven Development**: Framework ready, comprehensive test suite
-- 📚 **Comprehensive Documentation**: GraphQL schema, REST API, and WebSocket specs
+- 📊 **Integrated Analytics**: Built-in market data analysis and technical indicators
+- 🚀 **Simplified Deployment**: Single application with streamlined startup scripts
+- 📈 **Comprehensive API**: REST endpoints covering all trading operations
+- 🐳 **Cloud-Ready**: Docker containerization with simplified orchestration
+- 📚 **Comprehensive Documentation**: Updated for simplified architecture
 
 ### Architecture Highlights
 
-- **GraphQL Gateway**: Netflix DGS framework with comprehensive type system and security
-- **REST API Gateway**: Spring Cloud Gateway with reactive architecture and rate limiting
-- **Modular Monolith**: Clean separation of concerns with domain-driven design
-- **Event-Driven**: Apache Kafka for asynchronous communication
-- **Microservices-Ready**: Easy transition to distributed architecture with service clients
-- **Observability-First**: Built-in monitoring, metrics, and distributed tracing
-- **Scalable Data Layer**: PostgreSQL + TimescaleDB for time-series data
-- **Redis Caching**: Session management + distributed rate limiting
-- **Security-First**: JWT authentication, RBAC, and comprehensive validation
+- **Consolidated Monolith**: All services integrated into one powerful application
+- **Clean Architecture**: Well-organized modules with clear separation of concerns
+- **Simplified Deployment**: From 5+ services to 1 unified application
+- **Retained Functionality**: User management, trading, market data, and broker integration
+- **Enterprise Security**: JWT authentication and role-based access control maintained
+- **Scalable Data Layer**: PostgreSQL with optimized schema design
+- **Mock Integrations**: AlgoLab broker integration with comprehensive mock responses
+- **Production-Ready**: Simplified but enterprise-grade architecture
 
 ## ⚡ Quick Start
 
-Get up and running in just **3 steps**:
+Get up and running in just **3 simple steps**:
 
 ### 1. Clone the Repository
 ```bash
@@ -53,39 +49,35 @@ git clone https://github.com/your-org/bist-trading-platform.git
 cd bist-trading-platform
 ```
 
-### 2. Build the Project
+### 2. Build the Application (Optional)
 ```bash
-# Both commands work perfectly (Gradle 9.0 compatible)
-gradle build -x test
-# OR
-./gradlew build -x test
+# Build the application
+./build-app.sh
 
-# Build time: ~36 seconds (optimized)
-# Status: ✅ PERFECT - Zero compilation errors
+# OR use Gradle directly
+./gradlew clean build -x test
 ```
 
-### 3. Start Services
+### 3. Start the Application
 ```bash
-# Start GraphQL Gateway (NEW!)
-gradle :platform-graphql-gateway:bootRun
+# One command to start everything!
+./start-app.sh
 
-# Start REST API Gateway
-gradle :platform-api-gateway:bootRun
+# OR start manually
+./gradlew :platform-services:user-management-service:bootRun
 
-# Start individual services
-gradle :platform-services:user-management-service:bootRun
-gradle :platform-services:market-data-service:bootRun
-gradle :platform-services:order-management-service:bootRun
-gradle :platform-services:broker-integration-service:bootRun
-
-# Access GraphQL Playground
-open http://localhost:8090/graphiql
-
-# Access REST API Swagger UI
+# Access the application
+open http://localhost:8080
 open http://localhost:8080/swagger-ui.html
 ```
 
-**That's it! 🎉** All services are running with monitoring dashboards available.
+**That's it! 🎉** Single application with all functionality available at **http://localhost:8080**
+
+### Stop the Application
+```bash
+# Clean shutdown
+./stop-app.sh
+```
 
 ## 📚 Documentation
 
@@ -233,89 +225,57 @@ Access monitoring dashboards at [http://localhost:3000](http://localhost:3000) (
 | **Container** | Docker | 24.0+ | Containerization |
 | **Orchestration** | Kubernetes | 1.28+ | Container orchestration |
 
-## 🏛️ Architecture
+## 🏛️ Simplified Architecture
 
 ```mermaid
 graph TB
-    subgraph "Load Balancer"
+    subgraph "Load Balancer (Optional)"
         LB[NGINX/HAProxy]
     end
 
-    subgraph "Gateway Layer"
-        GQL[GraphQL Gateway<br/>:8090]
-        AGW[REST API Gateway<br/>:8080]
-    end
-
-    subgraph "Application Layer"
-        US[User Management<br/>Service :8081]
-        OM[Order Management<br/>Service :8082]
-        MD[Market Data<br/>Service :8083]
-        BI[Broker Integration<br/>Service :8084]
+    subgraph "Consolidated Application"
+        APP[BIST Trading Platform<br/>:8080<br/><br/>✅ User Management<br/>✅ Market Data Analysis<br/>✅ Order Management<br/>✅ Broker Integration<br/>✅ JWT Security<br/>✅ REST API]
     end
 
     subgraph "Data Layer"
-        PG[(PostgreSQL<br/>+TimescaleDB)]
-        RD[(Redis<br/>Cache)]
-        KF[(Kafka<br/>Message Queue)]
+        PG[(PostgreSQL<br/>Database)]
     end
 
-    subgraph "External Systems"
-        AL[AlgoLab<br/>Broker API]
-        MS[Market Data<br/>Providers]
+    subgraph "External Systems (Mock)"
+        AL[AlgoLab Broker<br/>(Mock Integration)]
+        MS[Market Data Providers<br/>(Mock Data)]
     end
 
-    subgraph "Monitoring"
-        PR[Prometheus]
-        GR[Grafana]
-        JG[Jaeger]
+    subgraph "Monitoring (Optional)"
+        PR[Prometheus<br/>Metrics]
+        GR[Grafana<br/>Dashboards]
     end
 
-    LB --> GQL
-    LB --> AGW
-
-    GQL --> US
-    GQL --> OM
-    GQL --> MD
-    GQL --> BI
-
-    AGW --> US
-    AGW --> OM
-    AGW --> MD
-    AGW --> BI
-
-    US --> PG
-    US --> RD
-    US --> KF
-
-    OM --> PG
-    OM --> RD
-    OM --> KF
-
-    MD --> PG
-    MD --> RD
-    MD --> KF
-    MD --> MS
-
-    BI --> PG
-    BI --> RD
-    BI --> KF
-    BI --> AL
-
-    GQL --> PR
-    AGW --> PR
-    US --> PR
-    OM --> PR
-    MD --> PR
-    BI --> PR
-
+    LB --> APP
+    APP --> PG
+    APP --> AL
+    APP --> MS
+    APP --> PR
     PR --> GR
-    GQL --> JG
-    AGW --> JG
-    US --> JG
-    OM --> JG
-    MD --> JG
-    BI --> JG
+
+    classDef app fill:#e1f5fe,stroke:#01579b,stroke-width:3px
+    classDef data fill:#f3e5f5,stroke:#4a148c,stroke-width:2px
+    classDef external fill:#fff3e0,stroke:#e65100,stroke-width:2px
+    classDef monitor fill:#e8f5e8,stroke:#2e7d32,stroke-width:2px
+
+    class APP app
+    class PG data
+    class AL,MS external
+    class PR,GR monitor
 ```
+
+### Architecture Benefits
+- **🎯 Single Application**: All functionality in one deployable unit
+- **🚀 Simplified Deployment**: One port, one process, easy management
+- **🔧 Easy Development**: Single codebase with clear module separation
+- **📈 Maintained Features**: All original functionality preserved
+- **🔐 Enterprise Security**: JWT authentication and RBAC maintained
+- **📊 Comprehensive API**: All endpoints consolidated under port 8080
 
 ## 📞 Support
 
