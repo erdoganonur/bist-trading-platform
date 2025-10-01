@@ -1,224 +1,64 @@
 version: '3.8'
 
 services:
-  # PostgreSQL with TimescaleDB extension
+  # PostgreSQL Database
   postgres:
-    image: timescale/timescaledb:2.15.3-pg16
+    image: postgres:15-alpine
     container_name: bist-postgres
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-bist_trading}
-      POSTGRES_USER: ${POSTGRES_USER:-bist_user}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-bist_password}
-      POSTGRES_MULTIPLE_EXTENSIONS: timescaledb
+      POSTGRES_DB: bist_trading
+      POSTGRES_USER: bist_user
+      POSTGRES_PASSWORD: bist_password
     ports:
-      - "${POSTGRES_PORT:-5432}:5432"
+      - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./docker/postgres/init:/docker-entrypoint-initdb.d
     networks:
       - bist-network
-    restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-bist_user} -d ${POSTGRES_DB:-bist_trading}"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+      test: ["CMD-SHELL", "pg_isready -U bist_user -d bist_trading"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
-  # Redis for caching and session storage
-  redis:
-    image: redis:7.4-alpine
-    container_name: bist-redis
-    command: redis-server --requirepass ${REDIS_PASSWORD:-redis_password}
-    ports:
-      - "${REDIS_PORT:-6379}:6379"
-    volumes:
-      - redis_data:/data
-      - ./docker/redis/redis.conf:/usr/local/etc/redis/redis.conf
-    networks:
-      - bist-network
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
-      interval: 10s
-      timeout: 3s
-      retries: 5
-
-  # Zookeeper for Kafka
-  zookeeper:
-    image: confluentinc/cp-zookeeper:7.6.1
-    container_name: bist-zookeeper
+  # BIST Trading Platform - REAL Monolith
+  bist-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: bist-trading-app
     environment:
-      ZOOKEEPER_CLIENT_PORT: 2181
-      ZOOKEEPER_TICK_TIME: 2000
-      ZOOKEEPER_SYNC_LIMIT: 2
-    ports:
-      - "2181:2181"
-    volumes:
-      - zookeeper_data:/var/lib/zookeeper/data
-      - zookeeper_log:/var/lib/zookeeper/log
-    networks:
-      - bist-network
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "bash", "-c", "echo 'ruok' | nc localhost 2181"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
-  # Apache Kafka
-  kafka:
-    image: confluentinc/cp-kafka:7.6.1
-    container_name: bist-kafka
-    depends_on:
-      - zookeeper
-    environment:
-      KAFKA_BROKER_ID: 1
-      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
-      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
-      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
-      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
-      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
-      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
-      KAFKA_JMX_PORT: 9101
-      KAFKA_JMX_HOSTNAME: localhost
-    ports:
-      - "9092:9092"
-      - "9101:9101"
-    volumes:
-      - kafka_data:/var/lib/kafka/data
-    networks:
-      - bist-network
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "kafka-broker-api-versions", "--bootstrap-server", "localhost:9092"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
-  # Kafka UI for development
-  kafka-ui:
-    image: provectuslabs/kafka-ui:latest
-    container_name: bist-kafka-ui
-    depends_on:
-      - kafka
-    environment:
-      KAFKA_CLUSTERS_0_NAME: local
-      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:29092
-      KAFKA_CLUSTERS_0_ZOOKEEPER: zookeeper:2181
+      SPRING_PROFILES_ACTIVE: docker
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/bist_trading
+      SPRING_DATASOURCE_USERNAME: bist_user
+      SPRING_DATASOURCE_PASSWORD: bist_password
+      SPRING_FLYWAY_ENABLED: false
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      SPRING_AUTOCONFIGURE_EXCLUDE: org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration
+      BIST_SECURITY_JWT_SECRET: bist-trading-platform-super-secret-key-for-jwt-tokens-256-bit-long
+      SERVER_PORT: 8080
     ports:
       - "8080:8080"
-    networks:
-      - bist-network
-    restart: unless-stopped
-    profiles:
-      - dev
-
-  # Prometheus for metrics collection
-  prometheus:
-    image: prom/prometheus:v2.52.0
-    container_name: bist-prometheus
-    command:
-      - '--config.file=/etc/prometheus/prometheus.yml'
-      - '--storage.tsdb.path=/prometheus'
-      - '--web.console.libraries=/etc/prometheus/console_libraries'
-      - '--web.console.templates=/etc/prometheus/consoles'
-      - '--storage.tsdb.retention.time=200h'
-      - '--web.enable-lifecycle'
-    ports:
-      - "9090:9090"
-    volumes:
-      - ./docker/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
-      - prometheus_data:/prometheus
-    networks:
-      - bist-network
-    restart: unless-stopped
-    profiles:
-      - monitoring
-
-  # Grafana for monitoring dashboards
-  grafana:
-    image: grafana/grafana:10.4.2
-    container_name: bist-grafana
-    environment:
-      GF_SECURITY_ADMIN_USER: ${GRAFANA_USER:-admin}
-      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-admin}
-      GF_USERS_ALLOW_SIGN_UP: false
-    ports:
-      - "3000:3000"
-    volumes:
-      - grafana_data:/var/lib/grafana
-      - ./docker/grafana/provisioning:/etc/grafana/provisioning
-      - ./docker/grafana/dashboards:/var/lib/grafana/dashboards
-    networks:
-      - bist-network
-    restart: unless-stopped
-    profiles:
-      - monitoring
-
-  # Jaeger for distributed tracing
-  jaeger:
-    image: jaegertracing/all-in-one:1.57
-    container_name: bist-jaeger
-    environment:
-      COLLECTOR_ZIPKIN_HOST_PORT: :9411
-    ports:
-      - "5775:5775/udp"
-      - "6831:6831/udp"
-      - "6832:6832/udp"
-      - "5778:5778"
-      - "16686:16686"
-      - "14250:14250"
-      - "14268:14268"
-      - "14269:14269"
-      - "9411:9411"
-    networks:
-      - bist-network
-    restart: unless-stopped
-    profiles:
-      - monitoring
-
-  # pgAdmin for database management
-  pgadmin:
-    image: dpage/pgadmin4:8.6
-    container_name: bist-pgadmin
-    environment:
-      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL:-admin@bist.com}
-      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:-admin}
-      PGADMIN_CONFIG_SERVER_MODE: 'False'
-    ports:
-      - "5050:80"
-    volumes:
-      - pgadmin_data:/var/lib/pgadmin
-      - ./docker/pgadmin/servers.json:/pgadmin4/servers.json
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
     networks:
       - bist-network
-    restart: unless-stopped
-    profiles:
-      - dev
+    volumes:
+      - app_logs:/app/logs
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
 
 volumes:
   postgres_data:
     driver: local
-  redis_data:
-    driver: local
-  kafka_data:
-    driver: local
-  zookeeper_data:
-    driver: local
-  zookeeper_log:
-    driver: local
-  prometheus_data:
-    driver: local
-  grafana_data:
-    driver: local
-  pgadmin_data:
+  app_logs:
     driver: local
 
 networks:
   bist-network:
     driver: bridge
-    name: bist-network
