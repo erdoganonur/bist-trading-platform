@@ -164,16 +164,19 @@ public class CustomUserDetailsService implements UserDetailsService {
     // TODO: Replace these mock methods with actual database queries
 
     /**
-     * Mock method to find user by username.
-     * This should be replaced with actual database lookup.
+     * Finds user by username or email from database.
      *
      * @param username Username or email
      * @return CustomUserDetails or null
      */
     private CustomUserDetails findUserByUsername(String username) {
         try {
-            // Use repository to find user by email or username
-            Optional<UserEntity> userEntityOpt = userRepository.findByEmail(username);
+            // Try to find by username first, then by email
+            Optional<UserEntity> userEntityOpt = userRepository.findByUsername(username);
+
+            if (userEntityOpt.isEmpty()) {
+                userEntityOpt = userRepository.findByEmail(username);
+            }
 
             if (userEntityOpt.isEmpty()) {
                 log.debug("Kullanıcı bulunamadı - username/email: {}", username);
@@ -181,13 +184,6 @@ public class CustomUserDetailsService implements UserDetailsService {
             }
 
             UserEntity userEntity = userEntityOpt.get();
-
-            // Check if user is active and not deleted
-//            if (userEntity.getStatus() != UserEntity.UserStatus.ACTIVE || userEntity.getDeletedAt() != null) {
-//                log.debug("Kullanıcı aktif değil veya silinmiş - userId: {}, status: {}",
-//                    userEntity.getId(), userEntity.getStatus());
-//                return null;
-//            }
 
             // Check if account is locked
             if (isAccountLocked(userEntity)) {
@@ -222,7 +218,7 @@ public class CustomUserDetailsService implements UserDetailsService {
             .birthDate(userEntity.getBirthDate() != null ? userEntity.getBirthDate().atStartOfDay() : null)
             .roles(determineUserRoles(userEntity))
             .permissions(determineUserPermissions(userEntity))
-            .active(userEntity.getStatus() == UserEntity.UserStatus.ACTIVE)
+            .active(userEntity.isActive())
             .emailVerified(userEntity.isEmailVerified())
             .phoneVerified(userEntity.isPhoneVerified())
             .kycCompleted(userEntity.getKycCompleted() != null ? userEntity.getKycCompleted() : false)
@@ -312,20 +308,35 @@ public class CustomUserDetailsService implements UserDetailsService {
     }
 
     /**
-     * Mock method to find user by ID.
-     * This should be replaced with actual database lookup.
+     * Finds user by ID from database.
      *
      * @param userId User ID
      * @return CustomUserDetails or null
      */
     private CustomUserDetails findUserById(String userId) {
-        // Mock implementation for demonstration
-        return switch (userId) {
-            case "admin-001" -> createMockAdminUser();
-            case "trader-001" -> createMockTraderUser();
-            case "customer-001" -> createMockCustomerUser();
-            default -> null;
-        };
+        try {
+            // Use repository to find user by ID
+            Optional<UserEntity> userEntityOpt = userRepository.findById(userId);
+
+            if (userEntityOpt.isEmpty()) {
+                log.debug("Kullanıcı bulunamadı - userId: {}", userId);
+                return null;
+            }
+
+            UserEntity userEntity = userEntityOpt.get();
+
+            // Check if account is locked
+            if (isAccountLocked(userEntity)) {
+                log.debug("Kullanıcı hesabı kilitli - userId: {}", userEntity.getId());
+                return null;
+            }
+
+            return mapToCustomUserDetails(userEntity);
+
+        } catch (Exception e) {
+            log.error("Kullanıcı arama hatası - userId: {}, error: {}", userId, e.getMessage(), e);
+            return null;
+        }
     }
 
     /**

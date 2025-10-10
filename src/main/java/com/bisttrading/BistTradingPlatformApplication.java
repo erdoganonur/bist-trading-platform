@@ -192,8 +192,8 @@ public class BistTradingPlatformApplication {
             log.info(banner, environment);
 
         } catch (Exception e) {
-            log.error("❌ Failed to start BIST Trading Platform", e);
-            System.exit(1);
+            log.error("❌ Failed to display startup banner (non-critical)", e);
+            // Don't exit - startup banner is not critical
         }
     }
 }

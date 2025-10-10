@@ -105,4 +105,10 @@ public interface OrderRepository extends BaseRepository<Order, String> {
      */
     @Query("SELECT COUNT(o) FROM Order o WHERE o.user.id = :userId")
     Long countOrdersForUser(@Param("userId") String userId);
+
+    /**
+     * Find orders by multiple statuses
+     */
+    @Query("SELECT o FROM Order o WHERE o.orderStatus IN :statuses ORDER BY o.createdAt DESC")
+    List<Order> findByOrderStatusIn(@Param("statuses") List<OrderStatus> statuses);
 }

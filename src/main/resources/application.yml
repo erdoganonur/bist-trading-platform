@@ -104,8 +104,8 @@ spring:
     redis:
       host: ${REDIS_HOST:localhost}
       port: ${REDIS_PORT:6379}
-      password: ${REDIS_PASSWORD:}
-      database: ${REDIS_DATABASE:0}
+      password: ${REDIS_PASSWORD:redis_password}
+      database: ${REDIS_DATABASE:1}
       ssl:
         enabled: ${REDIS_SSL_ENABLED:false}
       timeout: ${REDIS_TIMEOUT:2000ms}
@@ -219,11 +219,13 @@ logging:
 # OpenAPI Documentation
 springdoc:
   api-docs:
-    path: /api-docs
+    path: /v3/api-docs
     enabled: ${OPENAPI_ENABLED:true}
   swagger-ui:
     path: /swagger-ui.html
     enabled: ${SWAGGER_UI_ENABLED:true}
+    config-url: /v3/api-docs/swagger-config
+    url: /v3/api-docs
     tags-sorter: alpha
     operations-sorter: alpha
     display-request-duration: true
@@ -234,7 +236,6 @@ springdoc:
     filter: false
     show-extensions: false
     show-common-extensions: false
-    config-url: /api-docs/swagger-config
     oauth:
       client-id: ${SWAGGER_OAUTH_CLIENT_ID:swagger-ui}
       client-secret: ${SWAGGER_OAUTH_CLIENT_SECRET:}
@@ -288,6 +289,60 @@ springdoc:
     - group: admin
       display-name: Admin API
       paths-to-match: /api/v1/admin/**
+
+# Resilience4j Configuration
+resilience4j:
+  circuitbreaker:
+    configs:
+      default:
+        register-health-indicator: true
+        failure-rate-threshold: 50
+        slow-call-duration-threshold: 5s
+        slow-call-rate-threshold: 100
+        wait-duration-in-open-state: 60s
+        permitted-number-of-calls-in-half-open-state: 10
+        sliding-window-type: COUNT_BASED
+        sliding-window-size: 100
+        minimum-number-of-calls: 5
+        automatic-transition-from-open-to-half-open-enabled: true
+    instances:
+      algolab:
+        base-config: default
+        register-health-indicator: true
+
+  retry:
+    configs:
+      default:
+        max-attempts: 3
+        wait-duration: 2s
+        enable-exponential-backoff: true
+        exponential-backoff-multiplier: 2
+        retry-exceptions:
+          - java.io.IOException
+          - java.util.concurrent.TimeoutException
+          - org.springframework.web.client.ResourceAccessException
+        ignore-exceptions:
+          - java.lang.IllegalArgumentException
+          - com.bisttrading.user.broker.algolab.exception.AlgoLabAuthenticationException
+    instances:
+      algolab:
+        base-config: default
+
+  timelimiter:
+    configs:
+      default:
+        timeout-duration: 10s
+        cancel-running-future: true
+    instances:
+      algolab:
+        base-config: default
+
+  ratelimiter:
+    instances:
+      algolab:
+        limit-for-period: 1
+        limit-refresh-period: 5s
+        timeout-duration: 10s
 
 # BIST Trading Platform Configuration
 bist:
@@ -361,6 +416,15 @@ bist:
     account-lock-duration: ${ACCOUNT_LOCK_DURATION:3600} # 1 hour
     password-expiry-days: ${PASSWORD_EXPIRY_DAYS:90}
     verification-code-expiry: ${VERIFICATION_CODE_EXPIRY:900} # 15 minutes
+
+  # AlgoLab Session Storage
+  session:
+    storage: database  # file or database
+    file-path: ./algolab-session.json
+    expiration-hours: 24
+    retention-days: 30
+    cleanup-cron: "0 0 * * * *"  # Every hour
+    auto-cleanup: true
 
   # AlgoLab API Configuration
   integration:

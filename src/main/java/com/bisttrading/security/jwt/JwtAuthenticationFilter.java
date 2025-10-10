@@ -188,9 +188,14 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             return true;
         }
 
-        // API documentation endpoints
-        if (path.startsWith("/swagger-") || path.startsWith("/v3/api-docs") ||
-            path.equals("/swagger-ui.html") || path.startsWith("/swagger-ui/")) {
+        // API documentation endpoints - MUST SKIP ALL SWAGGER/OPENAPI PATHS
+        if (path.startsWith("/swagger-") ||
+            path.startsWith("/v3/api-docs") ||
+            path.startsWith("/api-docs") ||  // Added this to catch /api-docs/swagger-config
+            path.startsWith("/swagger-resources") ||
+            path.startsWith("/webjars/") ||
+            path.equals("/swagger-ui.html") ||
+            path.startsWith("/swagger-ui/")) {
             return true;
         }
 

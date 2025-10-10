@@ -43,17 +43,8 @@ public class UserEntity extends BaseEntity {
     @Column(name = "birth_date")
     private LocalDate birthDate;
 
-    @Column(name = "national_id", unique = true, length = 20)
-    private String nationalId;
-
-    @Column(name = "tc_kimlik", unique = true, length = 11)
-    private String tcKimlik;
-
     @Column(name = "tc_kimlik_no", unique = true, length = 11)
     private String tcKimlikNo;
-
-    @Column(name = "date_of_birth")
-    private LocalDate dateOfBirth;
 
     @Column(name = "address", length = 500)
     private String address;
@@ -70,29 +61,11 @@ public class UserEntity extends BaseEntity {
     @Column(name = "authorities")
     private String authorities;
 
-    @Column(name = "is_active", nullable = false)
-    private boolean active = true;
-
     @Column(name = "is_email_verified", nullable = false)
     private boolean emailVerified = false;
 
     @Column(name = "is_phone_verified", nullable = false)
     private boolean phoneVerified = false;
-
-    @Column(name = "email_verification_token")
-    private String emailVerificationToken;
-
-    @Column(name = "email_verification_code")
-    private String emailVerificationCode;
-
-    @Column(name = "email_verification_expiry")
-    private LocalDateTime emailVerificationExpiry;
-
-    @Column(name = "phone_verification_code")
-    private String phoneVerificationCode;
-
-    @Column(name = "phone_verification_expiry")
-    private LocalDateTime phoneVerificationExpiry;
 
     @Column(name = "password_reset_token")
     private String passwordResetToken;
@@ -202,6 +175,10 @@ public class UserEntity extends BaseEntity {
 
     public enum InvestmentExperience {
         BEGINNER, INTERMEDIATE, ADVANCED, PROFESSIONAL
+    }
+
+    public boolean isActive() {
+        return status == UserStatus.ACTIVE;
     }
 
     public boolean isAccountLocked() {

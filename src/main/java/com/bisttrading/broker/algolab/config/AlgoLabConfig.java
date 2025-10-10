@@ -1,0 +1,30 @@
+package com.bisttrading.broker.algolab.config;
+
+import org.springframework.boot.web.client.RestTemplateBuilder;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.web.client.RestTemplate;
+
+import java.time.Duration;
+
+/**
+ * Configuration class for AlgoLab integration.
+ * Provides RestTemplate bean for AlgoLab API calls.
+ */
+@Configuration
+public class AlgoLabConfig {
+
+    /**
+     * Creates a RestTemplate bean for AlgoLab API integration.
+     *
+     * @param builder RestTemplateBuilder provided by Spring Boot
+     * @return configured RestTemplate instance
+     */
+    @Bean
+    public RestTemplate restTemplate(RestTemplateBuilder builder) {
+        return builder
+                .setConnectTimeout(Duration.ofSeconds(10))
+                .setReadTimeout(Duration.ofSeconds(30))
+                .build();
+    }
+}

@@ -59,6 +59,14 @@ public class SecurityConfig {
 
             // Configure authorization rules
             .authorizeHttpRequests(authz -> authz
+                // API documentation endpoints - MUST BE FIRST!
+                .requestMatchers("/swagger-ui/**", "/swagger-ui.html").permitAll()
+                .requestMatchers("/v3/api-docs/**", "/v3/api-docs").permitAll()
+                .requestMatchers("/api-docs/**", "/api-docs").permitAll()
+                .requestMatchers("/api-docs/swagger-config").permitAll()
+                .requestMatchers("/swagger-resources/**").permitAll()
+                .requestMatchers("/webjars/**").permitAll()
+
                 // Public authentication endpoints
                 .requestMatchers("/api/v1/auth/**").permitAll()
 
@@ -69,12 +77,6 @@ public class SecurityConfig {
                 .requestMatchers("/actuator/health", "/health").permitAll()
                 .requestMatchers("/actuator/info", "/info").permitAll()
                 .requestMatchers("/actuator/prometheus").permitAll()
-
-                // API documentation endpoints
-                .requestMatchers("/swagger-ui/**", "/swagger-ui.html").permitAll()
-                .requestMatchers("/v3/api-docs/**", "/api-docs/**").permitAll()
-                .requestMatchers("/swagger-resources/**").permitAll()
-                .requestMatchers("/webjars/**").permitAll()
 
                 // Static resources
                 .requestMatchers("/static/**", "/css/**", "/js/**", "/images/**").permitAll()

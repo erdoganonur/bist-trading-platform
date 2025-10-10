@@ -111,6 +111,33 @@ springdoc:
   api-docs:
     enabled: true
 
+# Development Resilience4j Configuration
+resilience4j:
+  circuitbreaker:
+    instances:
+      algolab:
+        failure-rate-threshold: 50
+        slow-call-duration-threshold: 5s
+        slow-call-rate-threshold: 100
+        wait-duration-in-open-state: 30s  # Shorter for dev
+        permitted-number-of-calls-in-half-open-state: 5
+        sliding-window-size: 50  # Smaller window for dev
+        minimum-number-of-calls: 3  # Lower threshold for dev
+        register-health-indicator: true
+
+  retry:
+    instances:
+      algolab:
+        max-attempts: 2  # Fewer retries in dev
+        wait-duration: 1s  # Faster retry in dev
+        enable-exponential-backoff: true
+        exponential-backoff-multiplier: 2
+
+  timelimiter:
+    instances:
+      algolab:
+        timeout-duration: 8s  # Shorter timeout in dev
+
 # Development BIST Configuration
 bist:
   # Development Security
@@ -179,6 +206,39 @@ bist:
         max-attempts: 1  # Fail fast in development
       security:
         ssl-verification: false  # Allow self-signed certs in dev
+
+# AlgoLab API Configuration
+algolab:
+  api:
+    key: ${ALGOLAB_API_KEY:API-I1G7BdhIZ3RY/lxNXgqOlFT0bAILG7zmdqwtiagSnDM=}
+    hostname: https://www.algolab.com.tr
+    url: https://www.algolab.com.tr/api
+    rate-limit: 0.2  # 0.2 req/sec = 1 request per 5 seconds
+  auth:
+    username: ${ALGOLAB_USERNAME:52738096404}
+    password: ${ALGOLAB_PASSWORD:141589}
+    auto-login: true
+    keep-alive: true
+    refresh-interval-ms: 300000  # 5 minutes
+  session:
+    storage: ${ALGOLAB_SESSION_STORAGE:file}  # file or database
+    file-path: ./algolab-session-dev.json
+    expiration-hours: 12  # Shorter in dev
+    retention-days: 7  # Shorter retention in dev
+    cleanup-cron: "0 0 */6 * * *"  # Every 6 hours in dev
+    auto-cleanup: true
+  websocket:
+    enabled: true
+    url: wss://www.algolab.com.tr/api/ws
+    auto-connect: true
+    heartbeat-interval: 900000  # 15 minutes in milliseconds
+    connection-timeout: 30000  # 30 seconds
+    reconnect:
+      enabled: true
+      initial-delay: 1000  # 1 second
+      max-delay: 60000  # 60 seconds
+      multiplier: 2.0
+      max-attempts: 0  # unlimited
 
   # Development Broker Integrations (sandbox)
   brokers:

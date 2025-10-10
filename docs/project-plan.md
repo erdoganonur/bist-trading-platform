@@ -657,9 +657,9 @@ For comprehensive sprint reports including:
 **Distribution**: Stakeholders, Development Team
 
 **Related Documents**:
-- [SPRINT-4-COMPLETION-REPORT.md](./SPRINT-4-COMPLETION-REPORT.md) - Sprint 4 detailed completion report
-- [README.md](./README.md) - Project overview
-- [SPRINT-1-SUMMARY.md](./SPRINT-1-SUMMARY.md) - Sprint 1 test summary
+- [Sprint 4 Completion Report](./sprints/sprint-4-completion-report.md) - Sprint 4 detailed completion report
+- [README.md](../README.md) - Project overview
+- [Sprint Reports](./sprints/) - All sprint summaries
 
 ---
 

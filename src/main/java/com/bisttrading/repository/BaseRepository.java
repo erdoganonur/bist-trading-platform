@@ -1,11 +1,12 @@
 package com.bisttrading.repository;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.repository.NoRepositoryBean;
 
 /**
- * Simplified base repository interface for REAL monolith
- * Only basic JpaRepository operations
+ * Base repository interface for REAL monolith.
+ * Provides JPA operations and Specification support for dynamic queries.
  *
  * @param <T> Entity type
  * @param <ID> Primary key type
@@ -15,6 +16,6 @@ import org.springframework.data.repository.NoRepositoryBean;
  * @since Real Monolith Simplification
  */
 @NoRepositoryBean
-public interface BaseRepository<T, ID> extends JpaRepository<T, ID> {
-    // Only basic JpaRepository operations
+public interface BaseRepository<T, ID> extends JpaRepository<T, ID>, JpaSpecificationExecutor<T> {
+    // JpaRepository + JpaSpecificationExecutor for comprehensive data access
 }

@@ -39,15 +39,13 @@ public interface UserMapper {
      * Updates UserEntity from UserProfileDto (for partial updates).
      *
      * @param profileDto Source DTO
-     * @param user Target entity
+     * @param user Target entitySon
      */
     @Mapping(target = "id", ignore = true)
     @Mapping(target = "passwordHash", ignore = true)
     @Mapping(target = "passwordResetToken", ignore = true)
     @Mapping(target = "passwordResetExpiresAt", ignore = true)
     @Mapping(target = "passwordExpiresAt", ignore = true)
-    @Mapping(target = "emailVerificationToken", ignore = true)
-    @Mapping(target = "phoneVerificationCode", ignore = true)
     @Mapping(target = "loginAttempts", ignore = true)
     @Mapping(target = "lockedUntil", ignore = true)
     @Mapping(target = "organization", ignore = true)

@@ -1,7 +1,7 @@
 package com.bisttrading.entity.trading;
 
 import com.bisttrading.entity.BaseEntity;
-import com.bisttrading.entity.User;
+import com.bisttrading.entity.UserEntity;
 import com.bisttrading.entity.Organization;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -53,7 +53,7 @@ public class BrokerAccount extends BaseEntity {
     @JoinColumn(name = "user_id", nullable = false)
     @NotNull(message = "User is required")
     @ToString.Exclude
-    private User user;
+    private UserEntity user;
 
     /**
      * Organization (if account belongs to organization)

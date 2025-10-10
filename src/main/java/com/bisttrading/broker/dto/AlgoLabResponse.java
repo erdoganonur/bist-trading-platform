@@ -1,4 +1,4 @@
-package com.bisttrading.user.broker.dto;
+package com.bisttrading.broker.dto;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.AllArgsConstructor;

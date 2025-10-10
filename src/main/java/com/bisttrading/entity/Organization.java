@@ -62,7 +62,7 @@ public class Organization extends BaseEntity {
     private OrganizationStatus status = OrganizationStatus.PENDING;
 
     @OneToMany(mappedBy = "organization", fetch = FetchType.LAZY)
-    private List<User> users;
+    private List<UserEntity> users;
 
     // Enums
     public enum OrganizationType {

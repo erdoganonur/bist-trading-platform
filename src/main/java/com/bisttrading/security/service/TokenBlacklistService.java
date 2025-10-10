@@ -79,7 +79,8 @@ public class TokenBlacklistService {
                 jwtId, reason, ttl);
 
         } catch (Exception e) {
-            log.error("Token blacklist'e eklenirken hata - error: {}", e.getMessage(), e);
+            log.warn("Token blacklist'e eklenirken hata (Redis bağlantı sorunu olabilir) - error: {}", e.getMessage());
+            // Redis unavailable, but continue - blacklist is optional
         }
     }
 
@@ -291,7 +292,7 @@ public class TokenBlacklistService {
                 return;
             }
 
-            log.info("Blacklist temizlik işlemi başlatılıyor");
+            log.debug("Blacklist temizlik işlemi başlatılıyor");
             long startTime = System.currentTimeMillis();
 
             Set<String> blacklistKeys = redisTemplate.keys(BLACKLIST_PREFIX + "*");
@@ -312,17 +313,18 @@ public class TokenBlacklistService {
             }
 
             long duration = System.currentTimeMillis() - startTime;
-            log.info("Blacklist temizlik işlemi tamamlandı - temizlenen: {}, süre: {}ms",
+            log.debug("Blacklist temizlik işlemi tamamlandı - temizlenen: {}, süre: {}ms",
                 cleanedCount, duration);
 
         } catch (Exception e) {
-            log.error("Blacklist temizlik işlemi hatası - error: {}", e.getMessage(), e);
+            log.warn("Blacklist temizlik işlemi hatası (Redis bağlantı sorunu olabilir) - atlanıyor: {}", e.getMessage());
+            // Redis unavailable - skip cleanup, it's not critical
         } finally {
             // Release cleanup lock
             try {
                 redisTemplate.delete(CLEANUP_LOCK);
             } catch (Exception e) {
-                log.warn("Cleanup lock serbest bırakılamadı - error: {}", e.getMessage());
+                log.debug("Cleanup lock serbest bırakılamadı (Redis bağlantı sorunu) - error: {}", e.getMessage());
             }
         }
     }

@@ -1,4 +1,4 @@
-package com.bisttrading.user.broker.dto;
+package com.bisttrading.broker.dto;
 
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
