@@ -317,7 +317,7 @@ class BrokerManager:
             # Subscribe to this symbol via backend WebSocket
             try:
                 console.print(f"\n[dim]{symbol} için WebSocket subscription yapılıyor...[/dim]")
-                response = self.api.post("/api/v1/broker/websocket/subscribe", json={"symbol": symbol, "channel": "tick"})
+                response = self.api.post("/api/v1/broker/websocket/subscribe", data={"symbol": symbol, "channel": "tick"})
                 if response.get("success"):
                     console.print(f"[green]✓ {symbol} için subscription başarılı[/green]")
                 else:
