@@ -314,6 +314,17 @@ class BrokerManager:
                 default="USDTRY"
             )
 
+            # Subscribe to this symbol via backend WebSocket
+            try:
+                console.print(f"\n[dim]{symbol} için WebSocket subscription yapılıyor...[/dim]")
+                response = self.api.post("/api/v1/broker/websocket/subscribe", json={"symbol": symbol, "channel": "tick"})
+                if response.get("success"):
+                    console.print(f"[green]✓ {symbol} için subscription başarılı[/green]")
+                else:
+                    console.print(f"[yellow]⚠ Subscription başarısız: {response.get('message', 'Unknown error')}[/yellow]")
+            except Exception as e:
+                console.print(f"[yellow]⚠ Subscription hatası (devam ediliyor): {str(e)}[/yellow]")
+
             console.print(f"\n[dim]{symbol} için real-time tick data gösteriliyor...[/dim]")
             console.print("[dim]Çıkmak için Ctrl+C[/dim]\n")
 
