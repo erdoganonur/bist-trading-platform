@@ -66,7 +66,10 @@ public class AlgoLabWebSocketService {
             AlgoLabSession session = sessionManager.loadSession();
             if (session != null && session.getToken() != null && session.getHash() != null) {
                 connectAsync(session.getToken(), session.getHash())
-                    .thenAccept(v -> log.info("WebSocket auto-connect successful"))
+                    .thenAccept(v -> {
+                        log.info("WebSocket auto-connect successful");
+                        // Note: Subscription is sent in AlgoLabWebSocketClient.afterConnectionEstablished()
+                    })
                     .exceptionally(ex -> {
                         log.error("WebSocket auto-connect failed", ex);
                         return null;

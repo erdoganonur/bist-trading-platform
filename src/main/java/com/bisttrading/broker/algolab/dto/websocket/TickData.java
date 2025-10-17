@@ -23,14 +23,16 @@ public class TickData {
 
     /**
      * Symbol code (e.g., "AKBNK", "THYAO")
+     * AlgoLab field: "Symbol"
      */
-    @JsonProperty("symbol")
+    @JsonProperty(value = "Symbol", defaultValue = "symbol")
     private String symbol;
 
     /**
      * Last traded price
+     * AlgoLab field: "Price"
      */
-    @JsonProperty("last")
+    @JsonProperty(value = "Price", defaultValue = "last")
     private BigDecimal lastPrice;
 
     /**

@@ -59,17 +59,35 @@ public class AlgoLabAuthService {
     }
 
     /**
-     * Step 1: Login with username and password.
+     * Step 1: Login with username and password from properties (auto-login).
      * Returns token. User must then receive SMS code.
      *
      * @return token
      */
     public String loginUser() {
-        log.info("Starting LoginUser flow...");
+        return loginUser(
+            properties.getAuth().getUsername(),
+            properties.getAuth().getPassword()
+        );
+    }
+
+    /**
+     * Step 1: Login with custom username and password.
+     * Returns token. User must then receive SMS code.
+     *
+     * This method allows users to provide their own AlgoLab credentials
+     * instead of using the ones configured in application properties.
+     *
+     * @param username AlgoLab broker username
+     * @param password AlgoLab broker password
+     * @return token
+     */
+    public String loginUser(String username, String password) {
+        log.info("Starting LoginUser flow with custom credentials for username: {}", username);
 
         // Encrypt credentials
-        String encryptedUsername = encryptionUtil.encrypt(properties.getAuth().getUsername());
-        String encryptedPassword = encryptionUtil.encrypt(properties.getAuth().getPassword());
+        String encryptedUsername = encryptionUtil.encrypt(username);
+        String encryptedPassword = encryptionUtil.encrypt(password);
 
         Map<String, String> payload = Map.of(
             "username", encryptedUsername,
@@ -91,11 +109,11 @@ public class AlgoLabAuthService {
             }
 
             this.token = body.getContent().getToken();
-            log.info("LoginUser successful. Token received. SMS code sent to user.");
+            log.info("LoginUser successful for username: {}. Token received. SMS code sent to user.", username);
             return token;
 
         } catch (Exception e) {
-            log.error("LoginUser failed", e);
+            log.error("LoginUser failed for username: {}", username, e);
             throw new AlgoLabAuthenticationException("LoginUser failed: " + e.getMessage(), e);
         }
     }
@@ -166,14 +184,17 @@ public class AlgoLabAuthService {
         this.token = session.getToken();
         restClient.setHash(session.getHash());
 
-        log.info("Session restored from storage. Verifying...");
+        log.info("Session restored from storage. Validating with GetSubAccounts...");
 
-        // Verify session is still alive
+        // CRITICAL: Validate session before using for WebSocket
+        // This matches the Python implementation (API class with auto_login=True)
+        // WebSocket requires fresh, validated session
         if (isAlive()) {
-            log.info("Session is valid. Auto-login successful.");
+            log.info("✅ Session validated successfully - safe for WebSocket");
             return true;
         } else {
-            log.warn("Restored session is expired or invalid");
+            log.warn("❌ Session validation failed - session expired or invalid");
+            log.warn("WebSocket auto-connect will be skipped. Manual login required.");
             clearAuth();
             return false;
         }

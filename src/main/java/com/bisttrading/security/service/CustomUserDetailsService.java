@@ -206,6 +206,21 @@ public class CustomUserDetailsService implements UserDetailsService {
      * @return CustomUserDetails
      */
     private CustomUserDetails mapToCustomUserDetails(UserEntity userEntity) {
+        // Parse authorities from database (comma-separated string)
+        Set<String> roles = Set.of();
+        Set<String> permissions = Set.of();
+
+        if (userEntity.getAuthorities() != null && !userEntity.getAuthorities().isEmpty()) {
+            var parsedAuthorities = parseAuthoritiesFromDatabase(userEntity.getAuthorities());
+            roles = parsedAuthorities.roles();
+            permissions = parsedAuthorities.permissions();
+        } else {
+            // Fallback to old logic if no authorities in database
+            log.warn("User {} has no authorities in database, using fallback logic", userEntity.getId());
+            roles = determineUserRoles(userEntity);
+            permissions = determineUserPermissions(userEntity);
+        }
+
         return CustomUserDetails.builder()
             .userId(userEntity.getId())
             .email(userEntity.getEmail())
@@ -216,8 +231,8 @@ public class CustomUserDetailsService implements UserDetailsService {
             .tcKimlik(userEntity.getTcKimlikNo())
             .phoneNumber(userEntity.getPhoneNumber())
             .birthDate(userEntity.getBirthDate() != null ? userEntity.getBirthDate().atStartOfDay() : null)
-            .roles(determineUserRoles(userEntity))
-            .permissions(determineUserPermissions(userEntity))
+            .roles(roles)
+            .permissions(permissions)
             .active(userEntity.isActive())
             .emailVerified(userEntity.isEmailVerified())
             .phoneVerified(userEntity.isPhoneVerified())
@@ -236,6 +251,49 @@ public class CustomUserDetailsService implements UserDetailsService {
             .professionalInvestor(userEntity.getProfessionalInvestor() != null ? userEntity.getProfessionalInvestor() : false)
             .investmentExperience(userEntity.getInvestmentExperience() != null ? userEntity.getInvestmentExperience().toString() : "BEGINNER")
             .build();
+    }
+
+    /**
+     * Parses authorities from database string format.
+     * Format: "ROLE_ADMIN,ROLE_TRADER,market:read,portfolio:read,..."
+     *
+     * @param authoritiesString Comma-separated authorities string
+     * @return ParsedAuthorities with roles and permissions separated
+     */
+    private ParsedAuthorities parseAuthoritiesFromDatabase(String authoritiesString) {
+        if (authoritiesString == null || authoritiesString.isEmpty()) {
+            return new ParsedAuthorities(Set.of(), Set.of());
+        }
+
+        Set<String> roles = new java.util.HashSet<>();
+        Set<String> permissions = new java.util.HashSet<>();
+
+        String[] authArray = authoritiesString.split(",");
+        for (String auth : authArray) {
+            String trimmed = auth.trim();
+            if (trimmed.isEmpty()) {
+                continue;
+            }
+
+            // Roles start with "ROLE_"
+            if (trimmed.startsWith("ROLE_")) {
+                // Remove "ROLE_" prefix for storage in roles set
+                roles.add(trimmed.substring(5));
+            }
+            // Permissions are everything else (including "permission:action" format)
+            else {
+                permissions.add(trimmed);
+            }
+        }
+
+        log.debug("Parsed authorities - roles: {}, permissions: {}", roles, permissions);
+        return new ParsedAuthorities(roles, permissions);
+    }
+
+    /**
+     * Record to hold parsed authorities.
+     */
+    private record ParsedAuthorities(Set<String> roles, Set<String> permissions) {
     }
 
     /**

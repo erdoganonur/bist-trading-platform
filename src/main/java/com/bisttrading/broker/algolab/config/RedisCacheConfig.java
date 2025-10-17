@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.cache.CacheManager;
 import org.springframework.cache.annotation.EnableCaching;
 import org.springframework.context.annotation.Bean;
@@ -65,10 +66,36 @@ public class RedisCacheConfig {
     }
 
     /**
-     * Creates ObjectMapper configured for Redis serialization.
-     * Supports JavaTime types (LocalDateTime, Instant, etc.)
+     * Default ObjectMapper for general application use (HTTP endpoints, utilities, etc.).
+     * Does NOT use polymorphic typing - suitable for REST APIs.
+     *
+     * This is the PRIMARY ObjectMapper bean that will be autowired by default.
      */
     @Bean
+    public ObjectMapper objectMapper() {
+        ObjectMapper mapper = new ObjectMapper();
+
+        // Register JavaTime module for LocalDateTime, Instant support
+        mapper.registerModule(new JavaTimeModule());
+
+        // Disable writing dates as timestamps
+        mapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+
+        // NO polymorphic typing for HTTP endpoints
+        log.info("Configured default ObjectMapper with JavaTimeModule (for HTTP and general use)");
+        return mapper;
+    }
+
+    /**
+     * Redis-specific ObjectMapper configured ONLY for Redis cache serialization.
+     * Supports JavaTime types (LocalDateTime, Instant, etc.)
+     *
+     * WARNING: This ObjectMapper uses polymorphic typing (type information in JSON).
+     * It should ONLY be used for Redis caching, NOT for HTTP endpoints.
+     *
+     * @Bean name is intentionally specific and requires @Qualifier for injection
+     */
+    @Bean(name = "algoLabRedisCacheObjectMapper")
     public ObjectMapper redisCacheObjectMapper() {
         ObjectMapper mapper = new ObjectMapper();
 
@@ -78,13 +105,14 @@ public class RedisCacheConfig {
         // Disable writing dates as timestamps
         mapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
 
-        // Enable default typing for polymorphic types
+        // Enable default typing for polymorphic types (REDIS ONLY!)
+        // This adds type information to JSON for deserialization safety
         mapper.activateDefaultTyping(
             mapper.getPolymorphicTypeValidator(),
             ObjectMapper.DefaultTyping.NON_FINAL
         );
 
-        log.info("Configured Redis cache ObjectMapper with JavaTimeModule");
+        log.info("Configured Redis cache ObjectMapper with JavaTimeModule and polymorphic typing");
         return mapper;
     }
 
@@ -101,7 +129,7 @@ public class RedisCacheConfig {
     @Bean
     public CacheManager cacheManager(
             RedisConnectionFactory connectionFactory,
-            ObjectMapper redisCacheObjectMapper) {
+            @Qualifier("algoLabRedisCacheObjectMapper") ObjectMapper redisCacheObjectMapper) {
 
         log.info("Configuring Redis cache manager for AlgoLab integration");
 

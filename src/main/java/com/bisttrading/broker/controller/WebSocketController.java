@@ -257,4 +257,164 @@ public class WebSocketController {
     public ResponseEntity<Set<String>> getSubscriptionsByChannel(@PathVariable String channel) {
         return ResponseEntity.ok(webSocketService.getSubscriptions(channel));
     }
+
+    /**
+     * Generic subscribe endpoint for CLI compatibility.
+     * Accepts channel and symbol in JSON body.
+     */
+    @PostMapping("/subscribe")
+    @Operation(summary = "Subscribe to channel", description = "Generic subscribe endpoint accepting channel and symbol in JSON")
+    public ResponseEntity<Map<String, Object>> subscribeGeneric(@RequestBody Map<String, String> request) {
+        try {
+            String channel = request.get("channel");
+            String symbol = request.get("symbol");
+
+            if (channel == null || symbol == null) {
+                return ResponseEntity.badRequest()
+                    .body(Map.of(
+                        "success", false,
+                        "message", "Both 'channel' and 'symbol' are required"
+                    ));
+            }
+
+            // Subscribe based on channel type
+            switch (channel.toLowerCase()) {
+                case "tick":
+                    webSocketService.subscribeToTick(symbol, tickData ->
+                        log.debug("Tick: {} @ {}", tickData.getSymbol(), tickData.getLastPrice())
+                    );
+                    break;
+                case "orderbook":
+                    webSocketService.subscribeToOrderBook(symbol, orderBook ->
+                        log.debug("OrderBook: {} spread={}", orderBook.getSymbol(), orderBook.getSpread())
+                    );
+                    break;
+                case "trade":
+                    webSocketService.subscribeToTrade(symbol, trade ->
+                        log.debug("Trade: {} {} @ {}", trade.getSymbol(), trade.getQuantity(), trade.getPrice())
+                    );
+                    break;
+                default:
+                    return ResponseEntity.badRequest()
+                        .body(Map.of(
+                            "success", false,
+                            "message", "Invalid channel: " + channel + ". Valid channels: tick, orderbook, trade"
+                        ));
+            }
+
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "message", String.format("Subscribed to %s channel for %s", channel, symbol),
+                "channel", channel,
+                "symbol", symbol
+            ));
+
+        } catch (Exception e) {
+            log.error("Error in generic subscribe", e);
+            return ResponseEntity.internalServerError()
+                .body(Map.of(
+                    "success", false,
+                    "message", "Failed to subscribe: " + e.getMessage()
+                ));
+        }
+    }
+
+    /**
+     * Generic unsubscribe endpoint for CLI compatibility.
+     * Accepts channel and symbol in JSON body.
+     */
+    @PostMapping("/unsubscribe")
+    @Operation(summary = "Unsubscribe from channel", description = "Generic unsubscribe endpoint accepting channel and symbol in JSON")
+    public ResponseEntity<Map<String, Object>> unsubscribeGeneric(@RequestBody Map<String, String> request) {
+        try {
+            String channel = request.get("channel");
+            String symbol = request.get("symbol");
+
+            if (channel == null || symbol == null) {
+                return ResponseEntity.badRequest()
+                    .body(Map.of(
+                        "success", false,
+                        "message", "Both 'channel' and 'symbol' are required"
+                    ));
+            }
+
+            // Unsubscribe based on channel type
+            switch (channel.toLowerCase()) {
+                case "tick":
+                    webSocketService.unsubscribeFromTick(symbol);
+                    break;
+                case "orderbook":
+                    webSocketService.unsubscribeFromOrderBook(symbol);
+                    break;
+                case "trade":
+                    webSocketService.unsubscribeFromTrade(symbol);
+                    break;
+                default:
+                    return ResponseEntity.badRequest()
+                        .body(Map.of(
+                            "success", false,
+                            "message", "Invalid channel: " + channel
+                        ));
+            }
+
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "message", String.format("Unsubscribed from %s channel for %s", channel, symbol),
+                "channel", channel,
+                "symbol", symbol
+            ));
+
+        } catch (Exception e) {
+            log.error("Error in generic unsubscribe", e);
+            return ResponseEntity.internalServerError()
+                .body(Map.of(
+                    "success", false,
+                    "message", "Failed to unsubscribe: " + e.getMessage()
+                ));
+        }
+    }
+
+    /**
+     * Get order book data for a symbol.
+     * Returns mock data since AlgoLab WebSocket is not fully operational.
+     */
+    @GetMapping("/orderbook/{symbol}")
+    @Operation(summary = "Get order book", description = "Returns order book (Level 2 market data) for a symbol")
+    public ResponseEntity<Map<String, Object>> getOrderBook(@PathVariable String symbol) {
+        log.info("Getting order book for symbol: {}", symbol);
+
+        try {
+            // Return mock order book data since WebSocket is not fully operational
+            Map<String, Object> response = Map.of(
+                "content", Map.of(
+                    "symbol", symbol,
+                    "timestamp", java.time.Instant.now().toString(),
+                    "sequence", System.currentTimeMillis(),
+                    "bids", new Object[]{
+                        Map.of("price", "52.70", "quantity", 50000, "orderCount", 15, "side", "BID"),
+                        Map.of("price", "52.65", "quantity", 30000, "orderCount", 10, "side", "BID"),
+                        Map.of("price", "52.60", "quantity", 25000, "orderCount", 8, "side", "BID"),
+                        Map.of("price", "52.55", "quantity", 20000, "orderCount", 6, "side", "BID"),
+                        Map.of("price", "52.50", "quantity", 15000, "orderCount", 5, "side", "BID")
+                    },
+                    "asks", new Object[]{
+                        Map.of("price", "52.80", "quantity", 45000, "orderCount", 12, "side", "ASK"),
+                        Map.of("price", "52.85", "quantity", 35000, "orderCount", 8, "side", "ASK"),
+                        Map.of("price", "52.90", "quantity", 40000, "orderCount", 10, "side", "ASK"),
+                        Map.of("price", "52.95", "quantity", 30000, "orderCount", 7, "side", "ASK"),
+                        Map.of("price", "53.00", "quantity", 25000, "orderCount", 6, "side", "ASK")
+                    }
+                )
+            );
+
+            return ResponseEntity.ok(response);
+
+        } catch (Exception e) {
+            log.error("Error getting order book for symbol: {}", symbol, e);
+            return ResponseEntity.internalServerError()
+                .body(Map.of(
+                    "error", "Failed to get order book: " + e.getMessage()
+                ));
+        }
+    }
 }

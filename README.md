@@ -1,312 +1,439 @@
-# BIST Trading Platform 🚀
+# BIST Trading Platform
 
-[![Build Status](https://img.shields.io/badge/build-passing-brightgreen.svg)](https://github.com/your-org/bist-trading-platform/actions)
-[![Architecture](https://img.shields.io/badge/Architecture-REAL%20Monolith-blue.svg)](./docs/architecture/system-design.md)
-[![Version](https://img.shields.io/badge/version-3.0.0--REAL--MONOLITH-green.svg)](https://github.com/your-org/bist-trading-platform/releases)
-[![Java](https://img.shields.io/badge/Java-21%20LTS-orange.svg)](https://openjdk.org/projects/jdk/21/)
+**Modern, Enterprise-Grade Trading Platform for Borsa Istanbul**
+
+[![Java](https://img.shields.io/badge/Java-21-orange.svg)](https://www.oracle.com/java/)
 [![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.3.4-green.svg)](https://spring.io/projects/spring-boot)
-[![Gradle](https://img.shields.io/badge/Gradle-8.8-blue.svg)](https://gradle.org/)
-[![Docker](https://img.shields.io/badge/Docker-24.0+-blue.svg)](https://www.docker.com/)
-[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![License](https://img.shields.io/badge/License-Proprietary-blue.svg)]()
+[![Status](https://img.shields.io/badge/Status-Production%20Ready-success.svg)]()
 
-A high-performance, enterprise-grade trading platform for Borsa Istanbul (BIST) built with modern Java technologies. **Now transformed into a TRUE monolithic application** with standard src/ structure, single build.gradle, and unified deployment - eliminating all microservices complexity while preserving full functionality.
+> 🚀 **Real-time market data, secure trading system, and AlgoLab broker integration**
 
-**🎯 Current Status**: **REAL Monolith Architecture Complete!** 🎉 Complete transformation from 15+ microservices to a single, unified application. Standard project structure, simplified build system, and true monolithic deployment.
+---
 
-## 🌟 Project Overview
+## 📋 Table of Contents
 
-### Key Features
+- [Overview](#overview)
+- [Features](#features)
+- [Quick Start](#quick-start)
+- [Architecture](#architecture)
+- [Technologies](#technologies)
+- [Documentation](#documentation)
+- [Development](#development)
+- [Production Deployment](#production-deployment)
 
-- 🎯 **Unified Application**: All functionality consolidated into a single, manageable application
-- 🔥 **Real-time Market Data**: WebSocket streaming with comprehensive analytics
-- ⚡ **High-Performance Trading**: Optimized for Turkish market requirements
-- 🏛️ **BIST Market Compliance**: Full Turkish market support with TCKN validation
-- 🔐 **Enterprise Security**: JWT authentication with RBAC and comprehensive validation
-- 📊 **Integrated Analytics**: Built-in market data analysis and technical indicators
-- 🚀 **Simplified Deployment**: Single application with streamlined startup scripts
-- 📈 **Comprehensive API**: REST endpoints covering all trading operations
-- 🐳 **Cloud-Ready**: Docker containerization with simplified orchestration
-- 📚 **Comprehensive Documentation**: Updated for simplified architecture
+---
 
-### Architecture Highlights
+## 🎯 Overview
 
-- **Consolidated Monolith**: All services integrated into one powerful application
-- **Clean Architecture**: Well-organized modules with clear separation of concerns
-- **Simplified Deployment**: From 5+ services to 1 unified application
-- **Retained Functionality**: User management, trading, market data, and broker integration
-- **Enterprise Security**: JWT authentication and role-based access control maintained
-- **Scalable Data Layer**: PostgreSQL with optimized schema design
-- **Mock Integrations**: AlgoLab broker integration with comprehensive mock responses
-- **Production-Ready**: Simplified but enterprise-grade architecture
+BIST Trading Platform is an enterprise-grade trading platform developed for investors and institutions who want to trade stocks on Borsa Istanbul.
 
-## ⚡ Quick Start
+### 🎨 Main Components
 
-Get up and running in just **3 simple steps**:
+- **Backend API** - RESTful and GraphQL API built with Spring Boot
+- **CLI Client** - Python-based interactive command-line interface
+- **Web Frontend** - Modern web application with React + TypeScript (In Development)
+- **AlgoLab Integration** - Real-time broker integration and WebSocket data streaming
+
+---
+
+## ✨ Features
+
+### 🔐 Authentication and Security
+
+- JWT-based secure authentication
+- Role-based access control (RBAC)
+- Turkish ID (TC Kimlik) authentication
+- 2FA support (Optional)
+- Rate limiting and brute-force protection
+
+### 💼 Broker Integration
+
+- ✅ **AlgoLab API Integration**
+  - REST API connection
+  - WebSocket real-time data streaming
+  - Automatic session management
+  - Circuit breaker pattern for error handling
+
+- **Supported Operations**
+  - Order placement (Limit, Market, Stop)
+  - Order cancel/modify
+  - Portfolio view
+  - Executed trades
+  - Real-time price data
+
+### 📊 Market Data
+
+- ✅ **Real-Time Data Streaming**
+  - WebSocket-based tick data
+  - Trade stream
+  - Order book
+  - HTTP polling API (for CLI)
+
+- **Symbol Information**
+  - 500+ BIST stocks
+  - FOREX pairs (USDTRY, EURTRY, etc.)
+  - Real-time prices
+  - Daily change and volume
+
+### 🖥️ CLI Client
+
+- ✅ **Real-Time Display**
+  - Live tick data stream
+  - Trade flow visualization
+  - Portfolio tracking
+  - Order book
+
+- **Interactive Menu**
+  - User login
+  - AlgoLab connection management
+  - Market data access
+  - Broker operations
+
+### 🔧 Technical Features
+
+- **Resilience Patterns**
+  - Circuit Breaker (Resilience4j)
+  - Automatic retry logic
+  - Fallback mechanisms
+  - Rate limiting
+
+- **Caching**
+  - Redis distributed cache
+  - Multi-level caching strategy
+  - TTL-based expiration
+
+- **Database**
+  - PostgreSQL (Primary database)
+  - Flyway migrations
+  - JPA/Hibernate ORM
+
+---
+
+## 🚀 Quick Start
+
+### Requirements
+
+- Java 21+
+- PostgreSQL 14+
+- Redis 7+
+- Python 3.10+ (for CLI)
+- Node.js 18+ (for Frontend)
 
 ### 1. Clone the Repository
+
 ```bash
-git clone https://github.com/your-org/bist-trading-platform.git
+git clone <repository-url>
 cd bist-trading-platform
 ```
 
-### 2. Build the Application (Optional)
-```bash
-# Build the application
-./build.sh
+### 2. Setup Database
 
-# OR use Gradle directly
-./gradlew clean build -x test
+```bash
+# Start PostgreSQL
+brew services start postgresql@14
+
+# Create database
+psql postgres
+CREATE DATABASE bist_trading;
+CREATE USER bist_user WITH PASSWORD 'bist_password';
+GRANT ALL PRIVILEGES ON DATABASE bist_trading TO bist_user;
+\q
 ```
 
-### 3. Start the Application
-```bash
-# NEW! Use the REAL monolith startup script
-./start-monolith.sh
+### 3. Start Redis
 
-# OR start manually
+```bash
+brew services start redis
+```
+
+### 4. Start Backend
+
+```bash
+# Set environment variables
+export SPRING_DATASOURCE_USERNAME=bist_user
+export SPRING_DATASOURCE_PASSWORD=bist_password
+export SPRING_DATASOURCE_URL=jdbc:postgresql://localhost:5432/bist_trading
+export BIST_SECURITY_JWT_SECRET=bist-trading-platform-super-secret-key-for-jwt-tokens-256-bit-long
+
+# Start the application
 ./gradlew bootRun
-
-# Access the application
-open http://localhost:8080
-open http://localhost:8080/swagger-ui.html
 ```
 
-**That's it! 🎉** TRUE monolithic application with all functionality available at **http://localhost:8080**
+Backend will be available at:
+- REST API: http://localhost:8080
+- Swagger UI: http://localhost:8080/swagger-ui.html
+- GraphQL: http://localhost:8080/graphql
+- Actuator: http://localhost:8080/actuator
 
-### Stop the Application
+### 5. Start CLI Client
+
 ```bash
-# Clean shutdown
-./stop-app.sh
+cd cli-client
+
+# Create virtual environment and install dependencies
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+
+# Start CLI
+./start.sh
 ```
+
+### 6. Start Frontend (Optional)
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+---
+
+## 🏗️ Architecture
+
+### System Architecture
+
+```
+┌─────────────────┐
+│   Web Frontend  │
+│  (React + TS)   │
+└────────┬────────┘
+         │
+┌────────┴────────┐      ┌──────────────┐
+│   API Gateway   │─────▶│ AlgoLab API  │
+│  (Spring Boot)  │      │  (External)  │
+└────────┬────────┘      └──────────────┘
+         │
+┌────────┴────────────────────────┐
+│       Core Services             │
+├─────────────────────────────────┤
+│ • User Management               │
+│ • Order Management              │
+│ • Market Data Service           │
+│ • Broker Integration            │
+└────────┬────────────────────────┘
+         │
+┌────────┴────────┐
+│   Data Layer    │
+├─────────────────┤
+│  • PostgreSQL   │
+│  • Redis Cache  │
+└─────────────────┘
+```
+
+### WebSocket Flow
+
+```
+AlgoLab Server → Backend WebSocket → Message Buffer → HTTP API → CLI
+     (WSS)           (Spring)          (In-Memory)      (REST)    (Python)
+```
+
+For details, see: [docs/algolab/WEBSOCKET_COMPLETE_GUIDE.md](docs/algolab/WEBSOCKET_COMPLETE_GUIDE.md)
+
+---
+
+## 🛠️ Technologies
+
+### Backend
+
+- **Framework:** Spring Boot 3.3.4
+- **Language:** Java 21
+- **Security:** Spring Security 6 + JWT
+- **Database:** PostgreSQL 14, Flyway Migrations
+- **Caching:** Redis 7
+- **API:** REST (OpenAPI 3) + GraphQL
+- **Resilience:** Resilience4j (Circuit Breaker, Retry, Rate Limiter)
+- **Build:** Gradle 8
+- **Testing:** JUnit 5, Mockito, TestContainers
+
+### CLI Client
+
+- **Language:** Python 3.10+
+- **Framework:** Typer
+- **UI:** Rich (Terminal UI)
+- **HTTP:** httpx
+- **Config:** python-dotenv, pydantic
+
+### Frontend (In Development)
+
+- **Framework:** React 18
+- **Language:** TypeScript 5
+- **Build:** Vite
+- **Styling:** Tailwind CSS
+- **State:** React Query
+
+---
 
 ## 📚 Documentation
 
-| Documentation | Link | Description |
-|---------------|------|-------------|
-| **GraphQL API** | [/docs/api/graphql-api.md](./docs/api/graphql-api.md) | **NEW!** GraphQL schema, queries, and mutations |
-| **Sprint Reports** | [/docs/sprints/](./docs/sprints/) | Sprint progress and achievements |
-| **API Documentation** | [/docs/api/](./docs/api/) | REST API and WebSocket API specs |
-| **Architecture Guide** | [/docs/architecture/](./docs/architecture/) | System design and data flow |
-| **Setup Guide** | [/docs/setup/](./docs/setup/) | Development and production setup |
-| **Issues & Gaps** | [Issues Analysis](./docs/sprints/issues-and-gaps.md) | Current limitations and roadmap |
+### Setup and Development
 
-### Quick Links
-- 📊 [Sprint Reports Overview](./docs/sprints/sprint-reports-overview.md) - Complete sprint history & status
-- ✅ [Sprint 4 Completion Report](./docs/sprints/sprint-4-completion-report.md) - Complete success report
-- 🚀 [Sprint 5 Planning](./docs/sprints/sprint-5-planning.md) - Next sprint roadmap & priorities
-- 📈 [Sprint Comparison Analysis](./docs/sprints/sprint-comparison-analysis.md) - 4 Sprint progress analysis
-- 🔍 [Issues & Gaps Analysis](./docs/sprints/issues-and-gaps.md) - Current status & resolution plan
-- 🏗️ [System Architecture](./docs/architecture/system-design.md)
-- 🔄 [Data Flow Diagrams](./docs/architecture/data-flow.md)
-- 🚀 [Deployment Guide](./docs/architecture/deployment.md)
-- 🛠️ [Development Setup](./docs/setup/development.md)
-- 🚀 [GraphQL API Documentation](./docs/api/graphql-api.md) - **NEW!** Complete GraphQL schema & examples
-- 🌐 [REST API Documentation](./docs/api/rest-api.md)
+- [Development Environment Setup](docs/setup/development.md)
+- [IntelliJ IDEA Setup](docs/setup/intellij-setup.md)
+- [Quick Start Guide](docs/setup/startup-guide.md)
+- [IntelliJ Run Configurations](docs/setup/intellij-run-config.md)
 
-## 🛠️ Development
+### API Documentation
 
-### Development Setup
-For detailed development environment setup, see our [Development Guide](./docs/setup/development.md).
+- [REST API](docs/api/rest-api.md)
+- [GraphQL API](docs/api/graphql-api.md)
+- [WebSocket API](docs/api/websocket-api.md)
 
-**Prerequisites**: Java 21, PostgreSQL (optional, can use Docker), IntelliJ IDEA (recommended)
+### AlgoLab Integration
+
+- [WebSocket Complete Guide](docs/algolab/WEBSOCKET_COMPLETE_GUIDE.md)
+- [AlgoLab API Endpoints](docs/algolab/ALGOLAB_API_ENDPOINTS.md)
+- [Authentication Flow](docs/algolab/ALGOLAB_AUTHENTICATION_FLOW.md)
+- [Python-Java Mapping](docs/algolab/PYTHON_TO_JAVA_MAPPING.md)
+
+### Security
+
+- [Authority and Role Matrix](docs/security/authority-role-matrix.md)
+- [Test Authorities](docs/security/test-authorities.md)
+- [Quick Reference](docs/security/QUICK-REFERENCE.md)
+
+### Database
+
+- [Setup Guide](docs/database/setup-guide.md)
+- [User Schema](docs/database/user-schema.md)
+
+### Architecture and Design
+
+- [System Design](docs/architecture/system-design.md)
+- [Data Flow](docs/architecture/data-flow.md)
+- [GraphQL Implementation](docs/architecture/graphql-implementation.md)
+
+---
+
+## 👨‍💻 Development
+
+### Code Standards
+
+- Java: Google Java Style Guide
+- Spring Boot Best Practices
+- Clean Code principles
+- SOLID principles
+
+### Testing Strategy
 
 ```bash
-# Quick development setup
-./gradlew clean build
-docker-compose up -d postgres  # Start PostgreSQL only
-./start-monolith.sh  # Start the REAL monolith
-```
-
-### Contributing Guidelines
-1. Fork the repository and create a feature branch
-2. Follow our coding standards (Checkstyle, SpotBugs, PMD)
-3. Write tests for new functionality (minimum 85% coverage)
-4. Update documentation for API changes
-5. Submit a pull request with clear description
-
-### Code of Conduct
-We follow the [Contributor Covenant](https://www.contributor-covenant.org/) code of conduct. Please read [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) for details.
-
-## 🧪 Testing
-
-### Run All Tests
-```bash
-# Full test suite with coverage
-./test-runner.sh all
-
-# Quick unit tests only
+# Run all tests
 ./gradlew test
 
-# Integration tests with TestContainers
+# Integration tests
 ./gradlew integrationTest
+
+# Coverage report
+./gradlew jacocoTestReport
 ```
 
-### Coverage Reports
-- **Overall Coverage**: 85%+ (target: 90%)
-- **Unit Tests**: 90%+ coverage across all modules
-- **Integration Tests**: 100% critical path coverage
-- **Performance Tests**: All benchmarks validated
+### Branch Strategy
 
-**View Reports**:
-- Coverage: `./build/reports/jacoco/test/html/index.html`
-- Test Results: `./build/reports/tests/test/index.html`
+- `main` - Production-ready code
+- `develop` - Development branch
+- `feature/*` - New features
+- `bugfix/*` - Bug fixes
+- `hotfix/*` - Emergency production fixes
 
-## 🚀 Deployment
+---
+
+## 🚢 Production Deployment
 
 ### Docker Deployment
+
 ```bash
-# Use the simplified Docker Compose setup
+# Build Docker image
+./gradlew bootBuildImage
+
+# Start container
 docker-compose up -d
-
-# OR build and run manually
-docker build -t bist-trading:latest .
-docker run -p 8080:8080 bist-trading:latest
 ```
 
-### Kubernetes Deployment
+### Environment Variables
+
 ```bash
-# Deploy to Kubernetes
-kubectl apply -f k8s/namespace.yaml
-kubectl apply -f k8s/configmap.yaml
-kubectl apply -f k8s/deployments/
-kubectl apply -f k8s/services/
+# Database
+SPRING_DATASOURCE_URL=jdbc:postgresql://localhost:5432/bist_trading
+SPRING_DATASOURCE_USERNAME=bist_user
+SPRING_DATASOURCE_PASSWORD=your-secure-password
 
-# Check deployment status
-kubectl get pods -n bist-trading-prod
+# Security
+BIST_SECURITY_JWT_SECRET=your-256-bit-secret-key
+BIST_SECURITY_JWT_ACCESS_TOKEN_EXPIRATION=3600
+
+# AlgoLab
+ALGOLAB_API_KEY=your-algolab-api-key
+ALGOLAB_USERNAME=your-username
+ALGOLAB_PASSWORD=your-password
+
+# Redis
+SPRING_DATA_REDIS_HOST=localhost
+SPRING_DATA_REDIS_PORT=6379
+SPRING_DATA_REDIS_PASSWORD=your-redis-password
 ```
 
-For production deployment details, see [Production Setup Guide](./docs/setup/production.md).
-
-## 📊 Monitoring
-
-### Health Endpoints
-| Application | Health Check | Metrics | Management |
-|-------------|-------------|---------|------------|
-| **BIST Trading Platform** | [Health](http://localhost:8080/actuator/health) | [Metrics](http://localhost:8080/actuator/metrics) | [Actuator](http://localhost:8080/actuator) |
-
-**All functionality consolidated in a single application running on port 8080!**
-
-### Metrics Endpoints
-```bash
-# Prometheus metrics
-curl http://localhost:8080/actuator/prometheus
-
-# Application metrics
-curl http://localhost:8080/actuator/metrics
-
-# JVM metrics
-curl http://localhost:8080/actuator/metrics/jvm.memory.used
-```
-
-### Grafana Dashboards
-Access monitoring dashboards at [http://localhost:3000](http://localhost:3000) (admin/admin123)
-
-**Available Dashboards**:
-- 🔥 **BIST Trading Overview**: System-wide metrics and health
-- 📈 **Market Data Performance**: Real-time data processing metrics
-- ⚡ **Trading Operations**: Order execution and latency metrics
-- 🖥️ **Infrastructure Monitoring**: Database, cache, and message queue metrics
-
-## 🏗️ Technology Stack
-
-| Layer | Technology | Version | Purpose |
-|-------|------------|---------|---------|
-| **Runtime** | Java OpenJDK | 21 LTS | Application runtime |
-| **Framework** | Spring Boot | 3.3.4 | Web framework & DI |
-| **GraphQL** | Netflix DGS | 8.7.1 | GraphQL framework |
-| **Build Tool** | Gradle | 8.8 | Build automation |
-| **Database** | PostgreSQL | 16 | Primary database |
-| **Time-Series DB** | TimescaleDB | 2.14 | Market data storage |
-| **Cache** | Redis | 7.4 | Session & data cache |
-| **Message Queue** | Apache Kafka | 3.8 | Event streaming |
-| **Monitoring** | Prometheus | 2.45 | Metrics collection |
-| **Dashboards** | Grafana | 10.0 | Monitoring UI |
-| **Tracing** | Jaeger | 1.50 | Distributed tracing |
-| **Container** | Docker | 24.0+ | Containerization |
-| **Orchestration** | Kubernetes | 1.28+ | Container orchestration |
-
-## 🏛️ REAL Monolith Architecture
-
-```mermaid
-graph TB
-    subgraph "REAL Monolith Application"
-        APP[🚀 BIST Trading Platform<br/>Port: 8080<br/><br/>📁 Standard src/ Structure<br/>🔧 Single build.gradle<br/>⚡ Unified JAR Deployment<br/><br/>✅ User Management<br/>✅ Market Data Analysis<br/>✅ Order Management<br/>✅ Broker Integration<br/>✅ JWT Security<br/>✅ REST API<br/>✅ Actuator Health Checks]
-    end
-
-    subgraph "Data Layer"
-        PG[(PostgreSQL<br/>Database<br/>Port: 5432)]
-    end
-
-    subgraph "External Systems (Mock)"
-        AL[AlgoLab Broker<br/>(Mock Integration)]
-        MS[Market Data Providers<br/>(Mock Data)]
-    end
-
-    APP --> PG
-    APP --> AL
-    APP --> MS
-
-    classDef app fill:#e1f5fe,stroke:#01579b,stroke-width:4px
-    classDef data fill:#f3e5f5,stroke:#4a148c,stroke-width:2px
-    classDef external fill:#fff3e0,stroke:#e65100,stroke-width:2px
-
-    class APP app
-    class PG data
-    class AL,MS external
-```
-
-### REAL Monolith Benefits
-- **🎯 TRUE Monolith**: Single JAR, single process, single port (8080)
-- **📁 Standard Structure**: Maven-like src/ directory layout
-- **🔧 Simple Build**: One build.gradle, one settings.gradle
-- **🚀 Easy Deployment**: `./start-monolith.sh` and you're running!
-- **📦 Single JAR**: Everything bundled in one executable JAR file
-- **🛠️ Unified Development**: No complex module dependencies
-- **⚡ Fast Startup**: No inter-service communication overhead
-- **🔐 Integrated Security**: JWT authentication built-in
-
-## 📞 Support
-
-### Issue Reporting
-- 🐛 **Bug Reports**: [GitHub Issues](https://github.com/your-org/bist-trading-platform/issues/new?template=bug_report.md)
-- 💡 **Feature Requests**: [GitHub Issues](https://github.com/your-org/bist-trading-platform/issues/new?template=feature_request.md)
-- 📚 **Documentation**: [GitHub Issues](https://github.com/your-org/bist-trading-platform/issues/new?template=documentation.md)
-
-### Contact Information
-- **Development Team**: [dev-team@bist-trading.com](mailto:dev-team@bist-trading.com)
-- **Architecture Questions**: [architecture@bist-trading.com](mailto:architecture@bist-trading.com)
-- **Production Support**: [support@bist-trading.com](mailto:support@bist-trading.com)
-- **Security Issues**: [security@bist-trading.com](mailto:security@bist-trading.com)
-
-### Community
-- 💬 **Slack**: [#bist-trading-platform](https://workspace.slack.com/channels/bist-trading-platform)
-- 📖 **Wiki**: [GitHub Wiki](https://github.com/your-org/bist-trading-platform/wiki)
-- 📋 **Project Board**: [GitHub Projects](https://github.com/your-org/bist-trading-platform/projects)
-
-## 📄 License
-
-This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) file for details.
-
-### Third-Party Licenses
-- Spring Framework: Apache License 2.0
-- PostgreSQL: PostgreSQL License
-- Redis: BSD License
-- Apache Kafka: Apache License 2.0
+For details, see: [docs/setup/production.md](docs/setup/production.md)
 
 ---
 
-## 🔗 Related Projects
+## 📊 Project Status
 
-- [BIST Trading Mobile App](https://github.com/your-org/bist-trading-mobile)
-- [BIST Trading Web UI](https://github.com/your-org/bist-trading-web)
-- [BIST Market Data Analytics](https://github.com/your-org/bist-analytics)
+### ✅ Completed Features
+
+- [x] User authentication and authorization
+- [x] AlgoLab REST API integration
+- [x] AlgoLab WebSocket real-time data streaming
+- [x] CLI client with real-time display
+- [x] Message buffering and HTTP polling API
+- [x] Circuit breaker and resilience patterns
+- [x] Redis caching
+- [x] Database migrations
+- [x] GraphQL API
+- [x] Swagger/OpenAPI documentation
+
+### 🔄 In Progress
+
+- [ ] Web frontend development
+- [ ] Additional broker integrations
+- [ ] Advanced charting
+- [ ] Mobile app
+
+### 📅 Planned
+
+- [ ] Algorithmic trading support
+- [ ] Backtesting framework
+- [ ] Portfolio analytics
+- [ ] Risk management tools
 
 ---
 
-<div align="center">
+## 🤝 Contributing
 
-**Built with ❤️ for Turkish Financial Markets**
+Contributions are welcome! Please read CONTRIBUTING.md for details.
 
-[⭐ Star this repository](https://github.com/your-org/bist-trading-platform) • [📖 Documentation](./docs/) • [🐳 Docker Hub](https://hub.docker.com/r/bisttrading/platform) • [📊 Grafana Dashboards](./monitoring/dashboards/)
+---
 
-</div>
+## 📝 License
+
+This project is proprietary. All rights reserved.
+
+---
+
+## 📞 Contact
+
+- Project Manager: [Contact Information]
+- Issue Tracker: GitHub Issues
+- Email: support@bisttrading.com
+
+---
+
+## 🙏 Acknowledgments
+
+- Spring Boot Team
+- AlgoLab API team
+- All contributors
+
+---
+
+**Last Updated:** 2025-10-17

@@ -33,7 +33,7 @@ public class AlgoLabCircuitBreakerConfig {
      * After 60 seconds, circuit transitions to half-open state.
      */
     @Bean
-    public CircuitBreakerConfig algoLabCircuitBreakerConfig() {
+    public CircuitBreakerConfig circuitBreakerConfig() {
         return CircuitBreakerConfig.custom()
             // Failure threshold - circuit opens when 50% of calls fail
             .failureRateThreshold(50)
@@ -82,13 +82,10 @@ public class AlgoLabCircuitBreakerConfig {
      * Initial wait: 2 seconds, multiplier: 2x
      */
     @Bean
-    public RetryConfig algoLabRetryConfig() {
+    public RetryConfig retryConfig() {
         return RetryConfig.custom()
             // Maximum number of retry attempts
             .maxAttempts(3)
-
-            // Initial wait duration with exponential backoff
-            .waitDuration(Duration.ofSeconds(2))
 
             // Enable exponential backoff (2s, 4s, 8s)
             .intervalFunction(io.github.resilience4j.core.IntervalFunction
@@ -116,7 +113,7 @@ public class AlgoLabCircuitBreakerConfig {
      * Pattern: Timeout after 10 seconds.
      */
     @Bean
-    public TimeLimiterConfig algoLabTimeLimiterConfig() {
+    public TimeLimiterConfig timeLimiterConfig() {
         return TimeLimiterConfig.custom()
             // Timeout duration
             .timeoutDuration(Duration.ofSeconds(10))

@@ -1,11 +1,12 @@
 package com.bisttrading.broker.algolab.service;
 
 import com.bisttrading.broker.algolab.config.RedisCacheConfig;
-import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.cache.Cache;
 import org.springframework.cache.CacheManager;
+import org.springframework.context.event.EventListener;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
@@ -29,6 +30,7 @@ public class AlgoLabCacheService {
 
     private final CacheManager cacheManager;
     private final AlgoLabMarketDataService marketDataService;
+    private final AlgoLabAuthService authService;
 
     // Cache statistics
     private final AtomicLong cacheHits = new AtomicLong(0);
@@ -53,11 +55,23 @@ public class AlgoLabCacheService {
     };
 
     /**
-     * Warms up cache on application startup.
+     * Warms up cache after application is fully ready.
      * Preloads popular symbols to prevent cold start latency.
+     *
+     * Note: Requires authentication - skips if not authenticated.
+     * Users can manually trigger warmup after login if needed.
+     *
+     * Uses ApplicationReadyEvent to avoid circular dependency issues
+     * during bean initialization.
      */
-    @PostConstruct
+    @EventListener(ApplicationReadyEvent.class)
     public void warmupCache() {
+        // Check if authenticated before attempting warmup
+        if (!authService.isAuthenticated()) {
+            log.info("Cache warmup skipped - not authenticated. Cache will be populated on first use.");
+            return;
+        }
+
         log.info("Starting cache warmup for AlgoLab data...");
         long startTime = System.currentTimeMillis();
         int successCount = 0;
@@ -84,9 +98,17 @@ public class AlgoLabCacheService {
     /**
      * Periodic cache warmup - refreshes popular symbols every 30 minutes.
      * Prevents cache expiration for frequently accessed data.
+     *
+     * Note: Only runs if authenticated.
      */
     @Scheduled(cron = "0 */30 * * * *")
     public void periodicCacheWarmup() {
+        // Skip if not authenticated
+        if (!authService.isAuthenticated()) {
+            log.debug("Periodic cache warmup skipped - not authenticated");
+            return;
+        }
+
         log.debug("Running periodic cache warmup...");
 
         try {
@@ -109,6 +131,22 @@ public class AlgoLabCacheService {
         } catch (Exception e) {
             log.error("Error during periodic cache warmup", e);
         }
+    }
+
+    /**
+     * Manually triggers cache warmup.
+     * Can be called after authentication to pre-populate cache.
+     *
+     * @return true if warmup was successful, false if not authenticated
+     */
+    public boolean manualWarmup() {
+        if (!authService.isAuthenticated()) {
+            log.warn("Manual cache warmup requested but not authenticated");
+            return false;
+        }
+
+        warmupCache();
+        return true;
     }
 
     /**

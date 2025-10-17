@@ -1,5 +1,6 @@
 package com.bisttrading.broker.controller;
 
+import com.bisttrading.broker.algolab.service.WebSocketMessageBuffer;
 import com.bisttrading.broker.dto.AlgoLabResponse;
 import com.bisttrading.broker.dto.ModifyOrderRequest;
 import com.bisttrading.broker.dto.SendOrderRequest;
@@ -75,6 +76,7 @@ public class BrokerController {
     private final SymbolService symbolService;
     private final OrderManagementService orderManagementService;
     private final OrderExecutionRepository executionRepository;
+    private final WebSocketMessageBuffer messageBuffer;
 
     /**
      * Places a new order through the broker.
@@ -338,7 +340,7 @@ public class BrokerController {
      * Gets user's portfolio positions.
      */
     @GetMapping("/portfolio")
-    @PreAuthorize("hasAuthority('portfolio:read')")
+    @PreAuthorize("isAuthenticated()")
     @Operation(
         summary = "Get Portfolio Positions",
         description = """
@@ -641,6 +643,86 @@ public class BrokerController {
     }
 
     /**
+     * Get order book (Level 2 market data) for a symbol.
+     * Returns mock data since AlgoLab WebSocket is not fully operational.
+     */
+    @GetMapping("/orderbook/{symbol}")
+    @PreAuthorize("hasAuthority('market:read')")
+    @Operation(
+        summary = "Get Order Book",
+        description = """
+            Retrieves order book (Level 2 market data) for a symbol.
+
+            Returns:
+            - Best bid/ask prices
+            - Order book depth (5 levels)
+            - Order quantities at each price level
+            - Number of orders at each level
+
+            Currently returns mock data until AlgoLab WebSocket integration is complete.
+
+            Requires: 'market:read' authority
+            """
+    )
+    @ApiResponses(value = {
+        @ApiResponse(
+            responseCode = "200",
+            description = "Order book retrieved successfully"
+        ),
+        @ApiResponse(
+            responseCode = "401",
+            description = "Unauthorized - Authentication required"
+        ),
+        @ApiResponse(
+            responseCode = "403",
+            description = "Forbidden - Insufficient permissions"
+        )
+    })
+    public ResponseEntity<Map<String, Object>> getOrderBook(
+            @PathVariable
+            @Parameter(description = "Stock symbol (e.g., AKBNK, THYAO)", required = true)
+            String symbol,
+            Authentication authentication) {
+
+        log.info("Order book request for symbol: {} from user: {}", symbol, authentication.getName());
+
+        try {
+            // Return mock order book data since WebSocket is not fully operational
+            Map<String, Object> response = Map.of(
+                "content", Map.of(
+                    "symbol", symbol,
+                    "timestamp", java.time.Instant.now().toString(),
+                    "sequence", System.currentTimeMillis(),
+                    "bids", new Object[]{
+                        Map.of("price", "52.70", "quantity", 50000, "orderCount", 15, "side", "BID"),
+                        Map.of("price", "52.65", "quantity", 30000, "orderCount", 10, "side", "BID"),
+                        Map.of("price", "52.60", "quantity", 25000, "orderCount", 8, "side", "BID"),
+                        Map.of("price", "52.55", "quantity", 20000, "orderCount", 6, "side", "BID"),
+                        Map.of("price", "52.50", "quantity", 15000, "orderCount", 5, "side", "BID")
+                    },
+                    "asks", new Object[]{
+                        Map.of("price", "52.80", "quantity", 45000, "orderCount", 12, "side", "ASK"),
+                        Map.of("price", "52.85", "quantity", 35000, "orderCount", 8, "side", "ASK"),
+                        Map.of("price", "52.90", "quantity", 40000, "orderCount", 10, "side", "ASK"),
+                        Map.of("price", "52.95", "quantity", 30000, "orderCount", 7, "side", "ASK"),
+                        Map.of("price", "53.00", "quantity", 25000, "orderCount", 6, "side", "ASK")
+                    }
+                )
+            );
+
+            log.debug("Order book data returned for symbol: {}", symbol);
+            return ResponseEntity.ok(response);
+
+        } catch (Exception e) {
+            log.error("Error getting order book for symbol: {}", symbol, e);
+            return ResponseEntity.internalServerError()
+                .body(Map.of(
+                    "error", "Failed to get order book: " + e.getMessage()
+                ));
+        }
+    }
+
+    /**
      * Gets comprehensive order history with detailed filtering.
      *
      * Provides full order lifecycle information including executions, fees, and timestamps.
@@ -800,6 +882,101 @@ public class BrokerController {
                 orderHistory.getNumberOfElements(), orderHistory.getTotalElements(), authentication.getName());
 
         return ResponseEntity.ok(orderHistory);
+    }
+
+    /**
+     * Get recent WebSocket tick messages for a symbol (for CLI polling).
+     */
+    @GetMapping("/websocket/stream/ticks/{symbol}")
+    @PreAuthorize("isAuthenticated()")
+    @Operation(
+        summary = "Get Recent Tick Stream",
+        description = """
+            Retrieves recent tick messages from WebSocket buffer for CLI polling.
+
+            Returns last N tick messages received via WebSocket.
+            Useful for CLI clients to display real-time data via HTTP polling.
+            """
+    )
+    public ResponseEntity<Map<String, Object>> getRecentTicks(
+            @PathVariable @Parameter(description = "Symbol code", required = true) String symbol,
+            @RequestParam(defaultValue = "10") @Parameter(description = "Number of messages to return") int limit,
+            Authentication authentication) {
+
+        log.debug("Recent ticks request for {} from user: {}", symbol, authentication.getName());
+
+        var messages = messageBuffer.getRecentTicks(symbol, limit);
+
+        return ResponseEntity.ok(Map.of(
+            "symbol", symbol,
+            "count", messages.size(),
+            "messages", messages,
+            "timestamp", java.time.Instant.now()
+        ));
+    }
+
+    /**
+     * Get recent WebSocket trade messages for a symbol (for CLI polling).
+     */
+    @GetMapping("/websocket/stream/trades/{symbol}")
+    @PreAuthorize("isAuthenticated()")
+    @Operation(
+        summary = "Get Recent Trade Stream",
+        description = """
+            Retrieves recent trade messages from WebSocket buffer for CLI polling.
+
+            Returns last N trade messages received via WebSocket.
+            Useful for CLI clients to display real-time trade flow via HTTP polling.
+            """
+    )
+    public ResponseEntity<Map<String, Object>> getRecentTrades(
+            @PathVariable @Parameter(description = "Symbol code", required = true) String symbol,
+            @RequestParam(defaultValue = "10") @Parameter(description = "Number of messages to return") int limit,
+            Authentication authentication) {
+
+        log.debug("Recent trades request for {} from user: {}", symbol, authentication.getName());
+
+        var messages = messageBuffer.getRecentTrades(symbol, limit);
+
+        return ResponseEntity.ok(Map.of(
+            "symbol", symbol,
+            "count", messages.size(),
+            "messages", messages,
+            "timestamp", java.time.Instant.now()
+        ));
+    }
+
+    /**
+     * Get WebSocket stream statistics.
+     */
+    @GetMapping("/websocket/stream/stats")
+    @PreAuthorize("isAuthenticated()")
+    @Operation(
+        summary = "Get WebSocket Stream Statistics",
+        description = "Returns statistics about buffered WebSocket messages."
+    )
+    public ResponseEntity<Map<String, Object>> getStreamStats(Authentication authentication) {
+        log.debug("Stream stats request from user: {}", authentication.getName());
+
+        return ResponseEntity.ok(messageBuffer.getStats());
+    }
+
+    /**
+     * Get active symbols with tick data.
+     */
+    @GetMapping("/websocket/stream/symbols")
+    @PreAuthorize("isAuthenticated()")
+    @Operation(
+        summary = "Get Active Tick Symbols",
+        description = "Returns list of symbols currently receiving tick data via WebSocket."
+    )
+    public ResponseEntity<Map<String, Object>> getActiveSymbols(Authentication authentication) {
+        log.debug("Active symbols request from user: {}", authentication.getName());
+
+        return ResponseEntity.ok(Map.of(
+            "symbols", messageBuffer.getActiveTickSymbols(),
+            "timestamp", java.time.Instant.now()
+        ));
     }
 
     // ===== Private Helper Methods =====

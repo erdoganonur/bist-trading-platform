@@ -6,6 +6,7 @@ import com.bisttrading.broker.algolab.dto.websocket.TickData;
 import com.bisttrading.broker.algolab.dto.websocket.OrderBookData;
 import com.bisttrading.broker.algolab.dto.websocket.TradeData;
 import com.bisttrading.broker.algolab.exception.AlgoLabException;
+import com.bisttrading.broker.algolab.service.WebSocketMessageBuffer;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
@@ -20,6 +21,8 @@ import org.springframework.web.socket.handler.TextWebSocketHandler;
 import jakarta.annotation.PreDestroy;
 import java.io.IOException;
 import java.net.URI;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.util.Map;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -37,6 +40,7 @@ public class AlgoLabWebSocketClient extends TextWebSocketHandler {
     private final ObjectMapper objectMapper;
     private final StandardWebSocketClient webSocketClient;
     private final ScheduledExecutorService scheduler;
+    private final WebSocketMessageBuffer messageBuffer;
 
     private volatile WebSocketSession session;
     private volatile String authToken;
@@ -54,9 +58,11 @@ public class AlgoLabWebSocketClient extends TextWebSocketHandler {
 
     public AlgoLabWebSocketClient(
             AlgoLabProperties properties,
-            ObjectMapper objectMapper) {
+            ObjectMapper objectMapper,
+            WebSocketMessageBuffer messageBuffer) {
         this.properties = properties;
         this.objectMapper = objectMapper;
+        this.messageBuffer = messageBuffer;
         this.webSocketClient = new StandardWebSocketClient();
         this.scheduler = Executors.newScheduledThreadPool(2, r -> {
             Thread t = new Thread(r, "algolab-ws-scheduler");
@@ -85,6 +91,25 @@ public class AlgoLabWebSocketClient extends TextWebSocketHandler {
             URI uri = new URI(properties.getWebsocket().getUrl());
             WebSocketHttpHeaders headers = new WebSocketHttpHeaders();
 
+            // Add AlgoLab authentication headers (from Python example)
+            String apiKey = properties.getApi().getKey();
+            String hostname = properties.getApi().getHostname();
+
+            // Calculate Checker: SHA-256(apiKey + hostname + "/ws")
+            String checkerData = apiKey + hostname + "/ws";
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            byte[] hashBytes = digest.digest(checkerData.getBytes(StandardCharsets.UTF_8));
+            StringBuilder checker = new StringBuilder();
+            for (byte b : hashBytes) {
+                checker.append(String.format("%02x", b));
+            }
+
+            headers.add("APIKEY", apiKey);
+            headers.add("Authorization", hash);
+            headers.add("Checker", checker.toString());
+
+            log.debug("Added AlgoLab WebSocket headers - APIKEY, Authorization, Checker");
+
             webSocketClient.doHandshake(this, headers, uri).addCallback(
                 result -> {
                     if (result != null) {
@@ -93,8 +118,9 @@ public class AlgoLabWebSocketClient extends TextWebSocketHandler {
                         reconnectAttempts.set(0);
                         log.info("WebSocket connected successfully");
 
-                        // Send authentication message
-                        sendAuthMessage();
+                        // Don't send initial auth message - token is sent with subscription
+                        // Python example only sends token when subscribing to channels
+                        authenticated.set(true);
 
                         future.complete(null);
                     }
@@ -173,16 +199,33 @@ public class AlgoLabWebSocketClient extends TextWebSocketHandler {
 
     /**
      * Subscribes to a channel.
+     * AlgoLab format: {"token": "hash", "Type": "T|D|O", "Symbols": ["SYMBOL1", "SYMBOL2"]}
+     * Type: T=Tick, D=Depth (OrderBook), O=Order Status
      */
     public void subscribe(String channel, String symbol) throws IOException {
-        WebSocketMessage<Map<String, String>> msg = WebSocketMessage.<Map<String, String>>builder()
-            .type(WebSocketMessage.Type.SUBSCRIBE)
-            .channel(channel)
-            .data(Map.of("symbol", symbol))
-            .build();
+        if (session == null || !session.isOpen()) {
+            throw new AlgoLabException("WebSocket session is not open");
+        }
 
-        sendMessage(msg);
-        log.info("Subscribed to channel: {} for symbol: {}", channel, symbol);
+        // Map channel to AlgoLab type
+        String type = switch (channel.toLowerCase()) {
+            case "tick" -> "T";
+            case "orderbook", "depth" -> "D";
+            case "order", "orders" -> "O";
+            default -> "T"; // Default to tick
+        };
+
+        // AlgoLab format: {"token": hash, "Type": "T", "Symbols": ["GARAN"]}
+        Map<String, Object> subscribeMsg = Map.of(
+            "token", authHash,
+            "Type", type,
+            "Symbols", new String[]{symbol}
+        );
+
+        String json = objectMapper.writeValueAsString(subscribeMsg);
+        session.sendMessage(new TextMessage(json));
+
+        log.info("Subscribed to AlgoLab channel: Type={}, Symbols=[{}]", type, symbol);
     }
 
     /**
@@ -216,6 +259,31 @@ public class AlgoLabWebSocketClient extends TextWebSocketHandler {
 
         // Start heartbeat
         startHeartbeat();
+
+        // CRITICAL: Send subscription immediately (like Python example)
+        // AlgoLab closes connection if no subscription is sent quickly
+        try {
+            log.info("Sending IMMEDIATE subscription to prevent connection close");
+
+            // Map channel to AlgoLab type
+            String type = "T"; // Tick data
+            String symbol = "USDTRY"; // Always active in FOREX
+
+            // AlgoLab format: {"token": hash, "Type": "T", "Symbols": ["USDTRY"]}
+            Map<String, Object> subscribeMsg = Map.of(
+                "token", authHash,
+                "Type", type,
+                "Symbols", new String[]{symbol}
+            );
+
+            String json = objectMapper.writeValueAsString(subscribeMsg);
+            session.sendMessage(new TextMessage(json));
+
+            log.info("✅ IMMEDIATE subscription sent: Type={}, Symbol={}", type, symbol);
+
+        } catch (Exception e) {
+            log.error("❌ Failed to send immediate subscription", e);
+        }
     }
 
     @Override
@@ -224,17 +292,77 @@ public class AlgoLabWebSocketClient extends TextWebSocketHandler {
             String payload = message.getPayload();
             log.debug("Received WebSocket message: {}", payload);
 
-            // Parse generic message
-            WebSocketMessage<?> wsMessage = objectMapper.readValue(
-                payload,
-                new TypeReference<WebSocketMessage<Object>>() {}
-            );
+            // AlgoLab uses different format: {"Type":"T","Content":{...}}
+            // Parse as Map first to check format
+            Map<String, Object> rawMessage = objectMapper.readValue(payload, new TypeReference<Map<String, Object>>() {});
 
-            // Handle different message types
-            handleMessage(wsMessage, payload);
+            // Check if this is AlgoLab format (has "Type" and "Content")
+            if (rawMessage.containsKey("Type") && rawMessage.containsKey("Content")) {
+                handleAlgoLabMessage(rawMessage);
+            } else {
+                // Generic WebSocket format (our format)
+                WebSocketMessage<?> wsMessage = objectMapper.readValue(payload, new TypeReference<WebSocketMessage<Object>>() {});
+                handleMessage(wsMessage, payload);
+            }
 
         } catch (Exception e) {
             log.error("Error handling WebSocket message", e);
+        }
+    }
+
+    /**
+     * Handles AlgoLab-specific message format.
+     * Format: {"Type":"T|D|O","Content":{...}}
+     */
+    private void handleAlgoLabMessage(Map<String, Object> message) {
+        String type = (String) message.get("Type");
+        Object content = message.get("Content");
+
+        try {
+            switch (type) {
+                case "T": // Tick data
+                    TickData tickData = objectMapper.convertValue(content, TickData.class);
+                    log.info("✅ Received TICK data: Symbol={}, Price={}", tickData.getSymbol(), tickData.getLastPrice());
+
+                    // Buffer the message for HTTP polling
+                    messageBuffer.addTick(tickData.getSymbol(), tickData);
+
+                    // Notify registered handlers
+                    notifyHandler(WebSocketMessage.Type.TICK, tickData);
+                    break;
+
+                case "D": // Depth/OrderBook data
+                    OrderBookData orderBookData = objectMapper.convertValue(content, OrderBookData.class);
+                    log.info("✅ Received DEPTH data: Symbol={}", orderBookData.getSymbol());
+
+                    // Buffer the message for HTTP polling
+                    messageBuffer.addOrderBook(orderBookData.getSymbol(), orderBookData);
+
+                    // Notify registered handlers
+                    notifyHandler(WebSocketMessage.Type.ORDER_BOOK, orderBookData);
+                    break;
+
+                case "O": // Order status / Trade data
+                    log.info("✅ Received ORDER status data");
+
+                    // Try to parse as trade data
+                    try {
+                        TradeData tradeData = objectMapper.convertValue(content, TradeData.class);
+                        messageBuffer.addTrade(tradeData.getSymbol(), tradeData);
+                    } catch (Exception e) {
+                        log.debug("Could not parse order status as trade data: {}", e.getMessage());
+                    }
+
+                    // Notify registered handlers
+                    notifyHandler(WebSocketMessage.Type.TRADE, content);
+                    break;
+
+                default:
+                    log.debug("Unhandled AlgoLab message type: {}", type);
+            }
+
+        } catch (Exception e) {
+            log.error("Error processing AlgoLab message type: {}", type, e);
         }
     }
 
@@ -417,6 +545,37 @@ public class AlgoLabWebSocketClient extends TextWebSocketHandler {
      */
     public boolean isAuthenticated() {
         return authenticated.get();
+    }
+
+    /**
+     * Gets WebSocket URL.
+     */
+    public String getWebSocketUrl() {
+        return properties.getWebsocket().getUrl();
+    }
+
+    /**
+     * Gets last heartbeat timestamp.
+     */
+    public String getLastHeartbeat() {
+        // TODO: Track last heartbeat time
+        return connected.get() ? java.time.Instant.now().toString() : null;
+    }
+
+    /**
+     * Gets message count.
+     */
+    public long getMessageCount() {
+        // TODO: Track message count
+        return 0;
+    }
+
+    /**
+     * Gets last error.
+     */
+    public String getLastError() {
+        // TODO: Track last error
+        return null;
     }
 
     /**

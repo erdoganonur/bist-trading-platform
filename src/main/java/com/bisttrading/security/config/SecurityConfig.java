@@ -67,11 +67,17 @@ public class SecurityConfig {
                 .requestMatchers("/swagger-resources/**").permitAll()
                 .requestMatchers("/webjars/**").permitAll()
 
+                // Error endpoint - must be public
+                .requestMatchers("/error").permitAll()
+
                 // Public authentication endpoints
                 .requestMatchers("/api/v1/auth/**").permitAll()
 
                 // Public market data endpoints
                 .requestMatchers("/api/v1/public/**").permitAll()
+
+                // Test endpoints - temporary for WebSocket testing
+                .requestMatchers("/api/test/**").permitAll()
 
                 // Health check and monitoring endpoints
                 .requestMatchers("/actuator/health", "/health").permitAll()

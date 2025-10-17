@@ -228,17 +228,17 @@ algolab:
     cleanup-cron: "0 0 */6 * * *"  # Every 6 hours in dev
     auto-cleanup: true
   websocket:
-    enabled: true
-    url: wss://www.algolab.com.tr/api/ws
-    auto-connect: true
+    enabled: true  # Enabled - correct URL and headers
+    url: wss://www.algolab.com.tr/api/ws  # CRITICAL: Use /api/ws (from Python config.py)
+    auto-connect: true  # Enabled with correct configuration
     heartbeat-interval: 900000  # 15 minutes in milliseconds
     connection-timeout: 30000  # 30 seconds
     reconnect:
-      enabled: true
+      enabled: true  # Enable reconnection attempts
       initial-delay: 1000  # 1 second
       max-delay: 60000  # 60 seconds
       multiplier: 2.0
-      max-attempts: 0  # unlimited
+      max-attempts: 3  # Limited to 3 attempts in dev
 
   # Development Broker Integrations (sandbox)
   brokers:

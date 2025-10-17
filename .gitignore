@@ -192,3 +192,15 @@ test-data/
 metrics/
 traces/
 dumps/
+# Session files with credentials
+algolab-session-dev.json
+.algolab_temp_token.json
+
+# Temporary files
+WEBSOCKET_FINAL_OZET.txt
+data.json
+/tmp/
+
+# Test results
+test-results.md
+
