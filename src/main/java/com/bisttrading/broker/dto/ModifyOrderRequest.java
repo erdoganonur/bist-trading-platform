@@ -1,6 +1,5 @@
 package com.bisttrading.broker.dto;
 
-import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -11,6 +10,7 @@ import java.math.BigDecimal;
 
 /**
  * Request DTO for modifying an existing order.
+ * At least one of price or lot must be provided.
  */
 @Data
 @Builder
@@ -18,11 +18,11 @@ import java.math.BigDecimal;
 @AllArgsConstructor
 public class ModifyOrderRequest {
 
-    @NotNull(message = "Fiyat gereklidir")
+    // Optional - only required if modifying price
     @Positive(message = "Fiyat pozitif olmalıdır")
     private BigDecimal price;
 
-    @NotNull(message = "Lot miktarı gereklidir")
+    // Optional - only required if modifying quantity
     @Positive(message = "Lot miktarı pozitif olmalıdır")
     private Integer lot;
 
