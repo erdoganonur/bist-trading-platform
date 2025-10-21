@@ -8,9 +8,11 @@ import com.bisttrading.broker.algolab.dto.websocket.TradeData;
 import com.bisttrading.broker.algolab.exception.AlgoLabException;
 import com.bisttrading.broker.algolab.service.SubscriptionManager;
 import com.bisttrading.broker.algolab.service.WebSocketMessageBuffer;
+import com.bisttrading.broker.algolab.service.RedisTickCacheService;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.CloseStatus;
@@ -45,6 +47,10 @@ public class AlgoLabWebSocketClient extends TextWebSocketHandler {
     private final ScheduledExecutorService scheduler;
     private final WebSocketMessageBuffer messageBuffer;
     private final ApplicationEventPublisher eventPublisher;
+
+    // Redis cache service (optional - may not be enabled)
+    @Autowired(required = false)
+    private RedisTickCacheService redisTickCacheService;
 
     private volatile WebSocketSession session;
     private volatile String authToken;
@@ -365,10 +371,19 @@ public class AlgoLabWebSocketClient extends TextWebSocketHandler {
             switch (type) {
                 case "T": // Tick data
                     TickData tickData = objectMapper.convertValue(content, TickData.class);
-                    log.info("✅ Received TICK data: Symbol={}, Price={}", tickData.getSymbol(), tickData.getLastPrice());
 
-                    // Buffer the message for HTTP polling
+                    // TRACE level - production'da kapalı, sadece debug için
+                    log.trace("Tick received: Symbol={}, Price={}", tickData.getSymbol(), tickData.getLastPrice());
+
+                    // Buffer the message for HTTP polling (backward compatibility)
                     messageBuffer.addTick(tickData.getSymbol(), tickData);
+
+                    // Write to Redis (with metrics) if available
+                    if (redisTickCacheService != null) {
+                        redisTickCacheService.cacheTick(tickData.getSymbol(), tickData);
+                    } else {
+                        log.debug("Redis cache service not available - tick data only in memory buffer");
+                    }
 
                     // Notify registered handlers
                     notifyHandler(WebSocketMessage.Type.TICK, tickData);

@@ -32,6 +32,14 @@ public class RedisTickCacheService {
     private static final long DEFAULT_TTL_MINUTES = 5;
     private static final int MAX_ITEMS_PER_SYMBOL = 100;
 
+    // Metrik key'leri
+    private static final String METRICS_TOTAL_KEY = "algolab:metrics:tick:total";
+    private static final String METRICS_SYMBOL_COUNTS_KEY = "algolab:metrics:symbol:counts";
+    private static final String METRICS_LAST_TIME_KEY = "algolab:metrics:tick:last-time";
+    private static final String METRICS_FIRST_TIME_KEY = "algolab:metrics:tick:first-time";
+    private static final String METRICS_LAST_MINUTE_KEY = "algolab:metrics:tick:last-minute";
+    private static final String METRICS_SYMBOLS_KEY = "algolab:metrics:symbols:active";
+
     private final RedisTemplate<String, Object> redisTemplate;
     private final ObjectMapper objectMapper;
 
@@ -42,15 +50,15 @@ public class RedisTickCacheService {
     }
 
     /**
-     * Cache tick data with timestamp-based sorting.
+     * Cache tick data with timestamp-based sorting AND update metrics.
      */
     public void cacheTick(String symbol, TickData data) {
         try {
+            long timestamp = System.currentTimeMillis();
             String key = TICK_KEY_PREFIX + symbol;
-            double score = System.currentTimeMillis();
 
             // Store in sorted set (timestamp as score)
-            redisTemplate.opsForZSet().add(key, data, score);
+            redisTemplate.opsForZSet().add(key, data, timestamp);
 
             // Set TTL
             redisTemplate.expire(key, DEFAULT_TTL_MINUTES, TimeUnit.MINUTES);
@@ -61,6 +69,9 @@ public class RedisTickCacheService {
 
             // Trim old data
             trimCache(key, MAX_ITEMS_PER_SYMBOL);
+
+            // UPDATE METRICS (Redis-based)
+            updateMetrics(symbol, timestamp);
 
             log.trace("Cached tick for {}: Price={}", symbol, data.getLastPrice());
 
@@ -326,6 +337,177 @@ public class RedisTickCacheService {
         } catch (Exception e) {
             log.error("Redis health check failed", e);
             return false;
+        }
+    }
+
+    // ==================== METRICS METHODS ====================
+
+    /**
+     * Update all metrics atomically using Redis pipeline.
+     */
+    private void updateMetrics(String symbol, long timestamp) {
+        try {
+            redisTemplate.execute((org.springframework.data.redis.core.RedisCallback<Object>) connection -> {
+                byte[] totalKey = METRICS_TOTAL_KEY.getBytes();
+                byte[] symbolCountsKey = METRICS_SYMBOL_COUNTS_KEY.getBytes();
+                byte[] lastTimeKey = METRICS_LAST_TIME_KEY.getBytes();
+                byte[] firstTimeKey = METRICS_FIRST_TIME_KEY.getBytes();
+                byte[] lastMinuteKey = METRICS_LAST_MINUTE_KEY.getBytes();
+                byte[] symbolsKey = METRICS_SYMBOLS_KEY.getBytes();
+                byte[] symbolBytes = symbol.getBytes();
+                byte[] timestampBytes = String.valueOf(timestamp).getBytes();
+
+                // 1. Toplam tick sayısını artır
+                connection.incr(totalKey);
+
+                // 2. Sembol başına sayaç artır
+                connection.hashCommands().hIncrBy(symbolCountsKey, symbolBytes, 1);
+
+                // 3. Son tick zamanını güncelle
+                connection.stringCommands().set(lastTimeKey, timestampBytes);
+
+                // 4. İlk tick zamanını ayarla (sadece ilk kez)
+                connection.stringCommands().setNX(firstTimeKey, timestampBytes);
+
+                // 5. Son 1 dakika için sliding window'a ekle
+                connection.zSetCommands().zAdd(lastMinuteKey, timestamp, timestampBytes);
+
+                // 6. Sliding window'u temizle (1 dakikadan eski)
+                long oneMinuteAgo = timestamp - 60000;
+                connection.zSetCommands().zRemRangeByScore(lastMinuteKey, 0, oneMinuteAgo);
+
+                // 7. Aktif sembollere ekle
+                connection.setCommands().sAdd(symbolsKey, symbolBytes);
+
+                return null;
+            });
+
+            // Metrik key'leri için TTL ayarla
+            redisTemplate.expire(METRICS_LAST_MINUTE_KEY, 2, TimeUnit.MINUTES);
+            redisTemplate.expire(METRICS_SYMBOLS_KEY, 5, TimeUnit.MINUTES);
+
+        } catch (Exception e) {
+            log.error("Failed to update metrics for {}", symbol, e);
+        }
+    }
+
+    /**
+     * Get real-time metrics from Redis.
+     */
+    public Map<String, Object> getRealTimeMetrics() {
+        try {
+            // Temel metrikler
+            String totalTicksStr = redisTemplate.opsForValue().get(METRICS_TOTAL_KEY);
+            Long totalTicks = totalTicksStr != null ? Long.parseLong(totalTicksStr) : 0L;
+
+            String lastTimeStr = redisTemplate.opsForValue().get(METRICS_LAST_TIME_KEY);
+            String firstTimeStr = redisTemplate.opsForValue().get(METRICS_FIRST_TIME_KEY);
+
+            // Son 1 dakika tick sayısı
+            Long lastMinuteTicks = redisTemplate.opsForZSet()
+                .count(METRICS_LAST_MINUTE_KEY,
+                       System.currentTimeMillis() - 60000,
+                       System.currentTimeMillis());
+
+            // Aktif semboller
+            Set<Object> activeSymbols = redisTemplate.opsForSet().members(METRICS_SYMBOLS_KEY);
+
+            // Sembol sayaçları
+            Map<Object, Object> symbolCounts = redisTemplate.opsForHash()
+                .entries(METRICS_SYMBOL_COUNTS_KEY);
+
+            // Hesaplamalar
+            long lastMinuteValue = lastMinuteTicks != null ? lastMinuteTicks : 0;
+
+            // Ortalama tick/saniye hesapla
+            double ticksPerSecond = lastMinuteValue / 60.0;
+            double overallTicksPerSecond = 0.0;
+
+            if (firstTimeStr != null && lastTimeStr != null) {
+                long firstTime = Long.parseLong(firstTimeStr);
+                long lastTime = Long.parseLong(lastTimeStr);
+                long elapsedSeconds = (lastTime - firstTime) / 1000;
+
+                if (elapsedSeconds > 0) {
+                    overallTicksPerSecond = totalTicks / (double) elapsedSeconds;
+                }
+            }
+
+            // Top 10 en aktif semboller
+            List<Map<String, Object>> topSymbols = symbolCounts.entrySet().stream()
+                .map(e -> {
+                    String sym = e.getKey().toString();
+                    Long count = Long.parseLong(e.getValue().toString());
+                    return Map.<String, Object>of("symbol", sym, "count", count);
+                })
+                .sorted((a, b) -> Long.compare((Long) b.get("count"), (Long) a.get("count")))
+                .limit(10)
+                .toList();
+
+            return Map.of(
+                "totalTicks", totalTicks,
+                "lastMinuteTicks", lastMinuteValue,
+                "activeSymbolCount", activeSymbols != null ? activeSymbols.size() : 0,
+                "ticksPerSecond", String.format("%.2f", ticksPerSecond),
+                "overallTicksPerSecond", String.format("%.2f", overallTicksPerSecond),
+                "activeSymbols", activeSymbols != null ? activeSymbols : Set.of(),
+                "topSymbols", topSymbols,
+                "lastTickTime", lastTimeStr != null ?
+                    Instant.ofEpochMilli(Long.parseLong(lastTimeStr)).toString() : null,
+                "sessionStartTime", firstTimeStr != null ?
+                    Instant.ofEpochMilli(Long.parseLong(firstTimeStr)).toString() : null
+            );
+
+        } catch (Exception e) {
+            log.error("Failed to get real-time metrics", e);
+            return Map.of("error", e.getMessage());
+        }
+    }
+
+    /**
+     * Get symbol-specific metrics from Redis.
+     */
+    public Map<String, Object> getSymbolMetrics(String symbol) {
+        try {
+            // Sembol tick sayısı
+            Object countObj = redisTemplate.opsForHash()
+                .get(METRICS_SYMBOL_COUNTS_KEY, symbol);
+            Long count = countObj != null ? Long.parseLong(countObj.toString()) : 0L;
+
+            // Son tick zamanı
+            Instant lastTickTime = getLastTickTime(symbol);
+
+            // Son tick verisi
+            List<TickData> lastTick = getRecentTicks(symbol, 1);
+
+            return Map.of(
+                "symbol", symbol,
+                "tickCount", count,
+                "lastTickTime", lastTickTime != null ? lastTickTime.toString() : "N/A",
+                "lastTickData", !lastTick.isEmpty() ? lastTick.get(0) : "N/A"
+            );
+
+        } catch (Exception e) {
+            log.error("Failed to get symbol metrics for {}", symbol, e);
+            return Map.of("error", e.getMessage());
+        }
+    }
+
+    /**
+     * Reset all metrics (for new session).
+     */
+    public void resetMetrics() {
+        try {
+            redisTemplate.delete(METRICS_TOTAL_KEY);
+            redisTemplate.delete(METRICS_SYMBOL_COUNTS_KEY);
+            redisTemplate.delete(METRICS_LAST_TIME_KEY);
+            redisTemplate.delete(METRICS_FIRST_TIME_KEY);
+            redisTemplate.delete(METRICS_LAST_MINUTE_KEY);
+            redisTemplate.delete(METRICS_SYMBOLS_KEY);
+
+            log.info("Metrics reset successfully");
+        } catch (Exception e) {
+            log.error("Failed to reset metrics", e);
         }
     }
 }
