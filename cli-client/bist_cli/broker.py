@@ -873,14 +873,14 @@ class BrokerManager:
                 "symbol": symbol,
                 "direction": direction,
                 "priceType": price_type,
-                "lot": lot,
-                "sms": sms,
-                "email": email,
+                "lot": int(lot),
+                "sms": sms == "E",  # E = Evet = True, H = Hayır = False
+                "email": email == "E",
                 "subAccount": "0"
             }
 
             if price:
-                order_data["price"] = price
+                order_data["price"] = float(price)
 
             response = self.api.post("/api/v1/broker/orders", data=order_data)
 
@@ -982,9 +982,9 @@ class BrokerManager:
             }
 
             if price:
-                update_data["price"] = price
+                update_data["price"] = float(price)
             if lot:
-                update_data["lot"] = lot
+                update_data["lot"] = int(lot)
 
             # Show confirmation
             console.print()
