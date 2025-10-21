@@ -6,12 +6,14 @@ import com.bisttrading.broker.algolab.dto.websocket.TickData;
 import com.bisttrading.broker.algolab.dto.websocket.OrderBookData;
 import com.bisttrading.broker.algolab.dto.websocket.TradeData;
 import com.bisttrading.broker.algolab.exception.AlgoLabException;
+import com.bisttrading.broker.algolab.service.SubscriptionManager;
 import com.bisttrading.broker.algolab.service.WebSocketMessageBuffer;
 import com.bisttrading.broker.algolab.service.RedisTickCacheService;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.CloseStatus;
 import org.springframework.web.socket.TextMessage;
@@ -44,6 +46,7 @@ public class AlgoLabWebSocketClient extends TextWebSocketHandler {
     private final StandardWebSocketClient webSocketClient;
     private final ScheduledExecutorService scheduler;
     private final WebSocketMessageBuffer messageBuffer;
+    private final ApplicationEventPublisher eventPublisher;
 
     // Redis cache service (optional - may not be enabled)
     @Autowired(required = false)
@@ -70,10 +73,12 @@ public class AlgoLabWebSocketClient extends TextWebSocketHandler {
     public AlgoLabWebSocketClient(
             AlgoLabProperties properties,
             ObjectMapper objectMapper,
-            WebSocketMessageBuffer messageBuffer) {
+            WebSocketMessageBuffer messageBuffer,
+            ApplicationEventPublisher eventPublisher) {
         this.properties = properties;
         this.objectMapper = objectMapper;
         this.messageBuffer = messageBuffer;
+        this.eventPublisher = eventPublisher;
         this.webSocketClient = new StandardWebSocketClient();
         this.scheduler = Executors.newScheduledThreadPool(2, r -> {
             Thread t = new Thread(r, "algolab-ws-scheduler");
@@ -287,6 +292,9 @@ public class AlgoLabWebSocketClient extends TextWebSocketHandler {
         log.info("WebSocket connection established");
         this.session = session;
         connected.set(true);
+
+        // Check if this is a reconnection
+        boolean isReconnection = reconnectAttempts.get() > 0;
         reconnectAttempts.set(0);
 
         // Start heartbeat
@@ -318,6 +326,12 @@ public class AlgoLabWebSocketClient extends TextWebSocketHandler {
 
         } catch (Exception e) {
             log.error("❌ Failed to send immediate subscription", e);
+        }
+
+        // Publish reconnection event to restore subscriptions
+        if (isReconnection) {
+            log.info("Publishing WebSocketReconnectedEvent to restore subscriptions");
+            eventPublisher.publishEvent(new SubscriptionManager.WebSocketReconnectedEvent());
         }
     }
 

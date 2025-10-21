@@ -49,15 +49,19 @@ public class AlgoLabOrderService {
     ) {
         log.info("Sending order: {} {} lot={} price={}", direction, symbol, lot, price);
 
+        // Convert priceType from "P"/"L" to AlgoLab format "piyasa"/"limit"
+        String algolabPriceType = "P".equalsIgnoreCase(priceType) ? "piyasa" : "limit";
+
         Map<String, Object> payload = new HashMap<>();
         payload.put("symbol", symbol);
         payload.put("direction", direction);
-        payload.put("pricetype", priceType);
-        payload.put("price", price.toString());
+        payload.put("pricetype", algolabPriceType);
+        // For market orders, price can be empty string or "0"
+        payload.put("price", price != null ? price.toString() : "");
         payload.put("lot", lot.toString());
         payload.put("sms", sms != null ? sms : false);
         payload.put("email", email != null ? email : false);
-        payload.put("subAccount", subAccount != null ? subAccount : "");
+        payload.put("Subaccount", subAccount != null ? subAccount : "");
 
         try {
             ResponseEntity<Map> response = restClient.post(
@@ -102,10 +106,11 @@ public class AlgoLabOrderService {
 
         Map<String, Object> payload = new HashMap<>();
         payload.put("id", orderId);
-        payload.put("price", price.toString());
+        // Allow null price when only modifying quantity
+        payload.put("price", price != null ? price.toString() : "");
         payload.put("lot", lot != null ? lot.toString() : "0");
         payload.put("viop", viop != null ? viop : false);
-        payload.put("subAccount", subAccount != null ? subAccount : "");
+        payload.put("Subaccount", subAccount != null ? subAccount : "");
 
         try {
             ResponseEntity<Map> response = restClient.post(
@@ -141,7 +146,7 @@ public class AlgoLabOrderService {
 
         Map<String, Object> payload = new HashMap<>();
         payload.put("id", orderId);
-        payload.put("subAccount", subAccount != null ? subAccount : "");
+        payload.put("Subaccount", subAccount != null ? subAccount : "");
 
         try {
             ResponseEntity<Map> response = restClient.post(

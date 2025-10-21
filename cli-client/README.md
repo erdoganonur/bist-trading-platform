@@ -8,6 +8,8 @@
 - 📱 **AlgoLab Entegrasyonu**: OTP ile iki faktörlü broker kimlik doğrulama
 - 📊 **Gerçek Zamanlı Piyasa Verileri**: Hisse fiyatları ve teknik göstergeler
 - 💼 **Broker İşlemleri**: Hesap bilgileri ve portföy görüntüleme
+- ⚠️  **Emir İşlemleri**: Canlı emir gönderme, iptal etme, güncelleme ve izleme (YENİ!)
+- 📋 **Emir Geçmişi**: Detaylı filtreleme ile geçmiş emirleri görüntüleme (YENİ!)
 - 🎨 **Modern UI**: Rich console ile renkli ve interaktif arayüz
 - 💾 **Güvenli Token Saklama**: Keyring ile işletim sistemi güvenlik mekanizması
 
@@ -153,6 +155,16 @@ CLI client şu API endpoint'lerini kullanır:
 - `GET /api/v1/broker/positions` - Açık pozisyonlar
 - `GET /api/v1/broker/portfolio` - Portfolio bilgileri
 - `GET /api/v1/broker/status` - Broker bağlantı durumu
+
+### Emir İşlemleri (YENİ!)
+- `POST /api/v1/broker/orders` - ⚠️  Canlı emir gönder
+  - Request: `{ "symbol": "AKBNK", "direction": "0", "priceType": "L", "price": "15.75", "lot": "100", "sms": "H", "email": "H" }`
+  - Response: `{ "success": true, "content": { "orderId": "...", "brokerOrderId": "...", "status": "SUBMITTED" } }`
+- `DELETE /api/v1/broker/orders/{orderId}` - ⚠️  Emir iptal et
+- `PUT /api/v1/broker/orders/{orderId}` - ⚠️  Emir güncelle
+  - Request: `{ "price": "16.00", "lot": "150" }`
+- `GET /api/v1/broker/orders/history` - Emir geçmişini görüntüle
+  - Query params: `?symbol=AKBNK&status=FILLED&page=0&size=20`
 
 ## 🔒 Güvenlik
 
