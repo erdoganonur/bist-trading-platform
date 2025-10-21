@@ -5,14 +5,17 @@ import com.bisttrading.broker.algolab.dto.websocket.TickData;
 import com.bisttrading.broker.algolab.dto.websocket.TradeData;
 import com.bisttrading.broker.algolab.model.AlgoLabSession;
 import com.bisttrading.broker.algolab.service.AlgoLabSessionManager;
+import com.bisttrading.broker.algolab.service.RedisTickCacheService;
 import com.bisttrading.broker.algolab.websocket.AlgoLabWebSocketService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -28,6 +31,10 @@ public class WebSocketController {
 
     private final AlgoLabWebSocketService webSocketService;
     private final AlgoLabSessionManager sessionManager;
+
+    // Redis cache service (optional - may not be enabled)
+    @Autowired(required = false)
+    private RedisTickCacheService redisTickCacheService;
 
     @PostMapping("/connect")
     @Operation(summary = "Connect to AlgoLab WebSocket", description = "Establishes WebSocket connection using existing session")
@@ -418,5 +425,108 @@ public class WebSocketController {
                     "error", "Failed to get order book: " + e.getMessage()
                 ));
         }
+    }
+
+    // ==================== REDIS METRICS ENDPOINTS ====================
+
+    /**
+     * Get real-time tick metrics from Redis.
+     */
+    @GetMapping("/metrics/realtime")
+    @Operation(summary = "Get real-time metrics", description = "Returns real-time tick metrics from Redis (total ticks, ticks/sec, active symbols)")
+    public ResponseEntity<?> getRealTimeMetrics() {
+        if (redisTickCacheService == null) {
+            return ResponseEntity.status(503)
+                .body(Map.of(
+                    "error", "Redis cache not enabled",
+                    "message", "Set algolab.cache.enabled=true in application.yml"
+                ));
+        }
+
+        Map<String, Object> metrics = redisTickCacheService.getRealTimeMetrics();
+        return ResponseEntity.ok(metrics);
+    }
+
+    /**
+     * Get symbol-specific metrics from Redis.
+     */
+    @GetMapping("/metrics/symbol/{symbol}")
+    @Operation(summary = "Get symbol metrics", description = "Returns metrics for a specific symbol (tick count, last tick time, last tick data)")
+    public ResponseEntity<?> getSymbolMetrics(@PathVariable String symbol) {
+        if (redisTickCacheService == null) {
+            return ResponseEntity.status(503)
+                .body(Map.of(
+                    "error", "Redis cache not enabled",
+                    "message", "Set algolab.cache.enabled=true in application.yml"
+                ));
+        }
+
+        Map<String, Object> metrics = redisTickCacheService.getSymbolMetrics(symbol);
+        return ResponseEntity.ok(metrics);
+    }
+
+    /**
+     * Get tick data from Redis.
+     */
+    @GetMapping("/redis/ticks/{symbol}")
+    @Operation(summary = "Get ticks from Redis", description = "Returns recent tick data from Redis cache")
+    public ResponseEntity<?> getTicksFromRedis(
+            @PathVariable String symbol,
+            @RequestParam(defaultValue = "10") int limit) {
+
+        if (redisTickCacheService == null) {
+            return ResponseEntity.status(503)
+                .body(Map.of(
+                    "error", "Redis cache not enabled",
+                    "message", "Set algolab.cache.enabled=true in application.yml"
+                ));
+        }
+
+        List<TickData> ticks = redisTickCacheService.getRecentTicks(symbol, limit);
+
+        return ResponseEntity.ok(Map.of(
+            "symbol", symbol,
+            "count", ticks.size(),
+            "ticks", ticks
+        ));
+    }
+
+    /**
+     * Get Redis cache statistics.
+     */
+    @GetMapping("/redis/stats")
+    @Operation(summary = "Get Redis cache stats", description = "Returns Redis cache statistics (symbol counts, message counts)")
+    public ResponseEntity<?> getRedisStats() {
+        if (redisTickCacheService == null) {
+            return ResponseEntity.status(503)
+                .body(Map.of(
+                    "error", "Redis cache not enabled",
+                    "message", "Set algolab.cache.enabled=true in application.yml"
+                ));
+        }
+
+        Map<String, Object> stats = redisTickCacheService.getStats();
+        return ResponseEntity.ok(stats);
+    }
+
+    /**
+     * Reset metrics (start new session).
+     */
+    @PostMapping("/metrics/reset")
+    @Operation(summary = "Reset metrics", description = "Resets all metrics in Redis (starts new session)")
+    public ResponseEntity<?> resetMetrics() {
+        if (redisTickCacheService == null) {
+            return ResponseEntity.status(503)
+                .body(Map.of(
+                    "error", "Redis cache not enabled",
+                    "message", "Set algolab.cache.enabled=true in application.yml"
+                ));
+        }
+
+        redisTickCacheService.resetMetrics();
+        return ResponseEntity.ok(Map.of(
+            "success", true,
+            "message", "Metrics reset successfully"
+        ));
     }
 }
