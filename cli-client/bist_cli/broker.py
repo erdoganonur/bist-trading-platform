@@ -8,7 +8,7 @@ from typing import Dict, Any
 from rich.console import Console
 from rich.table import Table
 from rich.panel import Panel
-from rich.prompt import Prompt
+from rich.prompt import Prompt, Confirm
 from rich import box
 
 from .api_client import APIClient, APIError
