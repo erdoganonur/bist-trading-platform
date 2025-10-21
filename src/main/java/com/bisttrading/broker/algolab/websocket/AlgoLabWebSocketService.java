@@ -2,10 +2,12 @@ package com.bisttrading.broker.algolab.websocket;
 
 import com.bisttrading.broker.algolab.config.AlgoLabProperties;
 import com.bisttrading.broker.algolab.dto.websocket.*;
+import com.bisttrading.broker.algolab.event.AuthenticationCompletedEvent;
 import com.bisttrading.broker.algolab.exception.AlgoLabException;
 import com.bisttrading.broker.algolab.model.AlgoLabSession;
 import com.bisttrading.broker.algolab.service.AlgoLabSessionManager;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Service;
 
 import jakarta.annotation.PostConstruct;
@@ -349,6 +351,27 @@ public class AlgoLabWebSocketService {
             "lastHeartbeat", java.time.Instant.now().toString(),  // Placeholder
             "messageCount", 0L  // Placeholder - can be tracked later
         );
+    }
+
+    /**
+     * Event listener for authentication completion.
+     * Automatically starts WebSocket connection after successful authentication.
+     */
+    @EventListener
+    public void onAuthenticationCompleted(AuthenticationCompletedEvent event) {
+        log.info("Authentication completed event received. Starting WebSocket connection...");
+
+        if (!properties.getWebsocket().isEnabled()) {
+            log.info("WebSocket is disabled in configuration. Skipping auto-connect.");
+            return;
+        }
+
+        connectAsync(event.getToken(), event.getHash())
+            .thenAccept(v -> log.info("✅ WebSocket connected successfully after authentication"))
+            .exceptionally(ex -> {
+                log.error("❌ WebSocket connection failed after authentication", ex);
+                return null;
+            });
     }
 
     /**

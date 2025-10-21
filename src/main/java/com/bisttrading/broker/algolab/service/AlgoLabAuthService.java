@@ -3,10 +3,12 @@ package com.bisttrading.broker.algolab.service;
 import com.bisttrading.broker.algolab.config.AlgoLabProperties;
 import com.bisttrading.broker.algolab.dto.response.LoginControlResponse;
 import com.bisttrading.broker.algolab.dto.response.LoginUserResponse;
+import com.bisttrading.broker.algolab.event.AuthenticationCompletedEvent;
 import com.bisttrading.broker.algolab.exception.AlgoLabAuthenticationException;
 import com.bisttrading.broker.algolab.model.AlgoLabSession;
 import com.bisttrading.broker.algolab.util.AlgoLabEncryptionUtil;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -27,6 +29,7 @@ public class AlgoLabAuthService {
     private final AlgoLabEncryptionUtil encryptionUtil;
     private final AlgoLabRestClient restClient;
     private final AlgoLabSessionManager sessionManager;
+    private final ApplicationEventPublisher eventPublisher;
 
     private volatile String token;
 
@@ -34,12 +37,14 @@ public class AlgoLabAuthService {
         AlgoLabProperties properties,
         AlgoLabEncryptionUtil encryptionUtil,
         AlgoLabRestClient restClient,
-        AlgoLabSessionManager sessionManager
+        AlgoLabSessionManager sessionManager,
+        ApplicationEventPublisher eventPublisher
     ) {
         this.properties = properties;
         this.encryptionUtil = encryptionUtil;
         this.restClient = restClient;
         this.sessionManager = sessionManager;
+        this.eventPublisher = eventPublisher;
     }
 
     /**
@@ -159,6 +164,10 @@ public class AlgoLabAuthService {
 
             // Save session
             sessionManager.saveSession(token, hash);
+
+            // Publish event to trigger WebSocket connection
+            log.info("Publishing AuthenticationCompletedEvent to trigger WebSocket connection");
+            eventPublisher.publishEvent(new AuthenticationCompletedEvent(token, hash));
 
             log.info("LoginUserControl successful. Authentication complete.");
             return hash;
