@@ -903,7 +903,18 @@ class BrokerManager:
 
         except APIError as e:
             if e.status_code == 401:
-                print_error("AlgoLab kimlik doğrulaması gerekli")
+                console.print()
+                console.print(Panel.fit(
+                    "[bold red]⚠️  AlgoLab Oturumu Süresi Dolmuş[/bold red]\n\n"
+                    "[yellow]AlgoLab oturumunuzun süresi dolmuş. Tekrar bağlanmanız gerekiyor.[/yellow]\n\n"
+                    "[cyan]Çözüm:[/cyan]\n"
+                    "1. Ana Menüye dönün (seçenek 13)\n"
+                    "2. '5. AlgoLab Bağlantısı' seçeneğini seçin\n"
+                    "3. Kullanıcı adı ve şifrenizi girin\n"
+                    "4. SMS ile gelen kodu doğrulayın\n\n"
+                    "[dim]Not: AlgoLab oturumları 24 saat sonra otomatik olarak sona erer.[/dim]",
+                    border_style="red"
+                ))
             elif e.status_code == 402:
                 print_error("Yetersiz bakiye")
             elif e.status_code == 429:
