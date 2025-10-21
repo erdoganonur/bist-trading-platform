@@ -814,6 +814,351 @@ class BrokerManager:
             print_error(f"Multi-symbol monitoring hatası: {str(e)}")
             debug_object(e, "Exception")
 
+    def send_order(self) -> None:
+        """Send a new order to the broker."""
+        try:
+            console.print()
+            console.print(Panel.fit(
+                "[bold red]⚠️  CANLI EMİR GÖNDERİMİ ⚠️[/bold red]\n\n"
+                "[yellow]Bu GERÇEK bir emirdir ve GERÇEK PARA ile işlem yapacaktır![/yellow]\n"
+                "[dim]Devam etmeden önce tüm bilgileri kontrol edin.[/dim]",
+                border_style="red"
+            ))
+
+            # Get order details from user
+            symbol = Prompt.ask("\n[cyan]Sembol kodu (örn: AKBNK, THYAO)[/cyan]").upper()
+
+            console.print("\n[yellow]Emir Yönü:[/yellow]")
+            console.print("  0 - ALIŞ (BUY)")
+            console.print("  1 - SATIŞ (SELL)")
+            direction = Prompt.ask("[cyan]Yön[/cyan]", choices=["0", "1"])
+
+            console.print("\n[yellow]Fiyat Tipi:[/yellow]")
+            console.print("  L - Limit")
+            console.print("  P - Piyasa (Market)")
+            price_type = Prompt.ask("[cyan]Fiyat Tipi[/cyan]", choices=["L", "P"], default="L").upper()
+
+            price = None
+            if price_type == "L":
+                price = Prompt.ask("[cyan]Limit Fiyat[/cyan]")
+
+            lot = Prompt.ask("[cyan]Lot (Miktar)[/cyan]")
+
+            # Optional parameters
+            sms = Prompt.ask("[cyan]SMS bildirimi (H/E)[/cyan]", choices=["H", "E"], default="H").upper()
+            email = Prompt.ask("[cyan]Email bildirimi (H/E)[/cyan]", choices=["H", "E"], default="H").upper()
+
+            # Confirmation
+            console.print()
+            console.print(Panel(
+                f"[yellow]Sembol:[/yellow] {symbol}\n"
+                f"[yellow]Yön:[/yellow] {'ALIŞ' if direction == '0' else 'SATIŞ'}\n"
+                f"[yellow]Fiyat Tipi:[/yellow] {'Limit' if price_type == 'L' else 'Piyasa'}\n"
+                f"[yellow]Fiyat:[/yellow] {price if price else 'Piyasa Fiyatı'}\n"
+                f"[yellow]Lot:[/yellow] {lot}\n"
+                f"[yellow]SMS:[/yellow] {'Evet' if sms == 'H' else 'Hayır'}\n"
+                f"[yellow]Email:[/yellow] {'Evet' if email == 'H' else 'Hayır'}",
+                title="Emir Özeti",
+                border_style="yellow"
+            ))
+
+            if not Confirm.ask("\n[red]⚠️  Bu EMRİ göndermek istediğinizden emin misiniz?[/red]"):
+                print_info("Emir iptal edildi")
+                return
+
+            console.print("\n[dim]Emir gönderiliyor...[/dim]")
+
+            # Send order via API
+            order_data = {
+                "symbol": symbol,
+                "direction": direction,
+                "priceType": price_type,
+                "lot": lot,
+                "sms": sms,
+                "email": email,
+                "subAccount": "0"
+            }
+
+            if price:
+                order_data["price"] = price
+
+            response = self.api.post("/api/v1/broker/orders", data=order_data)
+
+            console.print()
+            if response.get("success"):
+                print_success("Emir başarıyla gönderildi!")
+
+                content = response.get("content", {})
+                if content:
+                    info_text = (
+                        f"[yellow]Emir ID:[/yellow] {content.get('orderId', 'N/A')}\n"
+                        f"[yellow]Broker Emir ID:[/yellow] {content.get('brokerOrderId', 'N/A')}\n"
+                        f"[yellow]Durum:[/yellow] {content.get('status', 'N/A')}"
+                    )
+                    console.print(Panel(info_text, title="Emir Bilgileri", border_style="green"))
+            else:
+                print_error(f"Emir gönderilemedi: {response.get('message', 'Bilinmeyen hata')}")
+
+            console.print()
+
+        except APIError as e:
+            if e.status_code == 401:
+                print_error("AlgoLab kimlik doğrulaması gerekli")
+            elif e.status_code == 402:
+                print_error("Yetersiz bakiye")
+            elif e.status_code == 429:
+                print_error("Çok fazla istek. Lütfen bekleyin.")
+            else:
+                print_error(f"Emir gönderilemedi: {e.message}")
+        except Exception as e:
+            print_error(f"Beklenmeyen hata: {str(e)}")
+
+    def cancel_order(self) -> None:
+        """Cancel an existing order."""
+        try:
+            console.print()
+            console.print(Panel.fit(
+                "[bold red]⚠️  EMİR İPTAL ⚠️[/bold red]\n\n"
+                "[yellow]Bu işlem GERİ ALINMADIR![/yellow]\n"
+                "[dim]İptal edilen emirler tekrar aktif edilemez.[/dim]",
+                border_style="red"
+            ))
+
+            order_id = Prompt.ask("\n[cyan]İptal edilecek Emir ID[/cyan]")
+
+            if not Confirm.ask(f"\n[red]⚠️  {order_id} numaralı emri iptal etmek istediğinizden emin misiniz?[/red]"):
+                print_info("İptal işlemi iptal edildi")
+                return
+
+            console.print("\n[dim]Emir iptal ediliyor...[/dim]")
+
+            response = self.api.delete(f"/api/v1/broker/orders/{order_id}")
+
+            console.print()
+            if response.get("success"):
+                print_success("Emir başarıyla iptal edildi!")
+                console.print(f"[dim]{response.get('message', '')}[/dim]")
+            else:
+                print_error(f"Emir iptal edilemedi: {response.get('message', 'Bilinmeyen hata')}")
+
+            console.print()
+
+        except APIError as e:
+            if e.status_code == 404:
+                print_error("Emir bulunamadı")
+            elif e.status_code == 400:
+                print_error("Emir iptal edilemiyor (zaten gerçekleşmiş olabilir)")
+            else:
+                print_error(f"Emir iptal edilemedi: {e.message}")
+        except Exception as e:
+            print_error(f"Beklenmeyen hata: {str(e)}")
+
+    def modify_order(self) -> None:
+        """Modify an existing order."""
+        try:
+            console.print()
+            console.print(Panel.fit(
+                "[bold red]⚠️  EMİR GÜNCELLEME ⚠️[/bold red]\n\n"
+                "[yellow]Bu CANLI bir emir değişikliğidir![/yellow]\n"
+                "[dim]Değişiklikler anında uygulanır.[/dim]",
+                border_style="red"
+            ))
+
+            order_id = Prompt.ask("\n[cyan]Güncellenecek Emir ID[/cyan]")
+
+            console.print("\n[yellow]Yeni bilgileri girin (değiştirmek istemiyorsanız Enter'a basın):[/yellow]")
+
+            price = Prompt.ask("[cyan]Yeni Limit Fiyat[/cyan]", default="")
+            lot = Prompt.ask("[cyan]Yeni Lot (Miktar)[/cyan]", default="")
+
+            if not price and not lot:
+                print_warning("Hiçbir değişiklik yapılmadı")
+                return
+
+            # Build update data
+            update_data = {
+                "subAccount": "0",
+                "viop": "H"
+            }
+
+            if price:
+                update_data["price"] = price
+            if lot:
+                update_data["lot"] = lot
+
+            # Show confirmation
+            console.print()
+            changes = []
+            if price:
+                changes.append(f"[yellow]Yeni Fiyat:[/yellow] {price}")
+            if lot:
+                changes.append(f"[yellow]Yeni Lot:[/yellow] {lot}")
+
+            console.print(Panel(
+                "\n".join(changes),
+                title=f"Emir {order_id} Değişiklikleri",
+                border_style="yellow"
+            ))
+
+            if not Confirm.ask(f"\n[red]⚠️  Bu değişiklikleri uygulamak istediğinizden emin misiniz?[/red]"):
+                print_info("Güncelleme iptal edildi")
+                return
+
+            console.print("\n[dim]Emir güncelleniyor...[/dim]")
+
+            response = self.api.put(f"/api/v1/broker/orders/{order_id}", data=update_data)
+
+            console.print()
+            if response.get("success"):
+                print_success("Emir başarıyla güncellendi!")
+                console.print(f"[dim]{response.get('message', '')}[/dim]")
+            else:
+                print_error(f"Emir güncellenemedi: {response.get('message', 'Bilinmeyen hata')}")
+
+            console.print()
+
+        except APIError as e:
+            if e.status_code == 404:
+                print_error("Emir bulunamadı")
+            elif e.status_code == 400:
+                print_error("Geçersiz güncelleme parametreleri")
+            else:
+                print_error(f"Emir güncellenemedi: {e.message}")
+        except Exception as e:
+            print_error(f"Beklenmeyen hata: {str(e)}")
+
+    def view_order_history(self) -> None:
+        """Display order history with filtering options."""
+        try:
+            console.print()
+            console.print(Panel.fit(
+                "[bold yellow]Emir Geçmişi[/bold yellow]\n\n"
+                "Filtreleme seçenekleri (boş bırakırsanız tüm emirler gösterilir)",
+                border_style="yellow"
+            ))
+
+            # Get filter options
+            symbol = Prompt.ask("\n[cyan]Sembol filtresi (boş = tümü)[/cyan]", default="")
+
+            console.print("\n[yellow]Durum filtresi:[/yellow]")
+            console.print("  1 - Bekleyen (PENDING)")
+            console.print("  2 - Gerçekleşen (FILLED)")
+            console.print("  3 - İptal (CANCELLED)")
+            console.print("  4 - Tümü")
+            status_choice = Prompt.ask("[cyan]Durum[/cyan]", choices=["1", "2", "3", "4"], default="4")
+
+            status_map = {
+                "1": "PENDING",
+                "2": "FILLED",
+                "3": "CANCELLED",
+                "4": ""
+            }
+            status = status_map.get(status_choice, "")
+
+            # Build query parameters
+            params = {}
+            if symbol:
+                params["symbol"] = symbol.upper()
+            if status:
+                params["status"] = status
+            params["page"] = 0
+            params["size"] = 20
+
+            console.print("\n[dim]Emir geçmişi yükleniyor...[/dim]")
+
+            response = self.api.get("/api/v1/broker/orders/history", params=params)
+
+            orders = response.get("content", [])
+
+            if not orders:
+                print_info("Emir geçmişi bulunamadı")
+                return
+
+            # Create orders table
+            table = Table(
+                title=f"Emir Geçmişi ({len(orders)} emir)",
+                box=box.ROUNDED,
+                show_header=True,
+                header_style="bold yellow"
+            )
+
+            table.add_column("Emir ID", style="dim", width=20)
+            table.add_column("Sembol", style="cyan")
+            table.add_column("Yön", justify="center")
+            table.add_column("Tip", justify="center")
+            table.add_column("Durum", justify="center")
+            table.add_column("Miktar", justify="right")
+            table.add_column("Fiyat", justify="right", style="yellow")
+            table.add_column("Gerçekleşen", justify="right", style="green")
+            table.add_column("Tarih", style="dim")
+
+            for order in orders:
+                order_id = order.get("orderId", "")[:18] + "..." if len(order.get("orderId", "")) > 20 else order.get("orderId", "N/A")
+                symbol = order.get("symbol", "N/A")
+
+                # Side
+                side = order.get("side", "")
+                side_str = "[green]ALIŞ[/green]" if side == "BUY" else "[red]SATIŞ[/red]" if side == "SELL" else side
+
+                # Order type
+                order_type = order.get("orderType", "N/A")
+
+                # Status
+                status_val = order.get("status", "N/A")
+                if status_val == "FILLED":
+                    status_str = "[green]GERÇEKLEŞEN[/green]"
+                elif status_val == "CANCELLED":
+                    status_str = "[red]İPTAL[/red]"
+                elif status_val == "PENDING":
+                    status_str = "[yellow]BEKLEYEN[/yellow]"
+                else:
+                    status_str = status_val
+
+                quantity = order.get("quantity", 0)
+                price = order.get("price", 0)
+                filled_qty = order.get("filledQuantity", 0)
+
+                # Format date
+                created_at = order.get("createdAt", "")
+                try:
+                    if created_at:
+                        from datetime import datetime
+                        dt = datetime.fromisoformat(created_at.replace("Z", "+00:00"))
+                        date_str = dt.strftime("%Y-%m-%d %H:%M")
+                    else:
+                        date_str = "N/A"
+                except:
+                    date_str = created_at[:16] if len(created_at) >= 16 else created_at
+
+                table.add_row(
+                    order_id,
+                    symbol,
+                    side_str,
+                    order_type,
+                    status_str,
+                    str(quantity),
+                    format_currency(price) if price else "-",
+                    str(filled_qty) if filled_qty else "-",
+                    date_str
+                )
+
+            console.print()
+            console.print(table)
+
+            # Show pagination info
+            total_elements = response.get("totalElements", len(orders))
+            total_pages = response.get("totalPages", 1)
+            console.print(f"\n[dim]Toplam {total_elements} emir, {total_pages} sayfa[/dim]")
+            console.print()
+
+        except APIError as e:
+            if e.status_code == 403:
+                print_error("Emir geçmişine erişim yetkiniz yok")
+            else:
+                print_error(f"Emir geçmişi alınamadı: {e.message}")
+        except Exception as e:
+            print_error(f"Beklenmeyen hata: {str(e)}")
+
     def broker_menu(self) -> None:
         """Interactive broker operations menu."""
         while True:
@@ -825,17 +1170,21 @@ class BrokerManager:
                 "3. AlgoLab Durumu\n"
                 "4. WebSocket Testi\n"
                 "5. Real-Time Tick Data (Tek Sembol)\n"
-                "6. Multi-Symbol Monitor (YENİ!) \n"
+                "6. Multi-Symbol Monitor\n"
                 "7. Order Book (Emir Defteri)\n"
                 "8. Trade Stream (İşlem Akışı)\n"
-                "9. Geri Dön",
+                "9. ⚠️  Emir Gönder (YENİ!)\n"
+                "10. ⚠️  Emir İptal (YENİ!)\n"
+                "11. ⚠️  Emir Güncelle (YENİ!)\n"
+                "12. 📋 Emir Geçmişi (YENİ!)\n"
+                "13. Geri Dön",
                 border_style="yellow"
             ))
 
             choice = Prompt.ask(
                 "\n[yellow]Seçiminiz[/yellow]",
-                choices=["1", "2", "3", "4", "5", "6", "7", "8", "9"],
-                default="9"
+                choices=["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13"],
+                default="13"
             )
 
             if choice == "1":
@@ -855,4 +1204,12 @@ class BrokerManager:
             elif choice == "8":
                 self.view_trade_stream()
             elif choice == "9":
+                self.send_order()
+            elif choice == "10":
+                self.cancel_order()
+            elif choice == "11":
+                self.modify_order()
+            elif choice == "12":
+                self.view_order_history()
+            elif choice == "13":
                 break
