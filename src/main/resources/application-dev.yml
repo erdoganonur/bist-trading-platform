@@ -239,6 +239,13 @@ algolab:
       max-delay: 60000  # 60 seconds
       multiplier: 2.0
       max-attempts: 3  # Limited to 3 attempts in dev
+  cache:
+    enabled: true  # Redis cache aktif
+    ttl-minutes: 5  # Tick data yaşam süresi (5 dakika)
+    max-items-per-symbol: 100  # Sembol başına maksimum tick sayısı
+    metrics:
+      enabled: true  # Metrik toplama aktif
+      sliding-window-seconds: 60  # Son 1 dakika için sliding window
 
   # Development Broker Integrations (sandbox)
   brokers:
