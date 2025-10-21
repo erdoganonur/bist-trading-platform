@@ -27,11 +27,20 @@ public class BrokerAuthStatusResponse {
     @Schema(description = "Whether connection to AlgoLab is alive", example = "true")
     private boolean connectionAlive;
 
+    @Schema(description = "AlgoLab username (if authenticated)", example = "52738096404")
+    private String username;
+
+    @Schema(description = "Session ID (if authenticated)", example = "abc123def456")
+    private String sessionId;
+
+    @Schema(description = "Whether WebSocket is connected", example = "true")
+    private boolean websocketConnected;
+
     @Schema(description = "Last session refresh time", example = "2025-10-15T10:25:00Z")
     private Instant lastRefreshTime;
 
     @Schema(description = "Session expiration time (if known)", example = "2025-10-16T12:00:00Z")
-    private Instant sessionExpiresAt;
+    private Instant expiresAt;
 
     @Schema(description = "Broker name", example = "AlgoLab")
     @Builder.Default

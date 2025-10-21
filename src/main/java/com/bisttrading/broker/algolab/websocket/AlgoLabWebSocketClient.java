@@ -24,6 +24,7 @@ import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -55,6 +56,10 @@ public class AlgoLabWebSocketClient extends TextWebSocketHandler {
 
     // Message handlers
     private final Map<String, MessageHandler<?>> messageHandlers = new ConcurrentHashMap<>();
+
+    // Track subscribed symbols per channel (Type)
+    // Key: Type (T/D/O), Value: Set of symbols
+    private final Map<String, Set<String>> subscribedSymbols = new ConcurrentHashMap<>();
 
     public AlgoLabWebSocketClient(
             AlgoLabProperties properties,
@@ -201,6 +206,12 @@ public class AlgoLabWebSocketClient extends TextWebSocketHandler {
      * Subscribes to a channel.
      * AlgoLab format: {"token": "hash", "Type": "T|D|O", "Symbols": ["SYMBOL1", "SYMBOL2"]}
      * Type: T=Tick, D=Depth (OrderBook), O=Order Status
+     *
+     * IMPORTANT: AlgoLab replaces subscriptions on each call, so we accumulate all symbols
+     * and send them together in one subscription message.
+     *
+     * If "ALL" is already subscribed, no need to subscribe to individual symbols
+     * as "ALL" provides real-time data for all market symbols.
      */
     public void subscribe(String channel, String symbol) throws IOException {
         if (session == null || !session.isOpen()) {
@@ -215,17 +226,32 @@ public class AlgoLabWebSocketClient extends TextWebSocketHandler {
             default -> "T"; // Default to tick
         };
 
-        // AlgoLab format: {"token": hash, "Type": "T", "Symbols": ["GARAN"]}
+        // Check if "ALL" is already subscribed for this type
+        Set<String> currentSymbols = subscribedSymbols.get(type);
+        if (currentSymbols != null && currentSymbols.contains("ALL")) {
+            log.info("✅ Already subscribed to ALL symbols (Type={}). Symbol {} is already included.", type, symbol);
+            return; // No need to re-subscribe
+        }
+
+        // Add symbol to the subscribed set for this type
+        subscribedSymbols.computeIfAbsent(type, k -> ConcurrentHashMap.newKeySet()).add(symbol);
+
+        // Get all symbols for this type
+        Set<String> allSymbols = subscribedSymbols.get(type);
+
+        // AlgoLab format: {"token": hash, "Type": "T", "Symbols": ["SYM1", "SYM2", ...]}
+        // CRITICAL: Send ALL subscribed symbols, not just the new one!
         Map<String, Object> subscribeMsg = Map.of(
             "token", authHash,
             "Type", type,
-            "Symbols", new String[]{symbol}
+            "Symbols", allSymbols.toArray(new String[0])
         );
 
         String json = objectMapper.writeValueAsString(subscribeMsg);
         session.sendMessage(new TextMessage(json));
 
-        log.info("Subscribed to AlgoLab channel: Type={}, Symbols=[{}]", type, symbol);
+        log.info("✅ Subscribed to AlgoLab channel: Type={}, Symbols={} (total: {})",
+            type, symbol, allSymbols.size());
     }
 
     /**
@@ -267,19 +293,22 @@ public class AlgoLabWebSocketClient extends TextWebSocketHandler {
 
             // Map channel to AlgoLab type
             String type = "T"; // Tick data
-            String symbol = "USDTRY"; // Always active in FOREX
 
-            // AlgoLab format: {"token": hash, "Type": "T", "Symbols": ["USDTRY"]}
+            // Track "ALL" as subscribed symbol
+            subscribedSymbols.computeIfAbsent(type, k -> ConcurrentHashMap.newKeySet()).add("ALL");
+
+            // AlgoLab format: {"token": hash, "Type": "T", "Symbols": ["ALL"]}
+            // Using "ALL" like Python example for instant data flow
             Map<String, Object> subscribeMsg = Map.of(
                 "token", authHash,
                 "Type", type,
-                "Symbols", new String[]{symbol}
+                "Symbols", new String[]{"ALL"}
             );
 
             String json = objectMapper.writeValueAsString(subscribeMsg);
             session.sendMessage(new TextMessage(json));
 
-            log.info("✅ IMMEDIATE subscription sent: Type={}, Symbol={}", type, symbol);
+            log.info("✅ IMMEDIATE subscription sent: Type={}, Symbols=ALL (all market data)", type);
 
         } catch (Exception e) {
             log.error("❌ Failed to send immediate subscription", e);

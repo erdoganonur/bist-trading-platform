@@ -39,6 +39,20 @@ class Settings(BaseSettings):
         description="Automatically connect to AlgoLab on startup"
     )
 
+    # Debug Settings
+    debug_mode: bool = Field(
+        default=False,
+        description="Enable detailed debug logging in console"
+    )
+    debug_api_calls: bool = Field(
+        default=False,
+        description="Log all API requests/responses"
+    )
+    debug_websocket: bool = Field(
+        default=False,
+        description="Log WebSocket message details"
+    )
+
     # Token Storage
     use_keyring: bool = Field(
         default=True,

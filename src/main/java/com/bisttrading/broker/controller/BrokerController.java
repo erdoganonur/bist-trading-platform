@@ -77,6 +77,7 @@ public class BrokerController {
     private final OrderManagementService orderManagementService;
     private final OrderExecutionRepository executionRepository;
     private final WebSocketMessageBuffer messageBuffer;
+    private final com.bisttrading.broker.algolab.service.SubscriptionManager subscriptionManager;
 
     /**
      * Places a new order through the broker.
@@ -334,6 +335,52 @@ public class BrokerController {
                 authentication.getName(), response.getMessage());
             return ResponseEntity.badRequest().body(response);
         }
+    }
+
+    /**
+     * Gets user's account information.
+     */
+    @GetMapping("/account")
+    @PreAuthorize("isAuthenticated()")
+    @Operation(
+        summary = "Get Account Information",
+        description = """
+            Retrieves user's AlgoLab account information including balance and portfolio summary.
+
+            Returns:
+            - Account number
+            - Customer ID
+            - Account status
+            - Currency
+            - Balance information (total, available, blocked)
+            - Portfolio value
+
+            Requires: Authentication
+            """
+    )
+    @ApiResponses(value = {
+        @ApiResponse(
+            responseCode = "200",
+            description = "Account information retrieved successfully"
+        ),
+        @ApiResponse(
+            responseCode = "401",
+            description = "Unauthorized - Authentication required"
+        ),
+        @ApiResponse(
+            responseCode = "503",
+            description = "AlgoLab service unavailable"
+        )
+    })
+    public ResponseEntity<Map<String, Object>> getAccount(Authentication authentication) {
+        log.debug("Account info request from user: {}", authentication.getName());
+
+        // Get real account information from AlgoLab
+        Map<String, Object> account = brokerService.getAccountInfo();
+
+        log.debug("Account info retrieved for user: {} - Balance: {}",
+            authentication.getName(), account.get("totalBalance"));
+        return ResponseEntity.ok(account);
     }
 
     /**
@@ -975,6 +1022,138 @@ public class BrokerController {
 
         return ResponseEntity.ok(Map.of(
             "symbols", messageBuffer.getActiveTickSymbols(),
+            "timestamp", java.time.Instant.now()
+        ));
+    }
+
+    /**
+     * Subscribe to WebSocket stream for specific symbol.
+     * Supports both JSON body and query parameters for CLI compatibility.
+     */
+    @PostMapping("/websocket/subscribe")
+    @PreAuthorize("isAuthenticated()")
+    @Operation(
+        summary = "Subscribe to Symbol Stream",
+        description = """
+            Subscribe to real-time WebSocket stream for a specific symbol.
+
+            This will start receiving tick data for the symbol via WebSocket.
+            Data can be retrieved via /websocket/stream/ticks/{symbol} endpoint.
+
+            Accepts both:
+            - JSON body: {"symbol": "THYAO", "channel": "tick"}
+            - Query params: ?symbol=THYAO&channel=tick
+            """
+    )
+    public ResponseEntity<Map<String, Object>> subscribeToSymbol(
+            @RequestBody(required = false) Map<String, String> body,
+            @RequestParam(required = false) @Parameter(description = "Symbol code (e.g., THYAO, AKBNK, or ALL)") String symbol,
+            @RequestParam(required = false, defaultValue = "tick") @Parameter(description = "Channel type (tick, orderbook, trade)") String channel,
+            Authentication authentication) {
+
+        // Support both JSON body and query parameters
+        String finalSymbol = (body != null && body.containsKey("symbol")) ? body.get("symbol") : symbol;
+        String finalChannel = (body != null && body.containsKey("channel")) ? body.get("channel") : channel;
+
+        if (finalSymbol == null || finalSymbol.isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of(
+                "success", false,
+                "message", "Symbol is required (provide in body or as query parameter)",
+                "timestamp", java.time.Instant.now()
+            ));
+        }
+
+        log.info("WebSocket subscription request from user: {} for symbol: {}, channel: {}",
+            authentication.getName(), finalSymbol, finalChannel);
+
+        try {
+            subscriptionManager.subscribe(finalSymbol, finalChannel);
+
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "symbol", finalSymbol,
+                "channel", finalChannel,
+                "message", "Subscription successful",
+                "timestamp", java.time.Instant.now()
+            ));
+        } catch (Exception e) {
+            log.error("Failed to subscribe to symbol: {}", finalSymbol, e);
+            return ResponseEntity.badRequest().body(Map.of(
+                "success", false,
+                "symbol", finalSymbol,
+                "channel", finalChannel,
+                "message", "Subscription failed: " + e.getMessage(),
+                "timestamp", java.time.Instant.now()
+            ));
+        }
+    }
+
+    /**
+     * Subscribe to ALL symbols at once (AlgoLab special feature).
+     */
+    @PostMapping("/websocket/subscribe/all")
+    @PreAuthorize("isAuthenticated()")
+    @Operation(
+        summary = "Subscribe to ALL Symbols",
+        description = """
+            Subscribe to ALL symbols at once via WebSocket.
+
+            This is a special AlgoLab feature that subscribes to all available symbols.
+            Data for all symbols will be received and cached.
+            """
+    )
+    public ResponseEntity<Map<String, Object>> subscribeToAll(
+            @RequestParam(defaultValue = "tick") @Parameter(description = "Channel type (tick, orderbook, trade)") String channel,
+            Authentication authentication) {
+
+        log.info("WebSocket ALL subscription request from user: {} for channel: {}",
+            authentication.getName(), channel);
+
+        try {
+            subscriptionManager.subscribeToAll(channel);
+
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "symbol", "ALL",
+                "channel", channel,
+                "message", "Successfully subscribed to ALL symbols",
+                "timestamp", java.time.Instant.now()
+            ));
+        } catch (Exception e) {
+            log.error("Failed to subscribe to ALL symbols", e);
+            return ResponseEntity.badRequest().body(Map.of(
+                "success", false,
+                "symbol", "ALL",
+                "channel", channel,
+                "message", "Subscription failed: " + e.getMessage(),
+                "timestamp", java.time.Instant.now()
+            ));
+        }
+    }
+
+    /**
+     * Get current subscriptions.
+     */
+    @GetMapping("/websocket/subscriptions")
+    @PreAuthorize("isAuthenticated()")
+    @Operation(
+        summary = "Get Active Subscriptions",
+        description = "Returns list of currently active WebSocket subscriptions."
+    )
+    public ResponseEntity<Map<String, Object>> getSubscriptions(Authentication authentication) {
+        log.debug("Subscriptions request from user: {}", authentication.getName());
+
+        var subscriptions = subscriptionManager.getActiveSubscriptions().stream()
+            .map(sub -> Map.of(
+                "symbol", sub.getSymbol(),
+                "channel", sub.getChannel(),
+                "subscribedAt", sub.getSubscribedAt() != null ? sub.getSubscribedAt().toString() : "N/A"
+            ))
+            .toList();
+
+        return ResponseEntity.ok(Map.of(
+            "subscriptions", subscriptions,
+            "count", subscriptions.size(),
             "timestamp", java.time.Instant.now()
         ));
     }

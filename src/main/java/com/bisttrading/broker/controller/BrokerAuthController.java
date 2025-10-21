@@ -25,6 +25,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.Map;
 
 /**
  * AlgoLab Broker Authentication Controller
@@ -48,6 +49,7 @@ import java.time.temporal.ChronoUnit;
 public class BrokerAuthController {
 
     private final AlgoLabAuthService algoLabAuthService;
+    private final com.bisttrading.broker.algolab.websocket.AlgoLabWebSocketService webSocketService;
 
     /**
      * Step 1: Login with AlgoLab credentials.
@@ -373,21 +375,30 @@ public class BrokerAuthController {
         boolean isAuthenticated = algoLabAuthService.isAuthenticated();
         boolean isAlive = algoLabAuthService.isAlive();
 
+        // Check WebSocket status
+        Map<String, Object> wsStatus = webSocketService.getStatus();
+        boolean wsConnected = (boolean) wsStatus.getOrDefault("connected", false);
+
         BrokerAuthStatusResponse.BrokerAuthStatusResponseBuilder response = BrokerAuthStatusResponse.builder()
             .authenticated(isAuthenticated)
             .sessionActive(isAuthenticated)
-            .connectionAlive(isAlive);
+            .connectionAlive(isAlive)
+            .websocketConnected(wsConnected);
 
         if (isAuthenticated) {
-            response.message("AlgoLab bağlantısı aktif")
+            // Try to get username from authentication
+            String username = authentication != null ? authentication.getName() : "Unknown";
+            response.username(username)
+                    .sessionId("session-" + System.currentTimeMillis())  // Temporary session ID
+                    .message("AlgoLab bağlantısı aktif")
                     .lastRefreshTime(Instant.now())
-                    .sessionExpiresAt(Instant.now().plus(24, ChronoUnit.HOURS));
+                    .expiresAt(Instant.now().plus(24, ChronoUnit.HOURS));
         } else {
             response.message("AlgoLab'a giriş yapılmamış. Lütfen /login endpoint'ini kullanın.");
         }
 
-        log.debug("AlgoLab auth status for user {}: authenticated={}, alive={}",
-            authentication.getName(), isAuthenticated, isAlive);
+        log.debug("AlgoLab auth status for user {}: authenticated={}, alive={}, websocket={}",
+            authentication.getName(), isAuthenticated, isAlive, wsConnected);
 
         return ResponseEntity.ok(response.build());
     }

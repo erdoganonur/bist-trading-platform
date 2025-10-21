@@ -4,17 +4,101 @@ Handles all REST API communication with proper error handling and token manageme
 """
 
 import json
-from typing import Any, Dict, Optional
+import time
+from typing import Any, Dict, Optional, Callable
 from datetime import datetime, timedelta
+from functools import wraps
 
 import httpx
 from rich.console import Console
 
 from .config import get_settings
 from .utils import get_stored_token, store_token, clear_tokens
+from .logger import get_logger, log_api_call
 
 
 console = Console()
+logger = get_logger(__name__)
+
+
+def retry_on_failure(max_retries: int = 3, backoff: float = 1.5, retry_on_status: tuple = (500, 502, 503, 504)):
+    """
+    Decorator for retrying failed API calls with exponential backoff.
+
+    Args:
+        max_retries: Maximum number of retry attempts
+        backoff: Backoff multiplier for exponential backoff
+        retry_on_status: HTTP status codes to retry on
+
+    Returns:
+        Decorated function with retry logic
+    """
+    def decorator(func: Callable) -> Callable:
+        @wraps(func)
+        def wrapper(*args, **kwargs) -> Any:
+            last_exception = None
+            start_time = time.time()
+
+            for attempt in range(max_retries):
+                try:
+                    result = func(*args, **kwargs)
+
+                    # Log successful API call
+                    duration_ms = (time.time() - start_time) * 1000
+                    if hasattr(args[0], 'base_url'):  # Check if it's an API client method
+                        endpoint = args[1] if len(args) > 1 else "unknown"
+                        method = func.__name__.upper()
+                        log_api_call(logger, method, endpoint, status_code=200, duration_ms=duration_ms)
+
+                    return result
+
+                except APIError as e:
+                    last_exception = e
+
+                    # Don't retry on client errors (4xx) except 429 (rate limit)
+                    if e.status_code and 400 <= e.status_code < 500 and e.status_code != 429:
+                        # Log failed API call
+                        if hasattr(args[0], 'base_url'):
+                            endpoint = args[1] if len(args) > 1 else "unknown"
+                            method = func.__name__.upper()
+                            log_api_call(logger, method, endpoint, error=e.message)
+                        raise
+
+                    # Don't retry if status code is not in retry list
+                    if e.status_code and e.status_code not in retry_on_status and e.status_code != 429:
+                        # Log failed API call
+                        if hasattr(args[0], 'base_url'):
+                            endpoint = args[1] if len(args) > 1 else "unknown"
+                            method = func.__name__.upper()
+                            log_api_call(logger, method, endpoint, error=e.message)
+                        raise
+
+                    # Retry with exponential backoff
+                    if attempt < max_retries - 1:
+                        wait_time = (backoff ** attempt)
+                        logger.warning(
+                            f"API call failed (attempt {attempt + 1}/{max_retries}), "
+                            f"retrying in {wait_time:.1f}s... Error: {e.message}"
+                        )
+                        time.sleep(wait_time)
+                    else:
+                        # Log final failure
+                        if hasattr(args[0], 'base_url'):
+                            endpoint = args[1] if len(args) > 1 else "unknown"
+                            method = func.__name__.upper()
+                            log_api_call(logger, method, endpoint, error=f"Max retries exceeded: {e.message}")
+
+                except Exception as e:
+                    last_exception = e
+                    logger.error(f"Unexpected error in API call: {str(e)}", exc_info=True)
+                    raise
+
+            # Raise the last exception if all retries failed
+            if last_exception:
+                raise last_exception
+
+        return wrapper
+    return decorator
 
 
 class APIClient:
@@ -173,6 +257,7 @@ class APIClient:
 
             return data
 
+    @retry_on_failure(max_retries=3)
     def get(self, endpoint: str, params: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """
         Make GET request.
@@ -211,6 +296,7 @@ class APIClient:
 
             return self._handle_response(response)
 
+    @retry_on_failure(max_retries=3)
     def post(
         self,
         endpoint: str,
@@ -241,6 +327,7 @@ class APIClient:
             )
             return self._handle_response(response)
 
+    @retry_on_failure(max_retries=3)
     def put(self, endpoint: str, data: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """Make PUT request."""
         url = f"{self.base_url}{endpoint}"
@@ -253,6 +340,7 @@ class APIClient:
             )
             return self._handle_response(response)
 
+    @retry_on_failure(max_retries=3)
     def delete(self, endpoint: str) -> Dict[str, Any]:
         """Make DELETE request."""
         url = f"{self.base_url}{endpoint}"

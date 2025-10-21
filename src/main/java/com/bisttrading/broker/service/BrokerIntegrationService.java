@@ -162,6 +162,89 @@ public class BrokerIntegrationService {
     }
 
     /**
+     * Gets account information from AlgoLab API.
+     * Extracts balance details from the InstantPosition endpoint.
+     *
+     * @return Map containing account details (balances, account number, etc.)
+     */
+    public Map<String, Object> getAccountInfo() {
+        log.debug("Getting account info from AlgoLab");
+
+        try {
+            Map<String, Object> response = algoLabOrderService.getInstantPosition(null);
+            boolean success = (boolean) response.getOrDefault("success", false);
+
+            if (success && response.containsKey("content")) {
+                Map<String, Object> content = (Map<String, Object>) response.get("content");
+
+                // Extract account information from InstantPosition response
+                String accountNumber = (String) content.getOrDefault("accountno", "N/A");
+                Double totalBalance = parseDoubleValue(content.get("total"));
+                Double availableBalance = parseDoubleValue(content.get("cash"));
+                Double blockedBalance = parseDoubleValue(content.get("blocked"));
+                Double portfolioValue = parseDoubleValue(content.get("equity"));
+
+                return Map.of(
+                    "accountNumber", accountNumber,
+                    "customerId", accountNumber,
+                    "status", "ACTIVE",
+                    "currency", "TRY",
+                    "totalBalance", totalBalance,
+                    "availableBalance", availableBalance,
+                    "blockedBalance", blockedBalance,
+                    "portfolioValue", portfolioValue,
+                    "lastUpdate", Instant.now().toString()
+                );
+            }
+
+            log.warn("Failed to get account info from AlgoLab, using defaults");
+            return getDefaultAccountInfo();
+
+        } catch (Exception e) {
+            log.error("Error getting account info from AlgoLab", e);
+            return getDefaultAccountInfo();
+        }
+    }
+
+    /**
+     * Returns default account info when AlgoLab data is unavailable.
+     */
+    private Map<String, Object> getDefaultAccountInfo() {
+        return Map.of(
+            "accountNumber", "N/A",
+            "customerId", "N/A",
+            "status", "UNKNOWN",
+            "currency", "TRY",
+            "totalBalance", 0.0,
+            "availableBalance", 0.0,
+            "blockedBalance", 0.0,
+            "portfolioValue", 0.0,
+            "lastUpdate", Instant.now().toString()
+        );
+    }
+
+    /**
+     * Safely parses a value to Double, handling various input types.
+     */
+    private Double parseDoubleValue(Object value) {
+        if (value == null) {
+            return 0.0;
+        }
+        if (value instanceof Number) {
+            return ((Number) value).doubleValue();
+        }
+        if (value instanceof String) {
+            try {
+                return Double.parseDouble((String) value);
+            } catch (NumberFormatException e) {
+                log.debug("Failed to parse double value: {}", value);
+                return 0.0;
+            }
+        }
+        return 0.0;
+    }
+
+    /**
      * Gets user's portfolio positions via AlgoLab API.
      *
      * @return List of position objects containing symbol, quantity, value, etc.

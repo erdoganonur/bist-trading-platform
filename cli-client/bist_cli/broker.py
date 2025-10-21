@@ -20,6 +20,12 @@ from .utils import (
     format_currency,
     format_timestamp
 )
+from .debug import (
+    debug_print,
+    debug_object,
+    debug_websocket_message,
+    is_debug_enabled
+)
 
 
 console = Console()
@@ -93,31 +99,30 @@ class BrokerManager:
 
             response = self.api.get("/api/v1/broker/positions")
 
-            # DEBUG: Print raw response
-            console.print(f"\n[dim]DEBUG - Raw response type: {type(response)}[/dim]")
-            console.print(f"[dim]DEBUG - Raw response keys: {response.keys() if isinstance(response, dict) else 'N/A'}[/dim]\n")
+            # Debug logging (only if debug mode is enabled)
+            debug_object(response, "API Response for Positions")
 
             # AlgoLabResponse wrapper - extract content
             if isinstance(response, dict) and "content" in response:
                 content = response.get("content", {})
-                console.print(f"[dim]DEBUG - Content extracted, type: {type(content)}[/dim]")
+                debug_print(f"Content extracted, type: {type(content)}")
 
                 # If content is a dict with "positions" key, extract it
                 if isinstance(content, dict) and "positions" in content:
                     positions = content.get("positions", [])
-                    console.print(f"[dim]DEBUG - Positions array extracted from content dict[/dim]")
+                    debug_print("Positions array extracted from content dict")
                 # If content is already a list, use it directly
                 elif isinstance(content, list):
                     positions = content
-                    console.print(f"[dim]DEBUG - Content is already a list[/dim]")
+                    debug_print("Content is already a list")
                 else:
                     positions = []
-                    console.print(f"[dim]DEBUG - Content format unexpected, using empty list[/dim]")
+                    debug_print("Content format unexpected, using empty list")
             else:
                 positions = response if isinstance(response, list) else []
-                console.print(f"[dim]DEBUG - Using response directly[/dim]\n")
+                debug_print("Using response directly")
 
-            console.print(f"[dim]DEBUG - Final positions type: {type(positions)}, count: {len(positions) if isinstance(positions, list) else 'N/A'}[/dim]\n")
+            debug_print(f"Final positions - type: {type(positions)}, count: {len(positions) if isinstance(positions, list) else 'N/A'}")
 
             if not positions or (isinstance(positions, list) and len(positions) == 0):
                 print_info("Açık pozisyon bulunamadı")
@@ -304,9 +309,11 @@ class BrokerManager:
             print_error(f"Beklenmeyen hata: {str(e)}")
 
     def view_realtime_ticks(self) -> None:
-        """Display real-time tick data for a symbol."""
+        """Display real-time tick data for a symbol with configurable debugging."""
         import time
         from rich.live import Live
+        from rich.layout import Layout
+        from rich.text import Text
 
         try:
             symbol = Prompt.ask(
@@ -314,10 +321,26 @@ class BrokerManager:
                 default="USDTRY"
             )
 
+            # Check backend connection first
+            try:
+                console.print(f"\n[dim]Backend bağlantısı kontrol ediliyor...[/dim]")
+                ws_status = self.api.get("/api/v1/broker/websocket/status")
+                debug_object(ws_status, "WebSocket Status")
+
+                if not ws_status.get("connected"):
+                    console.print("[red]⚠ WebSocket bağlı değil! AlgoLab login yapmanız gerekiyor.[/red]")
+                    console.print("[yellow]Ana menü → AlgoLab Bağlantısı → AlgoLab Login[/yellow]\n")
+                    return
+            except Exception as e:
+                console.print(f"[yellow]⚠ WebSocket status kontrolü başarısız: {str(e)}[/yellow]")
+
             # Subscribe to this symbol via backend WebSocket
             try:
                 console.print(f"\n[dim]{symbol} için WebSocket subscription yapılıyor...[/dim]")
                 response = self.api.post("/api/v1/broker/websocket/subscribe", data={"symbol": symbol, "channel": "tick"})
+
+                debug_object(response, "Subscribe Response")
+
                 if response.get("success"):
                     console.print(f"[green]✓ {symbol} için subscription başarılı[/green]")
                 else:
@@ -326,7 +349,8 @@ class BrokerManager:
                 console.print(f"[yellow]⚠ Subscription hatası (devam ediliyor): {str(e)}[/yellow]")
 
             console.print(f"\n[dim]{symbol} için real-time tick data gösteriliyor...[/dim]")
-            console.print("[dim]Çıkmak için Ctrl+C[/dim]\n")
+            debug_status = "ON" if is_debug_enabled() else "OFF"
+            console.print(f"[dim]Çıkmak için Ctrl+C | Debug Mode: {debug_status}[/dim]\n")
 
             # Create tick data table
             def create_table(messages):
@@ -357,13 +381,23 @@ class BrokerManager:
                     except:
                         time_str = received_at[:8] if len(received_at) >= 8 else received_at
 
-                    # Format prices
-                    last_price = data.get("lastPrice", 0)
-                    change_pct = data.get("changePercent", 0)
-                    volume = data.get("totalVolume", 0)
-                    bid = data.get("bidPrice", 0)
-                    ask = data.get("askPrice", 0)
-                    symbol_code = data.get("symbol", symbol)
+                    # Format prices - match backend API field names (handle None values)
+                    last_price = data.get("Price") or data.get("lastPrice") or 0
+                    change_pct = data.get("changePercent") or data.get("change") or 0
+                    volume = data.get("volume") or data.get("totalVolume") or 0
+                    bid = data.get("bid") or data.get("bidPrice") or 0
+                    ask = data.get("ask") or data.get("askPrice") or 0
+                    symbol_code = data.get("Symbol") or data.get("symbol") or symbol
+
+                    # Ensure numeric types (None-safe)
+                    try:
+                        last_price = float(last_price) if last_price is not None else 0
+                        change_pct = float(change_pct) if change_pct is not None else 0
+                        volume = int(volume) if volume is not None else 0
+                        bid = float(bid) if bid is not None else 0
+                        ask = float(ask) if ask is not None else 0
+                    except (ValueError, TypeError):
+                        pass  # Keep default 0 values
 
                     # Color code change
                     change_color = "green" if change_pct >= 0 else "red"
@@ -381,28 +415,62 @@ class BrokerManager:
 
                 return table
 
-            # Polling loop with Live display
-            with Live(create_table([]), refresh_per_second=2, console=console) as live:
+            # Polling loop with Live display (auto-refresh, no scrolling)
+            with Live(create_table([]), refresh_per_second=4, console=console, screen=False) as live:
                 consecutive_empty = 0
+                poll_count = 0
+                last_message_count = 0
+
                 while True:
                     try:
+                        poll_count += 1
+
                         # Poll backend for recent ticks
                         response = self.api.get(f"/api/v1/broker/websocket/stream/ticks/{symbol}?limit=15")
 
                         messages = response.get("messages", [])
+                        message_count = len(messages)
+
+                        if is_debug_enabled() and poll_count % 5 == 0:
+                            # Show debug info every 5 polls
+                            console.print(f"[dim]DEBUG #{poll_count} - Messages: {message_count}, Response keys: {list(response.keys())}[/dim]")
 
                         if messages:
                             consecutive_empty = 0
-                            live.update(create_table(messages))
+
+                            # Create status footer
+                            status_text = f"[green]● LIVE[/green] | Messages: {message_count} | Poll: #{poll_count} | Updated: {time.strftime('%H:%M:%S')}"
+                            if message_count != last_message_count:
+                                status_text += f" [yellow]↑ +{message_count - last_message_count}[/yellow]"
+                            last_message_count = message_count
+
+                            # Update table with status
+                            data_table = create_table(messages)
+                            if is_debug_enabled():
+                                data_table.caption = status_text
+
+                            live.update(data_table)
+
                         else:
                             consecutive_empty += 1
+
+                            # Create waiting info table with debug details
+                            info_table = Table(title="Mesaj Bekleniyor", box=box.ROUNDED)
+                            info_table.add_column("Durum", style="yellow")
+
+                            info_table.add_row(f"[yellow]{symbol} için WebSocket mesajı bekleniyor...[/yellow]")
+                            info_table.add_row("[dim]Backend WebSocket bağlantısının aktif olduğundan emin olun.[/dim]")
+
+                            if is_debug_enabled():
+                                info_table.add_row(f"[dim]Poll Count: {poll_count} | Empty Count: {consecutive_empty}[/dim]")
+                                info_table.add_row(f"[dim]API Response: {response}[/dim]")
+
                             if consecutive_empty == 1:
-                                # First time empty - show info
-                                info_table = Table(title="Mesaj Bekleniyor", box=box.ROUNDED)
-                                info_table.add_column("Durum")
-                                info_table.add_row(f"[yellow]{symbol} için WebSocket mesajı bekleniyor...[/yellow]")
-                                info_table.add_row("[dim]Backend WebSocket bağlantısının aktif olduğundan emin olun.[/dim]")
-                                live.update(info_table)
+                                info_table.add_row("\n[cyan]💡 İpucu: AlgoLab'a giriş yaptınız mı?[/cyan]")
+                            elif consecutive_empty > 10:
+                                info_table.add_row("\n[red]⚠ 10+ saniye veri yok! Bağlantıyı kontrol edin.[/red]")
+
+                            live.update(info_table)
 
                         # Poll every 1 second
                         time.sleep(1)
@@ -410,6 +478,8 @@ class BrokerManager:
                     except KeyboardInterrupt:
                         raise
                     except Exception as e:
+                        if is_debug_enabled():
+                            console.print(f"[red]DEBUG - Polling hatası: {str(e)}[/red]")
                         print_error(f"Polling hatası: {str(e)}")
                         time.sleep(2)
 
@@ -606,6 +676,144 @@ class BrokerManager:
         except Exception as e:
             print_error(f"Beklenmeyen hata: {str(e)}")
 
+    def view_multi_symbol_ticks(self) -> None:
+        """Display real-time tick data for multiple symbols simultaneously."""
+        import time
+        from rich.live import Live
+        from rich.columns import Columns
+        from datetime import datetime
+
+        try:
+            symbols_input = Prompt.ask(
+                "\n[yellow]Sembol kodları (virgülle ayırın)[/yellow]",
+                default="USDTRY,EURTRY,THYAO"
+            )
+            symbols = [s.strip().upper() for s in symbols_input.split(",") if s.strip()]
+
+            if not symbols:
+                print_warning("En az bir sembol girmelisiniz")
+                return
+
+            console.print(f"\n[dim]{len(symbols)} sembol için subscription yapılıyor...[/dim]")
+
+            # Subscribe to all symbols
+            success_count = 0
+            for symbol in symbols:
+                try:
+                    response = self.api.post("/api/v1/broker/websocket/subscribe",
+                                           data={"symbol": symbol, "channel": "tick"})
+                    if response.get("success"):
+                        success_count += 1
+                except Exception as e:
+                    debug_print(f"Subscription error for {symbol}: {str(e)}")
+
+            console.print(f"[green]✓ {success_count}/{len(symbols)} sembol için subscription başarılı[/green]")
+            console.print(f"\n[dim]Multi-symbol tick data gösteriliyor...[/dim]")
+            console.print(f"[dim]Çıkmak için Ctrl+C[/dim]\n")
+
+            # Create individual symbol table
+            def create_symbol_table(symbol: str, messages: list) -> Table:
+                table = Table(
+                    title=f"{symbol}",
+                    box=box.ROUNDED,
+                    show_header=True,
+                    header_style="bold yellow",
+                    width=50
+                )
+
+                table.add_column("Alan", style="cyan", width=15)
+                table.add_column("Değer", justify="right", width=25)
+
+                if messages:
+                    msg = messages[-1]  # Get latest message
+                    data = msg.get("data", {})
+                    received_at = msg.get("receivedAt", "")
+
+                    # Format time
+                    try:
+                        dt = datetime.fromisoformat(received_at.replace("Z", "+00:00"))
+                        time_str = dt.strftime("%H:%M:%S")
+                    except:
+                        time_str = received_at[:8] if len(received_at) >= 8 else "-"
+
+                    # Extract and format data (None-safe)
+                    last_price = data.get("Price") or data.get("lastPrice") or 0
+                    change_pct = data.get("changePercent") or data.get("change") or 0
+                    volume = data.get("volume") or data.get("totalVolume") or 0
+                    bid = data.get("bid") or data.get("bidPrice") or 0
+                    ask = data.get("ask") or data.get("askPrice") or 0
+
+                    # Ensure numeric types
+                    try:
+                        last_price = float(last_price) if last_price is not None else 0
+                        change_pct = float(change_pct) if change_pct is not None else 0
+                        volume = int(volume) if volume is not None else 0
+                        bid = float(bid) if bid is not None else 0
+                        ask = float(ask) if ask is not None else 0
+                    except (ValueError, TypeError):
+                        pass
+
+                    # Color code change
+                    change_color = "green" if change_pct >= 0 else "red"
+                    change_str = f"[{change_color}]{change_pct:+.2f}%[/{change_color}]"
+
+                    table.add_row("Zaman", f"[dim]{time_str}[/dim]")
+                    table.add_row("Son Fiyat", f"[yellow]{format_currency(last_price)}[/yellow]")
+                    table.add_row("Değişim", change_str)
+                    table.add_row("Hacim", f"{volume:,}" if volume else "-")
+                    table.add_row("Alış", f"[green]{format_currency(bid)}[/green]" if bid else "-")
+                    table.add_row("Satış", f"[red]{format_currency(ask)}[/red]" if ask else "-")
+                else:
+                    table.add_row("Durum", "[yellow]Veri bekleniyor...[/yellow]")
+
+                return table
+
+            # Create multi-symbol layout
+            def create_multi_layout(data_by_symbol: dict) -> Columns:
+                tables = []
+                for symbol in symbols:
+                    messages = data_by_symbol.get(symbol, [])
+                    tables.append(create_symbol_table(symbol, messages))
+
+                # Arrange in columns (max 3 per row)
+                return Columns(tables, equal=True, expand=True)
+
+            # Polling loop
+            with Live(create_multi_layout({}), refresh_per_second=2, console=console, screen=False) as live:
+                poll_count = 0
+
+                while True:
+                    try:
+                        poll_count += 1
+                        data_by_symbol = {}
+
+                        # Poll for each symbol
+                        for symbol in symbols:
+                            try:
+                                response = self.api.get(f"/api/v1/broker/websocket/stream/ticks/{symbol}?limit=1")
+                                data_by_symbol[symbol] = response.get("messages", [])
+                            except Exception as e:
+                                debug_print(f"Poll error for {symbol}: {str(e)}")
+                                data_by_symbol[symbol] = []
+
+                        # Update display
+                        live.update(create_multi_layout(data_by_symbol))
+
+                        time.sleep(0.5)  # Poll every 500ms
+
+                    except KeyboardInterrupt:
+                        console.print("\n[yellow]Multi-symbol monitoring durduruldu[/yellow]")
+                        break
+                    except Exception as e:
+                        debug_print(f"Polling error: {str(e)}")
+                        time.sleep(1)
+
+        except KeyboardInterrupt:
+            console.print("\n[yellow]İptal edildi[/yellow]")
+        except Exception as e:
+            print_error(f"Multi-symbol monitoring hatası: {str(e)}")
+            debug_object(e, "Exception")
+
     def broker_menu(self) -> None:
         """Interactive broker operations menu."""
         while True:
@@ -615,18 +823,19 @@ class BrokerManager:
                 "1. Hesap Bilgileri\n"
                 "2. Açık Pozisyonlar\n"
                 "3. AlgoLab Durumu\n"
-                "4. WebSocket Testi (Yeni!)\n"
-                "5. Real-Time Tick Data (Yeni!)\n"
-                "6. Order Book (Emir Defteri)\n"
-                "7. Trade Stream (İşlem Akışı)\n"
-                "8. Geri Dön",
+                "4. WebSocket Testi\n"
+                "5. Real-Time Tick Data (Tek Sembol)\n"
+                "6. Multi-Symbol Monitor (YENİ!) \n"
+                "7. Order Book (Emir Defteri)\n"
+                "8. Trade Stream (İşlem Akışı)\n"
+                "9. Geri Dön",
                 border_style="yellow"
             ))
 
             choice = Prompt.ask(
                 "\n[yellow]Seçiminiz[/yellow]",
-                choices=["1", "2", "3", "4", "5", "6", "7", "8"],
-                default="8"
+                choices=["1", "2", "3", "4", "5", "6", "7", "8", "9"],
+                default="9"
             )
 
             if choice == "1":
@@ -640,8 +849,10 @@ class BrokerManager:
             elif choice == "5":
                 self.view_realtime_ticks()
             elif choice == "6":
-                self.view_order_book()
+                self.view_multi_symbol_ticks()
             elif choice == "7":
-                self.view_trade_stream()
+                self.view_order_book()
             elif choice == "8":
+                self.view_trade_stream()
+            elif choice == "9":
                 break

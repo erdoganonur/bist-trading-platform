@@ -246,11 +246,12 @@ public class WebSocketController {
         }
     }
 
-    @GetMapping("/subscriptions")
-    @Operation(summary = "Get active subscriptions", description = "Returns all active WebSocket subscriptions")
-    public ResponseEntity<Map<String, Set<String>>> getSubscriptions() {
-        return ResponseEntity.ok(webSocketService.getAllSubscriptions());
-    }
+    // DEPRECATED: Moved to BrokerController with SubscriptionManager
+    // @GetMapping("/subscriptions")
+    // @Operation(summary = "Get active subscriptions", description = "Returns all active WebSocket subscriptions")
+    // public ResponseEntity<Map<String, Set<String>>> getSubscriptions() {
+    //     return ResponseEntity.ok(webSocketService.getAllSubscriptions());
+    // }
 
     @GetMapping("/subscriptions/{channel}")
     @Operation(summary = "Get subscriptions for channel", description = "Returns active subscriptions for a specific channel")
@@ -261,63 +262,64 @@ public class WebSocketController {
     /**
      * Generic subscribe endpoint for CLI compatibility.
      * Accepts channel and symbol in JSON body.
+     * DEPRECATED: Moved to BrokerController with SubscriptionManager
      */
-    @PostMapping("/subscribe")
-    @Operation(summary = "Subscribe to channel", description = "Generic subscribe endpoint accepting channel and symbol in JSON")
-    public ResponseEntity<Map<String, Object>> subscribeGeneric(@RequestBody Map<String, String> request) {
-        try {
-            String channel = request.get("channel");
-            String symbol = request.get("symbol");
-
-            if (channel == null || symbol == null) {
-                return ResponseEntity.badRequest()
-                    .body(Map.of(
-                        "success", false,
-                        "message", "Both 'channel' and 'symbol' are required"
-                    ));
-            }
-
-            // Subscribe based on channel type
-            switch (channel.toLowerCase()) {
-                case "tick":
-                    webSocketService.subscribeToTick(symbol, tickData ->
-                        log.debug("Tick: {} @ {}", tickData.getSymbol(), tickData.getLastPrice())
-                    );
-                    break;
-                case "orderbook":
-                    webSocketService.subscribeToOrderBook(symbol, orderBook ->
-                        log.debug("OrderBook: {} spread={}", orderBook.getSymbol(), orderBook.getSpread())
-                    );
-                    break;
-                case "trade":
-                    webSocketService.subscribeToTrade(symbol, trade ->
-                        log.debug("Trade: {} {} @ {}", trade.getSymbol(), trade.getQuantity(), trade.getPrice())
-                    );
-                    break;
-                default:
-                    return ResponseEntity.badRequest()
-                        .body(Map.of(
-                            "success", false,
-                            "message", "Invalid channel: " + channel + ". Valid channels: tick, orderbook, trade"
-                        ));
-            }
-
-            return ResponseEntity.ok(Map.of(
-                "success", true,
-                "message", String.format("Subscribed to %s channel for %s", channel, symbol),
-                "channel", channel,
-                "symbol", symbol
-            ));
-
-        } catch (Exception e) {
-            log.error("Error in generic subscribe", e);
-            return ResponseEntity.internalServerError()
-                .body(Map.of(
-                    "success", false,
-                    "message", "Failed to subscribe: " + e.getMessage()
-                ));
-        }
-    }
+    // @PostMapping("/subscribe")
+    // @Operation(summary = "Subscribe to channel", description = "Generic subscribe endpoint accepting channel and symbol in JSON")
+    // public ResponseEntity<Map<String, Object>> subscribeGeneric(@RequestBody Map<String, String> request) {
+    //     try {
+    //         String channel = request.get("channel");
+    //         String symbol = request.get("symbol");
+    //
+    //         if (channel == null || symbol == null) {
+    //             return ResponseEntity.badRequest()
+    //                 .body(Map.of(
+    //                     "success", false,
+    //                     "message", "Both 'channel' and 'symbol' are required"
+    //                 ));
+    //         }
+    //
+    //         // Subscribe based on channel type
+    //         switch (channel.toLowerCase()) {
+    //             case "tick":
+    //                 webSocketService.subscribeToTick(symbol, tickData ->
+    //                     log.debug("Tick: {} @ {}", tickData.getSymbol(), tickData.getLastPrice())
+    //                 );
+    //                 break;
+    //             case "orderbook":
+    //                 webSocketService.subscribeToOrderBook(symbol, orderBook ->
+    //                     log.debug("OrderBook: {} spread={}", orderBook.getSymbol(), orderBook.getSpread())
+    //                 );
+    //                 break;
+    //             case "trade":
+    //                 webSocketService.subscribeToTrade(symbol, trade ->
+    //                     log.debug("Trade: {} {} @ {}", trade.getSymbol(), trade.getQuantity(), trade.getPrice())
+    //                 );
+    //                 break;
+    //             default:
+    //                 return ResponseEntity.badRequest()
+    //                     .body(Map.of(
+    //                         "success", false,
+    //                         "message", "Invalid channel: " + channel + ". Valid channels: tick, orderbook, trade"
+    //                     ));
+    //         }
+    //
+    //         return ResponseEntity.ok(Map.of(
+    //             "success", true,
+    //             "message", String.format("Subscribed to %s channel for %s", channel, symbol),
+    //             "channel", channel,
+    //             "symbol", symbol
+    //         ));
+    //
+    //     } catch (Exception e) {
+    //         log.error("Error in generic subscribe", e);
+    //         return ResponseEntity.internalServerError()
+    //             .body(Map.of(
+    //                 "success", false,
+    //                 "message", "Failed to subscribe: " + e.getMessage()
+    //             ));
+    //     }
+    // }
 
     /**
      * Generic unsubscribe endpoint for CLI compatibility.

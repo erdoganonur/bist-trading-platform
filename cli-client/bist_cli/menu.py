@@ -15,6 +15,7 @@ from .api_client import APIClient
 from .auth import AuthenticationManager
 from .market_data import MarketDataManager
 from .broker import BrokerManager
+from .watchlist import Watchlist
 from .utils import print_success, print_error, print_info, load_user_session
 
 
@@ -30,6 +31,7 @@ class MainMenu:
         self.auth = AuthenticationManager(self.api)
         self.market_data = MarketDataManager(self.api)
         self.broker = BrokerManager(self.api)
+        self.watchlist = Watchlist()
 
     def show_welcome_banner(self) -> None:
         """Display welcome banner."""
@@ -75,10 +77,11 @@ class MainMenu:
 
   [cyan]1.[/cyan]  📊 Piyasa Verileri
   [cyan]2.[/cyan]  💼 Broker İşlemleri
-  [cyan]3.[/cyan]  👤 Profil Bilgileri
-  [cyan]4.[/cyan]  🔐 AlgoLab Bağlantısı
-  [cyan]5.[/cyan]  ⚙️  Ayarlar
-  [cyan]6.[/cyan]  🚪 Çıkış
+  [cyan]3.[/cyan]  ⭐ Watchlist (YENİ!)
+  [cyan]4.[/cyan]  👤 Profil Bilgileri
+  [cyan]5.[/cyan]  🔐 AlgoLab Bağlantısı
+  [cyan]6.[/cyan]  ⚙️  Ayarlar
+  [cyan]7.[/cyan]  🚪 Çıkış
 """
 
         console.print()
@@ -86,8 +89,8 @@ class MainMenu:
 
         choice = Prompt.ask(
             "\n[cyan]Seçiminiz[/cyan]",
-            choices=["1", "2", "3", "4", "5", "6"],
-            default="6"
+            choices=["1", "2", "3", "4", "5", "6", "7"],
+            default="7"
         )
 
         return choice
@@ -114,6 +117,10 @@ class MainMenu:
             return
 
         self.broker.broker_menu()
+
+    def handle_watchlist(self) -> None:
+        """Handle watchlist management."""
+        self.watchlist.interactive_menu()
 
     def handle_profile(self) -> None:
         """Handle user profile display."""
@@ -284,12 +291,14 @@ class MainMenu:
                 elif choice == "2":
                     self.handle_broker_operations()
                 elif choice == "3":
-                    self.handle_profile()
+                    self.handle_watchlist()
                 elif choice == "4":
-                    self.handle_algolab_connection()
+                    self.handle_profile()
                 elif choice == "5":
-                    self.handle_settings()
+                    self.handle_algolab_connection()
                 elif choice == "6":
+                    self.handle_settings()
+                elif choice == "7":
                     # Exit
                     console.print()
                     if Confirm.ask("Çıkmak istediğinizden emin misiniz?"):

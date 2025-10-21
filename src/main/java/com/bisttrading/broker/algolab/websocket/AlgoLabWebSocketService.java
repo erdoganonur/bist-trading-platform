@@ -344,7 +344,10 @@ public class AlgoLabWebSocketService {
             "authenticated", isAuthenticated(),
             "enabled", properties.getWebsocket().isEnabled(),
             "autoConnect", properties.getWebsocket().isAutoConnect(),
-            "activeSubscriptions", subscriptions.size()
+            "activeSubscriptions", subscriptions.size(),
+            "url", properties.getWebsocket().getUrl(),
+            "lastHeartbeat", java.time.Instant.now().toString(),  // Placeholder
+            "messageCount", 0L  // Placeholder - can be tracked later
         );
     }
 
