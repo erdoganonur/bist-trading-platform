@@ -28,7 +28,7 @@ public class SendOrderRequest {
     @NotBlank(message = "Fiyat tipi gereklidir (LIMIT/MARKET)")
     private String priceType;
 
-    @NotNull(message = "Fiyat gereklidir")
+    // Price is optional for market orders (P), required for limit orders (L)
     @Positive(message = "Fiyat pozitif olmalıdır")
     private BigDecimal price;
 
