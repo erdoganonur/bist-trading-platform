@@ -50,6 +50,7 @@ dependencies {
 
     // Redis (for session management)
     implementation 'org.springframework.boot:spring-boot-starter-data-redis'
+    implementation 'org.apache.commons:commons-pool2:2.12.0'  // Redis connection pooling
 
     // Security & JWT
     implementation 'io.jsonwebtoken:jjwt-api:0.12.5'

@@ -1,16 +1,24 @@
 package com.bisttrading.core.security.config;
 
+import io.lettuce.core.ClientOptions;
+import io.lettuce.core.resource.ClientResources;
+import io.lettuce.core.resource.DefaultClientResources;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.pool2.impl.GenericObjectPoolConfig;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.data.redis.connection.RedisStandaloneConfiguration;
+import org.springframework.data.redis.connection.lettuce.LettuceClientConfiguration;
 import org.springframework.data.redis.connection.lettuce.LettuceConnectionFactory;
+import org.springframework.data.redis.connection.lettuce.LettucePoolingClientConfiguration;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.serializer.GenericJackson2JsonRedisSerializer;
 import org.springframework.data.redis.serializer.StringRedisSerializer;
 import org.springframework.scheduling.annotation.EnableScheduling;
+
+import java.time.Duration;
 
 /**
  * Redis configuration for the security module.
@@ -34,12 +42,13 @@ public class RedisConfig {
     private int redisDatabase;
 
     /**
-     * Redis connection factory configuration.
+     * Redis connection factory configuration with connection pooling.
      *
-     * @return LettuceConnectionFactory
+     * @return LettuceConnectionFactory with pooling enabled
      */
     @Bean
     public RedisConnectionFactory redisConnectionFactory() {
+        // Redis standalone configuration
         RedisStandaloneConfiguration config = new RedisStandaloneConfiguration();
         config.setHostName(redisHost);
         config.setPort(redisPort);
@@ -49,11 +58,37 @@ public class RedisConfig {
             config.setPassword(redisPassword);
         }
 
-        LettuceConnectionFactory factory = new LettuceConnectionFactory(config);
-        factory.setValidateConnection(true);
+        // Connection pool configuration
+        GenericObjectPoolConfig<?> poolConfig = new GenericObjectPoolConfig<>();
+        poolConfig.setMaxTotal(50);  // Maximum connections
+        poolConfig.setMaxIdle(20);   // Maximum idle connections
+        poolConfig.setMinIdle(5);    // Minimum idle connections
+        poolConfig.setMaxWait(Duration.ofMillis(2000));  // Max wait time
+        poolConfig.setTestOnBorrow(true);
+        poolConfig.setTestOnReturn(false);
+        poolConfig.setTestWhileIdle(true);
 
-        log.info("Redis bağlantısı yapılandırıldı - host: {}, port: {}, database: {}",
-            redisHost, redisPort, redisDatabase);
+        // Client resources (shared across connections)
+        ClientResources clientResources = DefaultClientResources.builder()
+            .ioThreadPoolSize(4)
+            .computationThreadPoolSize(4)
+            .build();
+
+        // Lettuce client configuration with pooling
+        LettuceClientConfiguration clientConfig = LettucePoolingClientConfiguration.builder()
+            .poolConfig(poolConfig)
+            .clientResources(clientResources)
+            .commandTimeout(Duration.ofSeconds(5))
+            .shutdownTimeout(Duration.ofMillis(100))
+            .build();
+
+        LettuceConnectionFactory factory = new LettuceConnectionFactory(config, clientConfig);
+        factory.setShareNativeConnection(false);  // Use pooled connections
+        factory.setValidateConnection(false);     // Pool handles validation
+
+        log.info("Redis bağlantısı yapılandırıldı - host: {}, port: {}, database: {}, pool: max={}, idle={}-{}",
+            redisHost, redisPort, redisDatabase,
+            poolConfig.getMaxTotal(), poolConfig.getMinIdle(), poolConfig.getMaxIdle());
 
         return factory;
     }

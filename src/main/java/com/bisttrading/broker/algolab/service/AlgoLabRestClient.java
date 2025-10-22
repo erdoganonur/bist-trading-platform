@@ -105,6 +105,13 @@ public class AlgoLabRestClient {
             HttpEntity<Object> request = new HttpEntity<>(payload, headers);
 
             log.debug("POST {} (authenticated: {})", endpoint, authenticated);
+            log.debug("POST {} - Payload: {}", endpoint, payload);
+            log.debug("POST {} - Headers: APIKEY={}, Checker={}, Auth={}",
+                endpoint,
+                headers.getFirst("APIKEY"),
+                headers.getFirst("Checker"),
+                headers.getFirst("Authorization") != null ? "***SET***" : "NOT_SET");
+
             ResponseEntity<T> response = restTemplate.postForEntity(url, request, responseType);
             log.debug("POST {} - Status: {}", endpoint, response.getStatusCode());
 

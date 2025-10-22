@@ -38,11 +38,7 @@ spring:
       password:
       database: 1
       timeout: 2000ms
-      lettuce:
-        pool:
-          max-active: 5
-          max-idle: 3
-          min-idle: 1
+      # Pool configuration now managed by RedisConfig.java with Commons Pool2
 
   # Development Kafka Configuration
   kafka:
@@ -71,7 +67,7 @@ logging:
     com.bisttrading.infrastructure.persistence: DEBUG
     org.springframework.security: DEBUG
     org.springframework.kafka: DEBUG
-    org.springframework.data.redis: DEBUG
+    org.springframework.data.redis: WARN  # Reduced from DEBUG to hide connection pool noise
     org.hibernate.SQL: DEBUG
     org.hibernate.type.descriptor.sql.BasicBinder: TRACE
     org.flywaydb: INFO

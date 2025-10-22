@@ -348,4 +348,16 @@ public class BrokerIntegrationService {
     public boolean isConnected() {
         return algoLabAuthService.isAlive();
     }
+
+    /**
+     * Gets pending/open orders from AlgoLab.
+     * Returns orders that are still active (not executed or cancelled).
+     *
+     * @param subAccount Sub account ID (can be null/empty for default account)
+     * @return List of pending orders from AlgoLab
+     */
+    public List<Map<String, Object>> getPendingOrders(String subAccount) {
+        log.info("Getting pending orders from AlgoLab - subAccount: {}", subAccount);
+        return algoLabOrderService.getPendingOrders(subAccount);
+    }
 }

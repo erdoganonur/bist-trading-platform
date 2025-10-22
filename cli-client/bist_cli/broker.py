@@ -3,7 +3,7 @@ Broker operations for BIST CLI client.
 Provides access to broker account information and operations.
 """
 
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 
 from rich.console import Console
 from rich.table import Table
@@ -890,12 +890,21 @@ class BrokerManager:
 
                 content = response.get("content", {})
                 if content:
-                    info_text = (
-                        f"[yellow]Emir ID:[/yellow] {content.get('orderId', 'N/A')}\n"
-                        f"[yellow]Broker Emir ID:[/yellow] {content.get('brokerOrderId', 'N/A')}\n"
-                        f"[yellow]Durum:[/yellow] {content.get('status', 'N/A')}"
-                    )
-                    console.print(Panel(info_text, title="Emir Bilgileri", border_style="green"))
+                    # Handle both dict and string responses
+                    if isinstance(content, dict):
+                        info_text = (
+                            f"[yellow]Emir ID:[/yellow] {content.get('orderId', 'N/A')}\n"
+                            f"[yellow]Broker Emir ID:[/yellow] {content.get('brokerOrderId', 'N/A')}\n"
+                            f"[yellow]Durum:[/yellow] {content.get('status', 'N/A')}"
+                        )
+                        console.print(Panel(info_text, title="Emir Bilgileri", border_style="green"))
+                    elif isinstance(content, str):
+                        # Display string response (e.g., "EQEodRunningTryAgainLater")
+                        console.print(Panel(
+                            f"[yellow]Broker Yanıtı:[/yellow] {content}",
+                            title="Emir Bilgileri",
+                            border_style="green"
+                        ))
             else:
                 print_error(f"Emir gönderilemedi: {response.get('message', 'Bilinmeyen hata')}")
 
@@ -924,6 +933,76 @@ class BrokerManager:
         except Exception as e:
             print_error(f"Beklenmeyen hata: {str(e)}")
 
+    def _select_pending_order(self) -> Optional[dict]:
+        """
+        Interactive pending order selection.
+        Returns selected order dict or None if cancelled.
+        """
+        try:
+            # Fetch pending orders from AlgoLab
+            console.print("\n[dim]Açık emirler yükleniyor...[/dim]")
+            response = self.api.get("/api/v1/broker/orders/algolab-pending")
+
+            if not response.get("success", False):
+                print_error(response.get("message", "Açık emirler alınamadı"))
+                return None
+
+            orders = response.get("orders", [])
+
+            if not orders:
+                print_info("Açık emir bulunamadı")
+                return None
+
+            # Display orders as numbered list
+            console.print()
+            console.print("[bold yellow]Açık Emirleriniz:[/bold yellow]")
+            console.print()
+
+            for idx, order in enumerate(orders, 1):
+                order_id = order.get("atpref", "N/A")
+                symbol = order.get("ticker", "N/A")
+                buysell = order.get("buysell", "")
+                side_icon = "📈" if "Al" in buysell else "📉"
+                waitingprice = order.get("waitingprice", "0")
+                ordersize = order.get("ordersize", "0")
+
+                console.print(
+                    f"  [cyan]{idx}.[/cyan] {side_icon} [yellow]{symbol}[/yellow] "
+                    f"({buysell}) - {ordersize} lot @ ₺{waitingprice} "
+                    f"[dim]({order_id})[/dim]"
+                )
+
+            console.print()
+            console.print("[dim]Emir seçmek için numara girin veya direkt Emir ID yazın[/dim]")
+
+            selection = Prompt.ask(
+                "\n[cyan]Seçim (numara veya ID)[/cyan]",
+                default=""
+            )
+
+            if not selection:
+                return None
+
+            # Check if selection is a number (index)
+            if selection.isdigit():
+                idx = int(selection) - 1
+                if 0 <= idx < len(orders):
+                    return orders[idx]
+                else:
+                    print_error(f"Geçersiz numara. 1-{len(orders)} arası seçin.")
+                    return None
+            else:
+                # Selection is an order ID - find it
+                for order in orders:
+                    if order.get("atpref") == selection or order.get("orderId") == selection:
+                        return order
+                print_error(f"Emir bulunamadı: {selection}")
+                return None
+
+        except Exception as e:
+            print_error(f"Emir seçimi hatası: {str(e)}")
+            return None
+
     def cancel_order(self) -> None:
         """Cancel an existing order."""
         try:
@@ -935,7 +1014,13 @@ class BrokerManager:
                 border_style="red"
             ))
 
-            order_id = Prompt.ask("\n[cyan]İptal edilecek Emir ID[/cyan]")
+            # Interactive order selection
+            selected_order = self._select_pending_order()
+            if not selected_order:
+                print_info("İptal işlemi iptal edildi")
+                return
+
+            order_id = selected_order.get("atpref", selected_order.get("orderId", ""))
 
             if not Confirm.ask(f"\n[red]⚠️  {order_id} numaralı emri iptal etmek istediğinizden emin misiniz?[/red]"):
                 print_info("İptal işlemi iptal edildi")
@@ -975,7 +1060,23 @@ class BrokerManager:
                 border_style="red"
             ))
 
-            order_id = Prompt.ask("\n[cyan]Güncellenecek Emir ID[/cyan]")
+            # Interactive order selection
+            selected_order = self._select_pending_order()
+            if not selected_order:
+                print_info("Güncelleme işlemi iptal edildi")
+                return
+
+            order_id = selected_order.get("atpref", selected_order.get("orderId", ""))
+
+            # Show current order info
+            console.print()
+            console.print(Panel(
+                f"[yellow]Sembol:[/yellow] {selected_order.get('ticker', 'N/A')}\n"
+                f"[yellow]Mevcut Fiyat:[/yellow] ₺{selected_order.get('waitingprice', '0')}\n"
+                f"[yellow]Mevcut Miktar:[/yellow] {selected_order.get('ordersize', '0')} lot",
+                title=f"Emir {order_id}",
+                border_style="cyan"
+            ))
 
             console.print("\n[yellow]Yeni bilgileri girin (değiştirmek istemiyorsanız Enter'a basın):[/yellow]")
 
@@ -1170,6 +1271,168 @@ class BrokerManager:
         except Exception as e:
             print_error(f"Beklenmeyen hata: {str(e)}")
 
+    def list_pending_orders(self) -> None:
+        """Display pending/open orders that can be cancelled or modified."""
+        try:
+            console.print()
+            console.print(Panel.fit(
+                "[bold yellow]Açık Emirler[/bold yellow]\n\n"
+                "İptal veya düzenleme yapabileceğiniz aktif emirler",
+                border_style="yellow"
+            ))
+
+            # Optional symbol filter
+            symbol_filter = Prompt.ask("\n[cyan]Sembol filtresi (boş = tümü)[/cyan]", default="")
+
+            # Build query parameters
+            params = {"page": 0, "size": 50}
+            if symbol_filter:
+                params["symbol"] = symbol_filter.upper()
+
+            console.print("\n[dim]Açık emirler yükleniyor (AlgoLab'dan gerçek zamanlı)...[/dim]")
+
+            # Use AlgoLab real-time pending orders endpoint
+            params_algolab = {}
+            if symbol_filter:
+                params_algolab["symbol"] = symbol_filter.upper()
+
+            response = self.api.get("/api/v1/broker/orders/algolab-pending", params=params_algolab)
+
+            # New endpoint returns different format: {"success": true, "orders": [...]}
+            if not response.get("success", False):
+                print_error(response.get("message", "Açık emirler alınamadı"))
+                return
+
+            orders = response.get("orders", [])
+
+            if not orders:
+                print_info("Açık emir bulunamadı")
+                console.print("\n[dim]Tüm emirleriniz gerçekleşmiş veya iptal edilmiş durumda.[/dim]")
+                return
+
+            # Create orders table
+            table = Table(
+                title=f"Açık Emirler ({len(orders)} adet)",
+                box=box.ROUNDED,
+                show_header=True,
+                header_style="bold yellow"
+            )
+
+            table.add_column("Emir ID", style="cyan", width=25)
+            table.add_column("Sembol", style="yellow", width=10)
+            table.add_column("Yön", justify="center", width=10)
+            table.add_column("Tip", justify="center", width=10)
+            table.add_column("Durum", justify="center", width=15)
+            table.add_column("Miktar", justify="right", width=10)
+            table.add_column("Fiyat", justify="right", style="green", width=12)
+            table.add_column("Gerçekleşen", justify="right", style="dim", width=10)
+            table.add_column("Tarih", style="dim", width=16)
+
+            for order in orders:
+                # AlgoLab format - map to standard fields
+                order_id_full = order.get("atpref", order.get("orderId", "N/A"))
+                order_id = order_id_full[:22] + "..." if len(order_id_full) > 25 else order_id_full
+
+                symbol = order.get("ticker", order.get("symbol", "N/A"))
+
+                # Side with color - AlgoLab uses "Alış"/"Satış"
+                buysell = order.get("buysell", order.get("side", ""))
+                if "Al" in buysell or buysell == "BUY":
+                    side_str = "[green]ALIŞ[/green]"
+                elif "Sat" in buysell or buysell == "SELL":
+                    side_str = "[red]SATIŞ[/red]"
+                else:
+                    side_str = buysell
+
+                # Order type - infer from price
+                waiting_price = order.get("waitingprice", order.get("price", "0"))
+                try:
+                    wait_price_val = float(waiting_price) if waiting_price else 0
+                    order_type = "LIMIT" if wait_price_val > 0 else "MARKET"
+                except:
+                    order_type = "LIMIT"
+
+                # Status with color - AlgoLab uses equityStatusDescription
+                status_val = order.get("equityStatusDescription", order.get("status", "N/A"))
+                if status_val == "WAITING" or status_val == "PENDING":
+                    status_str = "[yellow]BEKLEYEN[/yellow]"
+                elif status_val == "SUBMITTED":
+                    status_str = "[blue]GÖNDERİLDİ[/blue]"
+                elif status_val == "ACCEPTED":
+                    status_str = "[green]KABUL EDİLDİ[/green]"
+                elif status_val == "PARTIALLY_FILLED":
+                    status_str = "[magenta]KISMEN GERÇEKLEŞTİ[/magenta]"
+                else:
+                    status_str = status_val
+
+                # Parse quantities from string
+                try:
+                    ordersize = order.get("ordersize", order.get("quantity", "0"))
+                    quantity = int(ordersize) if ordersize else 0
+                except:
+                    quantity = 0
+
+                try:
+                    wait_price_str = order.get("waitingprice", order.get("price", "0"))
+                    price = float(wait_price_str) if wait_price_str else 0.0
+                except:
+                    price = 0.0
+
+                try:
+                    filled_str = order.get("fillunit", order.get("filledQuantity", "0"))
+                    filled_qty = int(filled_str) if filled_str else 0
+                except:
+                    filled_qty = 0
+
+                # Format date - AlgoLab uses "timetransaction"
+                created_at = order.get("timetransaction", order.get("createdAt", ""))
+                try:
+                    if created_at:
+                        # AlgoLab format: "22.10.2025 10:01:40"
+                        if "." in created_at and len(created_at.split()) == 2:
+                            date_str = created_at  # Already in good format
+                        else:
+                            from datetime import datetime
+                            dt = datetime.fromisoformat(created_at.replace("Z", "+00:00"))
+                            date_str = dt.strftime("%Y-%m-%d %H:%M")
+                    else:
+                        date_str = "N/A"
+                except:
+                    date_str = created_at[:16] if len(created_at) >= 16 else created_at
+
+                table.add_row(
+                    order_id,
+                    symbol,
+                    side_str,
+                    order_type,
+                    status_str,
+                    str(quantity),
+                    format_currency(price) if price and price > 0 else "-",
+                    str(filled_qty) if filled_qty > 0 else "-",
+                    date_str
+                )
+
+            console.print()
+            console.print(table)
+            console.print()
+
+            # Show helpful info
+            console.print("[dim]💡 Bu emirleri iptal etmek için:[/dim] [cyan]bist broker cancel-order[/cyan]")
+            console.print("[dim]💡 Bu emirleri güncellemek için:[/dim] [cyan]bist broker modify-order[/cyan]")
+
+            total_elements = response.get("totalElements", len(orders))
+            if total_elements > len(orders):
+                console.print(f"\n[dim]Toplam {total_elements} açık emir var (ilk {len(orders)} gösteriliyor)[/dim]")
+            console.print()
+
+        except APIError as e:
+            if e.status_code == 403:
+                print_error("Açık emirlere erişim yetkiniz yok")
+            else:
+                print_error(f"Açık emirler alınamadı: {e.message}")
+        except Exception as e:
+            print_error(f"Beklenmeyen hata: {str(e)}")
+
     def broker_menu(self) -> None:
         """Interactive broker operations menu."""
         while True:
@@ -1187,15 +1450,16 @@ class BrokerManager:
                 "9. ⚠️  Emir Gönder (YENİ!)\n"
                 "10. ⚠️  Emir İptal (YENİ!)\n"
                 "11. ⚠️  Emir Güncelle (YENİ!)\n"
-                "12. 📋 Emir Geçmişi (YENİ!)\n"
-                "13. Geri Dön",
+                "12. 📋 Açık Emirler (YENİ!) 🔥\n"
+                "13. 📋 Emir Geçmişi\n"
+                "14. Geri Dön",
                 border_style="yellow"
             ))
 
             choice = Prompt.ask(
                 "\n[yellow]Seçiminiz[/yellow]",
-                choices=["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13"],
-                default="13"
+                choices=["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14"],
+                default="14"
             )
 
             if choice == "1":
@@ -1221,6 +1485,8 @@ class BrokerManager:
             elif choice == "11":
                 self.modify_order()
             elif choice == "12":
-                self.view_order_history()
+                self.list_pending_orders()
             elif choice == "13":
+                self.view_order_history()
+            elif choice == "14":
                 break

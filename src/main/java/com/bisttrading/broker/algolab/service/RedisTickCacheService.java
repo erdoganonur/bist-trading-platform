@@ -51,32 +51,80 @@ public class RedisTickCacheService {
 
     /**
      * Cache tick data with timestamp-based sorting AND update metrics.
+     * Uses Redis pipelining to reduce connection overhead.
      */
     public void cacheTick(String symbol, TickData data) {
         try {
             long timestamp = System.currentTimeMillis();
             String key = TICK_KEY_PREFIX + symbol;
 
-            // Store in sorted set (timestamp as score)
-            redisTemplate.opsForZSet().add(key, data, timestamp);
+            // Execute all operations in a single pipeline to reuse connection
+            redisTemplate.executePipelined((org.springframework.data.redis.core.RedisCallback<Object>) connection -> {
+                byte[] keyBytes = key.getBytes();
+                byte[] symbolBytes = symbol.getBytes();
+                byte[] timestampBytes = String.valueOf(timestamp).getBytes();
+                byte[] symbolsSetKeyBytes = SYMBOLS_SET_KEY.getBytes();
 
-            // Set TTL
-            redisTemplate.expire(key, DEFAULT_TTL_MINUTES, TimeUnit.MINUTES);
+                // 1. Store tick in sorted set
+                connection.zSetCommands().zAdd(keyBytes, timestamp,
+                    serializeTickData(data));
 
-            // Track active symbol
-            redisTemplate.opsForSet().add(SYMBOLS_SET_KEY, symbol);
-            redisTemplate.expire(SYMBOLS_SET_KEY, DEFAULT_TTL_MINUTES, TimeUnit.MINUTES);
+                // 2. Set TTL for tick key
+                connection.expire(keyBytes, DEFAULT_TTL_MINUTES * 60);
 
-            // Trim old data
-            trimCache(key, MAX_ITEMS_PER_SYMBOL);
+                // 3. Add symbol to active symbols set
+                connection.setCommands().sAdd(symbolsSetKeyBytes, symbolBytes);
 
-            // UPDATE METRICS (Redis-based)
-            updateMetrics(symbol, timestamp);
+                // 4. Set TTL for symbols set
+                connection.expire(symbolsSetKeyBytes, DEFAULT_TTL_MINUTES * 60);
+
+                // 5. Trim cache (remove old items if needed)
+                Long size = connection.zSetCommands().zCard(keyBytes);
+                if (size != null && size > MAX_ITEMS_PER_SYMBOL) {
+                    connection.zSetCommands().zRemRange(keyBytes, 0, size - MAX_ITEMS_PER_SYMBOL - 1);
+                }
+
+                // 6-12. Update metrics (all in same pipeline)
+                byte[] totalKey = METRICS_TOTAL_KEY.getBytes();
+                byte[] symbolCountsKey = METRICS_SYMBOL_COUNTS_KEY.getBytes();
+                byte[] lastTimeKey = METRICS_LAST_TIME_KEY.getBytes();
+                byte[] firstTimeKey = METRICS_FIRST_TIME_KEY.getBytes();
+                byte[] lastMinuteKey = METRICS_LAST_MINUTE_KEY.getBytes();
+                byte[] symbolsKey = METRICS_SYMBOLS_KEY.getBytes();
+
+                connection.incr(totalKey);
+                connection.hashCommands().hIncrBy(symbolCountsKey, symbolBytes, 1);
+                connection.stringCommands().set(lastTimeKey, timestampBytes);
+                connection.stringCommands().setNX(firstTimeKey, timestampBytes);
+                connection.zSetCommands().zAdd(lastMinuteKey, timestamp, timestampBytes);
+
+                // Cleanup old metrics (1 minute sliding window)
+                long oneMinuteAgo = timestamp - 60000;
+                connection.zSetCommands().zRemRangeByScore(lastMinuteKey, 0, oneMinuteAgo);
+
+                connection.setCommands().sAdd(symbolsKey, symbolBytes);
+                connection.expire(lastMinuteKey, 120);  // 2 minutes TTL
+                connection.expire(symbolsKey, DEFAULT_TTL_MINUTES * 60);
+
+                return null;
+            });
 
             log.trace("Cached tick for {}: Price={}", symbol, data.getLastPrice());
 
         } catch (Exception e) {
             log.error("Failed to cache tick for {}", symbol, e);
+        }
+    }
+
+    /**
+     * Serialize TickData to byte array for Redis storage.
+     */
+    private byte[] serializeTickData(TickData data) {
+        try {
+            return objectMapper.writeValueAsBytes(data);
+        } catch (Exception e) {
+            log.error("Failed to serialize tick data", e);
+            return new byte[0];
         }
     }
 
@@ -116,7 +164,11 @@ public class RedisTickCacheService {
             redisTemplate.opsForZSet().add(key, data, score);
             redisTemplate.expire(key, DEFAULT_TTL_MINUTES, TimeUnit.MINUTES);
 
-            trimCache(key, MAX_ITEMS_PER_SYMBOL);
+            // Trim old data inline
+            Long size = redisTemplate.opsForZSet().size(key);
+            if (size != null && size > MAX_ITEMS_PER_SYMBOL) {
+                redisTemplate.opsForZSet().removeRange(key, 0, size - MAX_ITEMS_PER_SYMBOL - 1);
+            }
 
             log.trace("Cached order book for {}", symbol);
 
@@ -160,7 +212,11 @@ public class RedisTickCacheService {
             redisTemplate.opsForZSet().add(key, data, score);
             redisTemplate.expire(key, DEFAULT_TTL_MINUTES, TimeUnit.MINUTES);
 
-            trimCache(key, MAX_ITEMS_PER_SYMBOL);
+            // Trim old data inline
+            Long size = redisTemplate.opsForZSet().size(key);
+            if (size != null && size > MAX_ITEMS_PER_SYMBOL) {
+                redisTemplate.opsForZSet().removeRange(key, 0, size - MAX_ITEMS_PER_SYMBOL - 1);
+            }
 
             log.trace("Cached trade for {}", symbol);
 
@@ -315,17 +371,9 @@ public class RedisTickCacheService {
     /**
      * Trim cache to max items.
      */
-    private void trimCache(String key, int maxItems) {
-        try {
-            Long size = redisTemplate.opsForZSet().size(key);
-            if (size != null && size > maxItems) {
-                // Remove oldest items
-                redisTemplate.opsForZSet().removeRange(key, 0, size - maxItems - 1);
-            }
-        } catch (Exception e) {
-            log.error("Failed to trim cache for key: {}", key, e);
-        }
-    }
+    /**
+     * Removed trimCache() - now integrated into cacheTick() pipeline for better performance.
+     */
 
     /**
      * Check Redis connection health.
@@ -345,51 +393,9 @@ public class RedisTickCacheService {
     /**
      * Update all metrics atomically using Redis pipeline.
      */
-    private void updateMetrics(String symbol, long timestamp) {
-        try {
-            redisTemplate.execute((org.springframework.data.redis.core.RedisCallback<Object>) connection -> {
-                byte[] totalKey = METRICS_TOTAL_KEY.getBytes();
-                byte[] symbolCountsKey = METRICS_SYMBOL_COUNTS_KEY.getBytes();
-                byte[] lastTimeKey = METRICS_LAST_TIME_KEY.getBytes();
-                byte[] firstTimeKey = METRICS_FIRST_TIME_KEY.getBytes();
-                byte[] lastMinuteKey = METRICS_LAST_MINUTE_KEY.getBytes();
-                byte[] symbolsKey = METRICS_SYMBOLS_KEY.getBytes();
-                byte[] symbolBytes = symbol.getBytes();
-                byte[] timestampBytes = String.valueOf(timestamp).getBytes();
-
-                // 1. Toplam tick sayısını artır
-                connection.incr(totalKey);
-
-                // 2. Sembol başına sayaç artır
-                connection.hashCommands().hIncrBy(symbolCountsKey, symbolBytes, 1);
-
-                // 3. Son tick zamanını güncelle
-                connection.stringCommands().set(lastTimeKey, timestampBytes);
-
-                // 4. İlk tick zamanını ayarla (sadece ilk kez)
-                connection.stringCommands().setNX(firstTimeKey, timestampBytes);
-
-                // 5. Son 1 dakika için sliding window'a ekle
-                connection.zSetCommands().zAdd(lastMinuteKey, timestamp, timestampBytes);
-
-                // 6. Sliding window'u temizle (1 dakikadan eski)
-                long oneMinuteAgo = timestamp - 60000;
-                connection.zSetCommands().zRemRangeByScore(lastMinuteKey, 0, oneMinuteAgo);
-
-                // 7. Aktif sembollere ekle
-                connection.setCommands().sAdd(symbolsKey, symbolBytes);
-
-                return null;
-            });
-
-            // Metrik key'leri için TTL ayarla
-            redisTemplate.expire(METRICS_LAST_MINUTE_KEY, 2, TimeUnit.MINUTES);
-            redisTemplate.expire(METRICS_SYMBOLS_KEY, 5, TimeUnit.MINUTES);
-
-        } catch (Exception e) {
-            log.error("Failed to update metrics for {}", symbol, e);
-        }
-    }
+    /**
+     * Removed updateMetrics() - now integrated into cacheTick() pipeline for better performance.
+     */
 
     /**
      * Get real-time metrics from Redis.
@@ -397,11 +403,11 @@ public class RedisTickCacheService {
     public Map<String, Object> getRealTimeMetrics() {
         try {
             // Temel metrikler
-            String totalTicksStr = redisTemplate.opsForValue().get(METRICS_TOTAL_KEY);
+            String totalTicksStr = (String) redisTemplate.opsForValue().get(METRICS_TOTAL_KEY);
             Long totalTicks = totalTicksStr != null ? Long.parseLong(totalTicksStr) : 0L;
 
-            String lastTimeStr = redisTemplate.opsForValue().get(METRICS_LAST_TIME_KEY);
-            String firstTimeStr = redisTemplate.opsForValue().get(METRICS_FIRST_TIME_KEY);
+            String lastTimeStr = (String) redisTemplate.opsForValue().get(METRICS_LAST_TIME_KEY);
+            String firstTimeStr = (String) redisTemplate.opsForValue().get(METRICS_FIRST_TIME_KEY);
 
             // Son 1 dakika tick sayısı
             Long lastMinuteTicks = redisTemplate.opsForZSet()

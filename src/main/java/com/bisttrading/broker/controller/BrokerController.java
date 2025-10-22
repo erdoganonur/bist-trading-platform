@@ -10,9 +10,11 @@ import com.bisttrading.entity.trading.OrderExecution;
 import com.bisttrading.entity.trading.enums.OrderSide;
 import com.bisttrading.entity.trading.enums.OrderStatus;
 import com.bisttrading.entity.trading.enums.OrderType;
+import com.bisttrading.entity.trading.enums.TimeInForce;
 import com.bisttrading.repository.trading.OrderExecutionRepository;
 import com.bisttrading.symbol.dto.SymbolDto;
 import com.bisttrading.symbol.service.SymbolService;
+import com.bisttrading.trading.dto.CreateOrderRequest;
 import com.bisttrading.trading.dto.ExecutionDto;
 import com.bisttrading.trading.dto.OrderHistoryDto;
 import com.bisttrading.trading.dto.OrderSearchCriteria;
@@ -164,24 +166,55 @@ public class BrokerController {
         log.info("⚠️ LIVE ORDER placement request from user: {} for symbol: {}",
             authentication.getName(), orderRequest.getSymbol());
 
-        AlgoLabResponse<Object> response = brokerService.sendOrder(
-            orderRequest.getSymbol(),
-            orderRequest.getDirection(),
-            orderRequest.getPriceType(),
-            orderRequest.getPrice(),
-            orderRequest.getLot(),
-            orderRequest.getSms(),
-            orderRequest.getEmail(),
-            orderRequest.getSubAccount()
-        );
+        String userId = extractUserId(authentication);
 
-        if (response.isSuccess()) {
-            log.info("✅ LIVE ORDER placed successfully for user: {}", authentication.getName());
-            return ResponseEntity.status(201).body(response);
-        } else {
-            log.warn("❌ LIVE ORDER placement failed for user: {} - {}",
-                authentication.getName(), response.getMessage());
-            return ResponseEntity.badRequest().body(response);
+        try {
+            // Convert SendOrderRequest to CreateOrderRequest
+            CreateOrderRequest createRequest = convertToCreateOrderRequest(orderRequest, userId);
+
+            // Create order (saves to DB and sends to AlgoLab)
+            Order order = orderManagementService.createOrder(createRequest, userId);
+
+            // Build response
+            AlgoLabResponse<Object> response = AlgoLabResponse.builder()
+                .success(order.getOrderStatus() == OrderStatus.SUBMITTED)
+                .content(Map.of(
+                    "orderId", order.getId(),
+                    "clientOrderId", order.getClientOrderId(),
+                    "brokerOrderId", order.getBrokerOrderId() != null ? order.getBrokerOrderId() : "",
+                    "symbol", order.getSymbol().getSymbol(),
+                    "side", order.getOrderSide().getCode(),
+                    "quantity", order.getQuantity(),
+                    "price", order.getPrice() != null ? order.getPrice() : BigDecimal.ZERO,
+                    "status", order.getOrderStatus().name()
+                ))
+                .message(order.getOrderStatus() == OrderStatus.SUBMITTED ?
+                    "Order successfully placed" :
+                    "Order failed: " + order.getStatusReason())
+                .timestamp(java.time.Instant.now())
+                .build();
+
+            if (response.isSuccess()) {
+                log.info("✅ LIVE ORDER placed successfully for user: {} - Order ID: {}",
+                    authentication.getName(), order.getId());
+                return ResponseEntity.status(201).body(response);
+            } else {
+                log.warn("❌ LIVE ORDER placement failed for user: {} - {}",
+                    authentication.getName(), order.getStatusReason());
+                return ResponseEntity.badRequest().body(response);
+            }
+
+        } catch (Exception e) {
+            log.error("❌ LIVE ORDER placement exception for user: {}", authentication.getName(), e);
+
+            AlgoLabResponse<Object> errorResponse = AlgoLabResponse.builder()
+                .success(false)
+                .content(Map.of())
+                .message("Order placement failed: " + e.getMessage())
+                .timestamp(java.time.Instant.now())
+                .build();
+
+            return ResponseEntity.badRequest().body(errorResponse);
         }
     }
 
@@ -771,12 +804,159 @@ public class BrokerController {
     }
 
     /**
+     * Gets pending/open orders (SUBMITTED, PENDING, PARTIALLY_FILLED).
+     *
+     * Returns orders that are still active and can be modified or cancelled.
+     */
+    @GetMapping("/orders/pending")
+    @PreAuthorize("isAuthenticated()")
+    @Operation(
+        summary = "Açık Emirleri Listele",
+        description = """
+            Bekleyen/açık emirleri listeler (iptal veya düzenleme yapılabilir).
+
+            🔥 ÖZELLİKLER:
+            - Sadece aktif emirleri gösterir
+            - Emir ID, sembol, fiyat, miktar bilgileri
+            - İptal ve düzenleme için ID'ler
+            - Tarih ve durum bilgileri
+
+            AKTİF EMİR DURUMLARI:
+            - PENDING: Bekleyen
+            - SUBMITTED: Gönderilmiş
+            - PARTIALLY_FILLED: Kısmen gerçekleşmiş
+            - ACCEPTED: Kabul edilmiş
+
+            KULLANIM:
+            Emir iptal veya düzenleme öncesi açık emirleri görmek için kullanın.
+            """
+    )
+    @ApiResponses(value = {
+        @ApiResponse(
+            responseCode = "200",
+            description = "Açık emirler başarıyla getirildi"
+        ),
+        @ApiResponse(
+            responseCode = "401",
+            description = "Unauthorized - Kimlik doğrulama gerekli"
+        ),
+        @ApiResponse(
+            responseCode = "403",
+            description = "Forbidden - Yetki eksikliği"
+        )
+    })
+    public ResponseEntity<Page<OrderHistoryDto>> getPendingOrders(
+            @RequestParam(required = false)
+            @Parameter(description = "Sembol filtresi (örn: AKBNK)", example = "AKBNK")
+            String symbol,
+
+            @PageableDefault(size = 50, sort = "createdAt", direction = Sort.Direction.DESC)
+            @Parameter(hidden = true)
+            Pageable pageable,
+
+            Authentication authentication
+    ) {
+        log.info("Pending orders request from user: {} - symbol filter: {}",
+                authentication.getName(), symbol);
+
+        String userId = extractUserId(authentication);
+
+        // Build criteria for pending orders only
+        // Include SUBMITTED, PENDING, PARTIALLY_FILLED, ACCEPTED statuses
+        OrderSearchCriteria criteria = OrderSearchCriteria.builder()
+                .symbol(symbol)
+                // We'll handle multiple statuses in the service layer
+                .build();
+
+        // Get all orders and filter for pending statuses
+        Page<Order> allOrders = orderManagementService.getOrderHistory(userId, criteria, pageable);
+
+        // Filter for pending/active orders
+        List<Order> pendingOrders = allOrders.getContent().stream()
+                .filter(order -> {
+                    OrderStatus status = order.getOrderStatus();
+                    return status == OrderStatus.PENDING ||
+                           status == OrderStatus.SUBMITTED ||
+                           status == OrderStatus.PARTIALLY_FILLED ||
+                           status == OrderStatus.ACCEPTED;
+                })
+                .toList();
+
+        // Convert to DTO
+        List<OrderHistoryDto> pendingOrderDtos = pendingOrders.stream()
+                .map(this::toOrderHistoryDto)
+                .toList();
+
+        // Create page from filtered list
+        Page<OrderHistoryDto> pendingOrdersPage = new org.springframework.data.domain.PageImpl<>(
+                pendingOrderDtos,
+                pageable,
+                pendingOrderDtos.size()
+        );
+
+        log.info("Returning {} pending orders for user: {}",
+                pendingOrdersPage.getNumberOfElements(), authentication.getName());
+
+        return ResponseEntity.ok(pendingOrdersPage);
+    }
+
+    /**
+     * Gets pending/open orders directly from AlgoLab.
+     * Returns REAL-TIME pending orders from the broker.
+     */
+    @GetMapping("/orders/algolab-pending")
+    @PreAuthorize("isAuthenticated()")
+    @Operation(
+        summary = "AlgoLab'dan Açık Emirleri Getir (Gerçek Zamanlı)",
+        description = """
+            AlgoLab broker'ından gerçek zamanlı açık emirleri getirir.
+
+            🔥 ÖZELLİKLER:
+            - Gerçek zamanlı veri (AlgoLab API'den direkt)
+            - Bekleyen/açık emirler
+            - Emir ID, sembol, fiyat, miktar, durum
+            """
+    )
+    public ResponseEntity<Map<String, Object>> getAlgoLabPendingOrders(
+            @RequestParam(required = false)
+            @Parameter(description = "Alt hesap numarası", example = "")
+            String subAccount,
+            Authentication authentication
+    ) {
+        log.info("AlgoLab pending orders request from user: {}", authentication.getName());
+
+        try {
+            List<Map<String, Object>> pendingOrders = brokerService.getPendingOrders(subAccount);
+
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "count", pendingOrders.size(),
+                "orders", pendingOrders,
+                "message", pendingOrders.isEmpty() ?
+                    "Açık emir bulunamadı" :
+                    pendingOrders.size() + " açık emir bulundu"
+            ));
+
+        } catch (Exception e) {
+            log.error("Failed to get AlgoLab pending orders for user: {}",
+                authentication.getName(), e);
+
+            return ResponseEntity.ok(Map.of(
+                "success", false,
+                "count", 0,
+                "orders", List.of(),
+                "message", "Hata: " + e.getMessage()
+            ));
+        }
+    }
+
+    /**
      * Gets comprehensive order history with detailed filtering.
      *
      * Provides full order lifecycle information including executions, fees, and timestamps.
      */
     @GetMapping("/orders/history")
-    @PreAuthorize("hasAuthority('orders:read')")
+    @PreAuthorize("isAuthenticated()")
     @Operation(
         summary = "Emir Geçmişini Getir",
         description = """
@@ -1265,6 +1445,58 @@ public class BrokerController {
                 .map(OrderExecution::getGrossAmount)
                 .filter(amount -> amount != null)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
+    /**
+     * Converts SendOrderRequest to CreateOrderRequest for order management service.
+     *
+     * @param orderRequest SendOrderRequest from broker API
+     * @param userId User ID
+     * @return CreateOrderRequest for order management
+     */
+    private CreateOrderRequest convertToCreateOrderRequest(SendOrderRequest orderRequest, String userId) {
+        // Convert direction string to OrderSide enum
+        OrderSide side;
+        String direction = orderRequest.getDirection().toUpperCase();
+        if ("BUY".equals(direction) || "0".equals(direction)) {
+            side = OrderSide.BUY;
+        } else if ("SELL".equals(direction) || "1".equals(direction)) {
+            side = OrderSide.SELL;
+        } else {
+            throw new IllegalArgumentException("Invalid direction: " + orderRequest.getDirection());
+        }
+
+        // Convert priceType string to OrderType enum
+        OrderType orderType;
+        String priceType = orderRequest.getPriceType().toUpperCase();
+        if ("LIMIT".equals(priceType) || "L".equals(priceType)) {
+            orderType = OrderType.LIMIT;
+        } else if ("MARKET".equals(priceType) || "P".equals(priceType) || "PIYASA".equals(priceType)) {
+            orderType = OrderType.MARKET;
+        } else {
+            throw new IllegalArgumentException("Invalid price type: " + orderRequest.getPriceType());
+        }
+
+        // Convert lot to quantity (1 lot = 100 shares)
+        Integer quantity = orderRequest.getLot() * 100;
+
+        // Get account ID - use subAccount if provided, otherwise use default account
+        String accountId = orderRequest.getSubAccount() != null && !orderRequest.getSubAccount().isEmpty()
+            ? orderRequest.getSubAccount()
+            : "default-account-" + userId;
+
+        return CreateOrderRequest.builder()
+            .symbol(orderRequest.getSymbol())
+            .side(side)
+            .orderType(orderType)
+            .quantity(quantity)
+            .price(orderRequest.getPrice())
+            .accountId(accountId)
+            .subAccountId(orderRequest.getSubAccount())
+            .smsNotification(orderRequest.getSms() != null ? orderRequest.getSms() : false)
+            .emailNotification(orderRequest.getEmail() != null ? orderRequest.getEmail() : false)
+            .timeInForce(TimeInForce.DAY) // Default to DAY orders
+            .build();
     }
 
     /**
