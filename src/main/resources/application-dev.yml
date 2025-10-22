@@ -313,3 +313,24 @@ test-data:
 
 # Development Debugging
 debug: true
+
+# Telegram Bot Configuration
+telegram:
+  bot:
+    enabled: ${TELEGRAM_BOT_ENABLED:true}
+    username: ${TELEGRAM_BOT_USERNAME:BistTradingDevBot}
+    token: ${TELEGRAM_BOT_TOKEN:}
+    webhook:
+      enabled: false  # Use polling in development
+    options:
+      max-threads: 5
+      max-queue-size: 50
+      timeout: 30
+    session:
+      timeout-seconds: 3600  # 1 hour
+      redis-key-prefix: "telegram:session:dev:"
+    features:
+      notifications: true
+      watchlist-updates: true
+      price-alerts: true
+      auto-login-reminder: true
