@@ -2,11 +2,16 @@ package com.bisttrading.telegram.bot;
 
 import com.bisttrading.telegram.config.TelegramBotProperties;
 import com.bisttrading.telegram.handler.CommandHandler;
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
-import org.telegram.telegrambots.bots.TelegramLongPollingBot;
+import org.telegram.telegrambots.longpolling.util.LongPollingSingleThreadUpdateConsumer;
+import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
+import org.telegram.telegrambots.meta.api.methods.updatingmessages.EditMessageText;
 import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
+import org.telegram.telegrambots.meta.generics.TelegramClient;
 
 import java.util.List;
 import java.util.Map;
@@ -16,21 +21,24 @@ import java.util.stream.Collectors;
 /**
  * Main Telegram Bot class for BIST Trading Platform.
  * Handles incoming updates and routes them to appropriate command handlers.
+ * Uses TelegramBots 7.x API (Spring Boot 3 compatible).
  */
 @Slf4j
 @Component
-public class BistTelegramBot extends TelegramLongPollingBot {
+@RequiredArgsConstructor
+public class BistTelegramBot implements LongPollingSingleThreadUpdateConsumer {
 
+    @Getter
+    private final TelegramClient telegramClient;
     private final TelegramBotProperties properties;
-    private final Map<String, CommandHandler> commandHandlers;
+    private final List<CommandHandler> handlers;
 
-    public BistTelegramBot(
-            TelegramBotProperties properties,
-            List<CommandHandler> handlers) {
-        super(properties.getToken());
-        this.properties = properties;
+    private Map<String, CommandHandler> commandHandlers;
 
-        // Build command handler map
+    /**
+     * Initialize command handlers map (called after bean creation)
+     */
+    public void init() {
         this.commandHandlers = handlers.stream()
             .collect(Collectors.toMap(
                 CommandHandler::getCommand,
@@ -42,13 +50,16 @@ public class BistTelegramBot extends TelegramLongPollingBot {
         log.info("   Registered Commands: {}", commandHandlers.keySet());
     }
 
-    @Override
     public String getBotUsername() {
         return properties.getUsername();
     }
 
+    public String getBotToken() {
+        return properties.getToken();
+    }
+
     @Override
-    public void onUpdateReceived(Update update) {
+    public void consume(Update update) {
         try {
             if (update.hasMessage() && update.getMessage().hasText()) {
                 handleTextMessage(update);
@@ -105,6 +116,13 @@ public class BistTelegramBot extends TelegramLongPollingBot {
         } else {
             // Handle non-command text (conversation flows are handled by individual handlers)
             log.debug("Non-command text received from user {}: {}", userId, text);
+
+            // Try to find handler that can process this text (for conversation flows)
+            // For now, we'll check if login handler wants to handle it
+            CommandHandler loginHandler = commandHandlers.get("login");
+            if (loginHandler != null) {
+                loginHandler.handle(update);
+            }
         }
     }
 
@@ -145,7 +163,9 @@ public class BistTelegramBot extends TelegramLongPollingBot {
      */
     private void answerCallbackQuery(String callbackQueryId) {
         try {
-            execute(new org.telegram.telegrambots.meta.api.methods.answercallbackquery.AnswerCallbackQuery(callbackQueryId));
+            telegramClient.execute(
+                new org.telegram.telegrambots.meta.api.methods.answercallbackquery.AnswerCallbackQuery(callbackQueryId)
+            );
         } catch (TelegramApiException e) {
             log.error("Failed to answer callback query", e);
         }
@@ -155,13 +175,13 @@ public class BistTelegramBot extends TelegramLongPollingBot {
      * Send error message to user
      */
     private void sendErrorMessage(Long chatId, String errorText) throws TelegramApiException {
-        var message = org.telegram.telegrambots.meta.api.methods.send.SendMessage.builder()
+        var message = SendMessage.builder()
             .chatId(chatId.toString())
             .text(errorText)
             .parseMode("Markdown")
             .build();
 
-        execute(message);
+        telegramClient.execute(message);
     }
 
     /**
@@ -174,5 +194,19 @@ public class BistTelegramBot extends TelegramLongPollingBot {
             return update.getCallbackQuery().getMessage().getChatId();
         }
         return null;
+    }
+
+    /**
+     * Send a message (used by handlers)
+     */
+    public void execute(SendMessage message) throws TelegramApiException {
+        telegramClient.execute(message);
+    }
+
+    /**
+     * Edit a message (used by handlers)
+     */
+    public void execute(EditMessageText message) throws TelegramApiException {
+        telegramClient.execute(message);
     }
 }

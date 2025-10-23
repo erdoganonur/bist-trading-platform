@@ -85,9 +85,13 @@ dependencies {
     // Async HTTP client for broker integration
     implementation 'org.apache.httpcomponents.client5:httpclient5:5.3.1'
 
-    // Telegram Bot API
-    implementation 'org.telegram:telegrambots-spring-boot-starter:6.9.7.1'
-    implementation 'org.telegram:telegrambots-abilities:6.9.7.1'
+    // Telegram Bot API (v7.x - Spring Boot 3 & Jakarta EE 9+ compatible)
+    implementation 'org.telegram:telegrambots-longpolling:7.10.0'
+    implementation 'org.telegram:telegrambots-client:7.10.0'
+
+    // JAXB Runtime (required for Telegram API XML processing in Java 11+)
+    implementation 'jakarta.xml.bind:jakarta.xml.bind-api:4.0.0'
+    implementation 'org.glassfish.jaxb:jaxb-runtime:4.0.3'
 
     // Annotation processors
     annotationProcessor 'org.projectlombok:lombok:1.18.32'

@@ -9,12 +9,15 @@ import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.serializer.Jackson2JsonRedisSerializer;
 import org.springframework.data.redis.serializer.StringRedisSerializer;
+import org.telegram.telegrambots.client.okhttp.OkHttpTelegramClient;
+import org.telegram.telegrambots.meta.generics.TelegramClient;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 
 /**
  * Telegram Bot Spring configuration.
  * Provides beans for Telegram bot infrastructure.
+ * Uses TelegramBots 7.x API (Spring Boot 3 & Jakarta EE 9+ compatible).
  */
 @Slf4j
 @Configuration
@@ -23,6 +26,23 @@ import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 public class TelegramBotConfig {
 
     private final RedisConnectionFactory redisConnectionFactory;
+    private final TelegramBotProperties properties;
+
+    /**
+     * TelegramClient bean for sending messages.
+     * Uses OkHttp implementation (recommended for production).
+     */
+    @Bean
+    public TelegramClient telegramClient() {
+        if (properties.getToken() == null || properties.getToken().isBlank()) {
+            log.warn("⚠️  Telegram Bot token not configured. TelegramClient will not be created.");
+            return null;
+        }
+
+        TelegramClient client = new OkHttpTelegramClient(properties.getToken());
+        log.info("✅ TelegramClient created (OkHttp implementation)");
+        return client;
+    }
 
     /**
      * RedisTemplate for Telegram session storage.
