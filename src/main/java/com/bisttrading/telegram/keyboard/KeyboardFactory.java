@@ -39,7 +39,7 @@ public class KeyboardFactory {
         } else {
             // Not logged in menu
             builder.keyboardRow(new InlineKeyboardRow(
-                createButton("🔐 Giriş Yap", "auth:login")
+                createButton("🔐 Giriş Yap", "login")
             ));
             builder.keyboardRow(new InlineKeyboardRow(
                 createButton("❓ Yardım", "help")
