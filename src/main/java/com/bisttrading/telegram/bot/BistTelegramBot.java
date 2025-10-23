@@ -164,7 +164,9 @@ public class BistTelegramBot implements LongPollingSingleThreadUpdateConsumer {
     private void answerCallbackQuery(String callbackQueryId) {
         try {
             telegramClient.execute(
-                new org.telegram.telegrambots.meta.api.methods.answercallbackquery.AnswerCallbackQuery(callbackQueryId)
+                org.telegram.telegrambots.meta.api.methods.AnswerCallbackQuery.builder()
+                    .callbackQueryId(callbackQueryId)
+                    .build()
             );
         } catch (TelegramApiException e) {
             log.error("Failed to answer callback query", e);
