@@ -5,6 +5,7 @@ import com.bisttrading.broker.algolab.dto.websocket.OrderBookData;
 import com.bisttrading.broker.algolab.dto.websocket.TradeData;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
@@ -43,7 +44,8 @@ public class RedisTickCacheService {
     private final RedisTemplate<String, Object> redisTemplate;
     private final ObjectMapper objectMapper;
 
-    public RedisTickCacheService(RedisTemplate<String, Object> redisTemplate, ObjectMapper objectMapper) {
+    public RedisTickCacheService(@Qualifier("jsonRedisTemplate") RedisTemplate<String, Object> redisTemplate,
+                                   ObjectMapper objectMapper) {
         this.redisTemplate = redisTemplate;
         this.objectMapper = objectMapper;
         log.info("Redis Tick Cache Service initialized");

@@ -1,6 +1,5 @@
 package com.bisttrading.telegram.handler;
 
-import com.bisttrading.telegram.bot.BistTelegramBot;
 import com.bisttrading.telegram.keyboard.KeyboardFactory;
 import com.bisttrading.telegram.model.TelegramUser;
 import com.bisttrading.telegram.repository.TelegramUserRepository;
@@ -10,6 +9,7 @@ import org.springframework.stereotype.Component;
 import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.api.objects.User;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
+import org.telegram.telegrambots.meta.generics.TelegramClient;
 
 /**
  * Handler for /start command.
@@ -22,10 +22,10 @@ public class StartCommandHandler extends BaseCommandHandler {
     private final TelegramUserRepository telegramUserRepository;
 
     public StartCommandHandler(
-            BistTelegramBot bot,
+            TelegramClient telegramClient,
             TelegramSessionService sessionService,
             TelegramUserRepository telegramUserRepository) {
-        super(bot, sessionService);
+        super(telegramClient, sessionService);
         this.telegramUserRepository = telegramUserRepository;
     }
 

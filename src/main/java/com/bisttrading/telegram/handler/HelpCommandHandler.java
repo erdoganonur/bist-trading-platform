@@ -1,12 +1,12 @@
 package com.bisttrading.telegram.handler;
 
-import com.bisttrading.telegram.bot.BistTelegramBot;
 import com.bisttrading.telegram.keyboard.KeyboardFactory;
 import com.bisttrading.telegram.service.TelegramSessionService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
+import org.telegram.telegrambots.meta.generics.TelegramClient;
 
 /**
  * Handler for /help command.
@@ -16,8 +16,8 @@ import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 @Component
 public class HelpCommandHandler extends BaseCommandHandler {
 
-    public HelpCommandHandler(BistTelegramBot bot, TelegramSessionService sessionService) {
-        super(bot, sessionService);
+    public HelpCommandHandler(TelegramClient telegramClient, TelegramSessionService sessionService) {
+        super(telegramClient, sessionService);
     }
 
     @Override

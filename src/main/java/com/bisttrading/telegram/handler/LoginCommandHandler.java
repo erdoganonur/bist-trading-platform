@@ -3,7 +3,6 @@ package com.bisttrading.telegram.handler;
 import com.bisttrading.dto.LoginRequest;
 import com.bisttrading.dto.JwtResponse;
 import com.bisttrading.service.AuthenticationService;
-import com.bisttrading.telegram.bot.BistTelegramBot;
 import com.bisttrading.telegram.dto.ConversationState;
 import com.bisttrading.telegram.dto.TelegramUserSession;
 import com.bisttrading.telegram.keyboard.KeyboardFactory;
@@ -12,6 +11,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
+import org.telegram.telegrambots.meta.generics.TelegramClient;
 
 /**
  * Handler for /login command.
@@ -24,10 +24,10 @@ public class LoginCommandHandler extends BaseCommandHandler {
     private final AuthenticationService authenticationService;
 
     public LoginCommandHandler(
-            BistTelegramBot bot,
+            TelegramClient telegramClient,
             TelegramSessionService sessionService,
             AuthenticationService authenticationService) {
-        super(bot, sessionService);
+        super(telegramClient, sessionService);
         this.authenticationService = authenticationService;
     }
 

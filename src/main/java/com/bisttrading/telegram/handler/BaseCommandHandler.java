@@ -1,14 +1,13 @@
 package com.bisttrading.telegram.handler;
 
-import com.bisttrading.telegram.bot.BistTelegramBot;
 import com.bisttrading.telegram.service.TelegramSessionService;
-import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
+import org.telegram.telegrambots.meta.generics.TelegramClient;
 
 /**
  * Base class for command handlers.
@@ -18,8 +17,7 @@ import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 @RequiredArgsConstructor
 public abstract class BaseCommandHandler implements CommandHandler {
 
-    @Getter
-    protected final BistTelegramBot bot;
+    protected final TelegramClient telegramClient;
     protected final TelegramSessionService sessionService;
 
     /**
@@ -32,7 +30,7 @@ public abstract class BaseCommandHandler implements CommandHandler {
             .parseMode("Markdown")
             .build();
 
-        bot.execute(message);
+        telegramClient.execute(message);
     }
 
     /**
@@ -46,7 +44,7 @@ public abstract class BaseCommandHandler implements CommandHandler {
             .replyMarkup(keyboard)
             .build();
 
-        bot.execute(message);
+        telegramClient.execute(message);
     }
 
     /**
