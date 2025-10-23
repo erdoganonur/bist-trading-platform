@@ -85,6 +85,10 @@ dependencies {
     // Async HTTP client for broker integration
     implementation 'org.apache.httpcomponents.client5:httpclient5:5.3.1'
 
+    // Telegram Bot API
+    implementation 'org.telegram:telegrambots-spring-boot-starter:6.9.7.1'
+    implementation 'org.telegram:telegrambots-abilities:6.9.7.1'
+
     // Annotation processors
     annotationProcessor 'org.projectlombok:lombok:1.18.32'
     annotationProcessor 'org.mapstruct:mapstruct-processor:1.5.5.Final'
