@@ -1,0 +1,227 @@
+# Default values for bist-trading-platform
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+# Global configuration
+global:
+  environment: production
+  region: tr-istanbul
+
+# Namespace
+namespace: bist-trading
+
+# Backend application configuration
+backend:
+  enabled: true
+  replicaCount: 2
+
+  image:
+    repository: bist-trading-backend
+    tag: "2.0.0"
+    pullPolicy: IfNotPresent
+
+  service:
+    type: ClusterIP
+    port: 8080
+    targetPort: 8080
+
+  loadBalancer:
+    enabled: true
+    port: 80
+
+  resources:
+    requests:
+      memory: "1Gi"
+      cpu: "500m"
+    limits:
+      memory: "2Gi"
+      cpu: "2000m"
+
+  autoscaling:
+    enabled: false  # Mac Mini için false, cluster için true yapılabilir
+    minReplicas: 2
+    maxReplicas: 5
+    targetCPUUtilizationPercentage: 70
+    targetMemoryUtilizationPercentage: 80
+
+  livenessProbe:
+    enabled: true
+    path: /actuator/health/liveness
+    initialDelaySeconds: 90
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+
+  readinessProbe:
+    enabled: true
+    path: /actuator/health/readiness
+    initialDelaySeconds: 60
+    periodSeconds: 5
+    timeoutSeconds: 3
+    failureThreshold: 3
+
+  startupProbe:
+    enabled: true
+    path: /actuator/health
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 30
+
+# PostgreSQL configuration
+postgresql:
+  enabled: true
+  image:
+    repository: timescale/timescaledb
+    tag: "latest-pg16"
+
+  persistence:
+    enabled: true
+    storageClass: "local-path"  # K3s default. Change to "hostpath" for Docker Desktop
+    size: 20Gi
+
+  database:
+    name: bist_trading
+    user: bist_user
+    password: bist_trading_pass  # Override in production with secrets
+
+  service:
+    type: ClusterIP
+    port: 5432
+
+  resources:
+    requests:
+      memory: "512Mi"
+      cpu: "250m"
+    limits:
+      memory: "2Gi"
+      cpu: "1000m"
+
+# Redis configuration
+redis:
+  enabled: true
+  image:
+    repository: redis
+    tag: "7.4-alpine"
+
+  persistence:
+    enabled: true
+    storageClass: "local-path"  # K3s default. Change to "hostpath" for Docker Desktop
+    size: 5Gi
+
+  auth:
+    password: redis_password  # Override in production with secrets
+
+  service:
+    type: ClusterIP
+    port: 6379
+
+  resources:
+    requests:
+      memory: "256Mi"
+      cpu: "100m"
+    limits:
+      memory: "1Gi"
+      cpu: "500m"
+
+# Ingress configuration
+ingress:
+  enabled: true
+  className: "nginx"  # Use "traefik" for K3s, "nginx" for others
+
+  annotations:
+    nginx.ingress.kubernetes.io/ssl-redirect: "false"
+    nginx.ingress.kubernetes.io/proxy-body-size: "50m"
+    nginx.ingress.kubernetes.io/enable-cors: "true"
+    nginx.ingress.kubernetes.io/cors-allow-methods: "GET, POST, PUT, DELETE, OPTIONS, PATCH"
+    nginx.ingress.kubernetes.io/limit-rps: "60"
+
+  hosts:
+    - host: bist-trading.local
+      paths:
+        - path: /
+          pathType: Prefix
+        - path: /api
+          pathType: Prefix
+        - path: /actuator
+          pathType: Prefix
+        - path: /swagger-ui
+          pathType: Prefix
+
+  tls: []
+  # - secretName: bist-trading-tls
+  #   hosts:
+  #     - bist-trading.local
+
+# Application configuration (environment variables)
+config:
+  springProfiles: "prod"
+
+  # AlgoLab configuration
+  algolab:
+    baseUrl: "https://api.algolab.com.tr"
+    apiVersion: "v2.0"
+    enabled: true
+    connectTimeout: 15000
+    readTimeout: 30000
+
+  # Security configuration
+  security:
+    jwtSecret: "bist-trading-platform-super-secret-key-for-jwt-tokens-256-bit-long"  # Override with secret
+    corsAllowedOrigins: "http://localhost:3000,https://bisttrading.com"
+    rateLimiting:
+      enabled: true
+      rpm: 60
+
+  # Feature flags
+  features:
+    twoFactorAuth: true
+    kycVerification: true
+    emailVerification: true
+
+  # Logging
+  logging:
+    level: INFO
+
+# Secrets (should be overridden or use external secrets)
+secrets:
+  algolab:
+    apiKey: "your-algolab-api-key"
+    apiSecret: "your-algolab-api-secret"
+    username: "your-username"
+    password: "your-password"
+
+  email:
+    fromAddress: "noreply@bisttrading.com"
+
+  sms:
+    senderName: "BISTRADE"
+
+# Service Account
+serviceAccount:
+  create: true
+  name: bist-trading-sa
+  annotations: {}
+
+# Pod Security Context
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  fsGroup: 1000
+
+# Network Policy
+networkPolicy:
+  enabled: false  # Enable in production for better security
+
+# Monitoring
+monitoring:
+  enabled: true
+  serviceMonitor:
+    enabled: false  # Enable if Prometheus Operator is installed
+    interval: 30s
+    path: /actuator/prometheus
+
+# Telegram Bot (optional)
+telegram:
+  enabled: true
+  botToken: ""  # Set via secrets in production

@@ -350,6 +350,46 @@ For details, see: [docs/algolab/WEBSOCKET_COMPLETE_GUIDE.md](docs/algolab/WEBSOC
 docker-compose up -d
 ```
 
+### Kubernetes Deployment (Mac Mini Compatible)
+
+The platform includes full Kubernetes support optimized for Mac Mini deployment:
+
+**Quick Start with Helm:**
+
+```bash
+# Build and deploy to K3s
+./k8s/scripts/deploy.sh k3s
+
+# Or deploy to Docker Desktop Kubernetes
+./k8s/scripts/deploy.sh docker-desktop
+
+# Health check
+./k8s/scripts/health-check.sh
+
+# Cleanup
+./k8s/scripts/cleanup.sh
+```
+
+**Manual Helm Installation:**
+
+```bash
+# Install with Mac Mini optimized values
+helm install bist-trading k8s/helm/bist-trading-platform \
+  --namespace bist-trading \
+  --create-namespace \
+  --values k8s/helm/bist-trading-platform/values-mac-mini.yaml
+
+# Access the application
+kubectl port-forward svc/bist-trading-backend 8080:8080 -n bist-trading
+```
+
+**Kubernetes Options for Mac Mini:**
+- **K3s** (Recommended) - Lightweight, production-ready, ARM64 optimized
+- **Docker Desktop Kubernetes** - Easy setup, GUI management
+- **Minikube** - Full-featured, great for testing
+
+For detailed Kubernetes deployment instructions, see: [k8s/README.md](k8s/README.md)
+
 ### Environment Variables
 
 ```bash

@@ -1,0 +1,196 @@
+# Mac Mini Optimized Values for BIST Trading Platform
+# Usage: helm install bist-trading ./k8s/helm/bist-trading-platform -f k8s/helm/bist-trading-platform/values-mac-mini.yaml
+
+# Global configuration
+global:
+  environment: production
+  region: tr-istanbul
+
+namespace: bist-trading
+
+# Backend - Optimized for Mac Mini (8-16GB RAM)
+backend:
+  enabled: true
+  replicaCount: 2  # 1 for 8GB, 2 for 16GB Mac Mini
+
+  image:
+    repository: bist-trading-backend
+    tag: "2.0.0"
+    pullPolicy: IfNotPresent
+
+  service:
+    type: ClusterIP
+    port: 8080
+    targetPort: 8080
+
+  loadBalancer:
+    enabled: true
+    port: 80
+
+  # Conservative resource limits for Mac Mini
+  resources:
+    requests:
+      memory: "768Mi"  # Reduced from 1Gi
+      cpu: "300m"      # Reduced from 500m
+    limits:
+      memory: "1.5Gi"  # Reduced from 2Gi
+      cpu: "1000m"     # Reduced from 2000m
+
+  # Disable autoscaling on Mac Mini
+  autoscaling:
+    enabled: false
+
+  livenessProbe:
+    enabled: true
+    path: /actuator/health/liveness
+    initialDelaySeconds: 90
+    periodSeconds: 10
+
+  readinessProbe:
+    enabled: true
+    path: /actuator/health/readiness
+    initialDelaySeconds: 60
+    periodSeconds: 5
+
+  startupProbe:
+    enabled: true
+    path: /actuator/health
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    failureThreshold: 30
+
+# PostgreSQL - Optimized for Mac Mini
+postgresql:
+  enabled: true
+  image:
+    repository: timescale/timescaledb
+    tag: "latest-pg16"
+
+  persistence:
+    enabled: true
+    storageClass: "local-path"  # K3s default
+    size: 20Gi  # Reasonable for Mac Mini
+
+  database:
+    name: bist_trading
+    user: bist_user
+    password: "CHANGE_ME_IN_PRODUCTION"
+
+  service:
+    type: ClusterIP
+    port: 5432
+
+  # Conservative resources
+  resources:
+    requests:
+      memory: "384Mi"  # Reduced from 512Mi
+      cpu: "200m"      # Reduced from 250m
+    limits:
+      memory: "1Gi"    # Reduced from 2Gi
+      cpu: "500m"      # Reduced from 1000m
+
+# Redis - Optimized for Mac Mini
+redis:
+  enabled: true
+  image:
+    repository: redis
+    tag: "7.4-alpine"
+
+  persistence:
+    enabled: true
+    storageClass: "local-path"  # K3s default
+    size: 5Gi
+
+  auth:
+    password: "CHANGE_ME_IN_PRODUCTION"
+
+  service:
+    type: ClusterIP
+    port: 6379
+
+  # Minimal resources for Redis
+  resources:
+    requests:
+      memory: "128Mi"  # Reduced from 256Mi
+      cpu: "50m"       # Reduced from 100m
+    limits:
+      memory: "512Mi"  # Reduced from 1Gi
+      cpu: "250m"      # Reduced from 500m
+
+# Ingress - K3s Traefik
+ingress:
+  enabled: true
+  className: "traefik"  # K3s default ingress controller
+
+  annotations:
+    traefik.ingress.kubernetes.io/router.entrypoints: web
+
+  hosts:
+    - host: bist-trading.local
+      paths:
+        - path: /
+          pathType: Prefix
+
+  tls: []
+
+# Application configuration
+config:
+  springProfiles: "prod"
+
+  algolab:
+    baseUrl: "https://api.algolab.com.tr"
+    apiVersion: "v2.0"
+    enabled: true
+    connectTimeout: 15000
+    readTimeout: 30000
+
+  security:
+    jwtSecret: "CHANGE_ME_IN_PRODUCTION"
+    corsAllowedOrigins: "http://localhost:3000,http://bist-trading.local"
+    rateLimiting:
+      enabled: true
+      rpm: 60
+
+  features:
+    twoFactorAuth: true
+    kycVerification: true
+    emailVerification: true
+
+  logging:
+    level: INFO
+
+# Secrets
+secrets:
+  algolab:
+    apiKey: "CHANGE_ME"
+    apiSecret: "CHANGE_ME"
+    username: "CHANGE_ME"
+    password: "CHANGE_ME"
+
+  email:
+    fromAddress: "noreply@bisttrading.com"
+
+  sms:
+    senderName: "BISTRADE"
+
+# Service Account
+serviceAccount:
+  create: true
+  name: bist-trading-sa
+
+# Pod Security
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  fsGroup: 1000
+
+# Monitoring
+monitoring:
+  enabled: false  # Disable to save resources on Mac Mini
+  serviceMonitor:
+    enabled: false
+
+# Telegram Bot
+telegram:
+  enabled: false  # Enable if needed
+  botToken: ""

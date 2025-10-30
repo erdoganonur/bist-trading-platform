@@ -1,0 +1,22 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: bist-trading
+
+resources:
+  - namespace.yaml
+  - configmap.yaml
+  - secret.yaml
+  - postgres-statefulset.yaml
+  - redis-statefulset.yaml
+  - backend-deployment.yaml
+  - ingress.yaml
+
+# Common labels
+commonLabels:
+  app.kubernetes.io/name: bist-trading-platform
+  app.kubernetes.io/managed-by: kustomize
+
+# Common annotations
+commonAnnotations:
+  app.kubernetes.io/version: "2.0.0"

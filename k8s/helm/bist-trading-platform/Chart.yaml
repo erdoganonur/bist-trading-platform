@@ -1,0 +1,27 @@
+apiVersion: v2
+name: bist-trading-platform
+description: A Helm chart for BIST Trading Platform - Modern Trading Platform for Borsa Istanbul
+type: application
+version: 2.0.0
+appVersion: "2.0.0"
+
+keywords:
+  - trading
+  - bist
+  - algolab
+  - stock-market
+  - borsa-istanbul
+
+maintainers:
+  - name: BIST Trading Platform Team
+    email: support@bisttrading.com
+
+home: https://github.com/bisttrading/bist-trading-platform
+sources:
+  - https://github.com/bisttrading/bist-trading-platform
+
+dependencies: []
+
+annotations:
+  # Category for Helm Hub
+  category: Trading

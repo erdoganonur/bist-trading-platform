@@ -1,0 +1,187 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: bist-trading-backend
+  namespace: bist-trading
+  labels:
+    app: bist-trading-backend
+    version: v2.0.0
+spec:
+  replicas: 2  # For Mac Mini, start with 2 replicas
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: bist-trading-backend
+  template:
+    metadata:
+      labels:
+        app: bist-trading-backend
+        version: v2.0.0
+    spec:
+      # Init container to wait for database
+      initContainers:
+        - name: wait-for-postgres
+          image: busybox:1.36
+          command:
+            - sh
+            - -c
+            - |
+              until nc -z postgres-service 5432; do
+                echo "Waiting for PostgreSQL..."
+                sleep 2
+              done
+        - name: wait-for-redis
+          image: busybox:1.36
+          command:
+            - sh
+            - -c
+            - |
+              until nc -z redis-service 6379; do
+                echo "Waiting for Redis..."
+                sleep 2
+              done
+      containers:
+        - name: backend
+          image: bist-trading-backend:2.0.0  # Build this with: docker build -t bist-trading-backend:2.0.0 .
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8080
+              name: http
+              protocol: TCP
+          env:
+            # ConfigMap references
+            - name: SPRING_PROFILES_ACTIVE
+              valueFrom:
+                configMapKeyRef:
+                  name: bist-trading-config
+                  key: SPRING_PROFILES_ACTIVE
+            - name: DB_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: bist-trading-config
+                  key: DB_URL
+            - name: DB_USERNAME
+              valueFrom:
+                configMapKeyRef:
+                  name: bist-trading-config
+                  key: DB_USERNAME
+            - name: REDIS_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: bist-trading-config
+                  key: REDIS_HOST
+            - name: REDIS_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: bist-trading-config
+                  key: REDIS_PORT
+
+            # Secret references
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: bist-trading-secret
+                  key: DB_PASSWORD
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: bist-trading-secret
+                  key: REDIS_PASSWORD
+            - name: BIST_SECURITY_JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: bist-trading-secret
+                  key: BIST_SECURITY_JWT_SECRET
+            - name: ALGOLAB_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: bist-trading-secret
+                  key: ALGOLAB_API_KEY
+            - name: ALGOLAB_API_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: bist-trading-secret
+                  key: ALGOLAB_API_SECRET
+
+          resources:
+            requests:
+              memory: "1Gi"
+              cpu: "500m"
+            limits:
+              memory: "2Gi"
+              cpu: "2000m"
+
+          livenessProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: 8080
+            initialDelaySeconds: 90
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+
+          readinessProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: 8080
+            initialDelaySeconds: 60
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+
+          startupProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8080
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 30  # 5 minutes max startup time
+
+      # Graceful shutdown
+      terminationGracePeriodSeconds: 30
+
+      # Security context
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: bist-trading-backend-service
+  namespace: bist-trading
+  labels:
+    app: bist-trading-backend
+spec:
+  type: ClusterIP
+  ports:
+    - port: 8080
+      targetPort: 8080
+      protocol: TCP
+      name: http
+  selector:
+    app: bist-trading-backend
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: bist-trading-backend-loadbalancer
+  namespace: bist-trading
+  labels:
+    app: bist-trading-backend
+spec:
+  type: LoadBalancer  # For Mac Mini with Docker Desktop or K3s with MetalLB
+  ports:
+    - port: 80
+      targetPort: 8080
+      protocol: TCP
+      name: http
+  selector:
+    app: bist-trading-backend

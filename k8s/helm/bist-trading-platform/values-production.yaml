@@ -1,0 +1,191 @@
+# Production Values for BIST Trading Platform
+# Usage: helm install bist-trading ./k8s/helm/bist-trading-platform -f k8s/helm/bist-trading-platform/values-production.yaml
+
+# Global configuration
+global:
+  environment: production
+  region: tr-istanbul
+
+namespace: bist-trading
+
+# Backend - Production configuration
+backend:
+  enabled: true
+  replicaCount: 3  # Multiple replicas for HA
+
+  image:
+    repository: your-registry.io/bist-trading-backend
+    tag: "2.0.0"
+    pullPolicy: Always
+
+  service:
+    type: ClusterIP
+    port: 8080
+    targetPort: 8080
+
+  loadBalancer:
+    enabled: true
+    port: 80
+
+  # Production resource allocation
+  resources:
+    requests:
+      memory: "2Gi"
+      cpu: "1000m"
+    limits:
+      memory: "4Gi"
+      cpu: "3000m"
+
+  # Enable autoscaling for production
+  autoscaling:
+    enabled: true
+    minReplicas: 3
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 70
+    targetMemoryUtilizationPercentage: 80
+
+  livenessProbe:
+    enabled: true
+    path: /actuator/health/liveness
+    initialDelaySeconds: 90
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+
+  readinessProbe:
+    enabled: true
+    path: /actuator/health/readiness
+    initialDelaySeconds: 60
+    periodSeconds: 5
+    timeoutSeconds: 3
+    failureThreshold: 3
+
+  startupProbe:
+    enabled: true
+    path: /actuator/health
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 30
+
+# PostgreSQL - Use external managed database in production
+postgresql:
+  enabled: false  # Use AWS RDS, Azure Database, or similar
+  # If running in-cluster, enable with larger resources
+
+# External PostgreSQL configuration (set via environment)
+# DB_URL: jdbc:postgresql://your-rds-endpoint:5432/bist_trading
+# DB_USERNAME: from secret
+# DB_PASSWORD: from secret
+
+# Redis - Use external managed Redis in production
+redis:
+  enabled: false  # Use AWS ElastiCache, Redis Cloud, or similar
+  # If running in-cluster, enable with persistence and clustering
+
+# External Redis configuration (set via environment)
+# REDIS_HOST: your-elasticache-endpoint
+# REDIS_PORT: 6379
+# REDIS_PASSWORD: from secret
+
+# Ingress - Production with TLS
+ingress:
+  enabled: true
+  className: "nginx"  # Or "traefik" depending on cluster
+
+  annotations:
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/proxy-body-size: "50m"
+    nginx.ingress.kubernetes.io/enable-cors: "true"
+    nginx.ingress.kubernetes.io/cors-allow-methods: "GET, POST, PUT, DELETE, OPTIONS, PATCH"
+    nginx.ingress.kubernetes.io/limit-rps: "100"
+    nginx.ingress.kubernetes.io/rate-limit: "100"
+
+  hosts:
+    - host: api.bisttrading.com
+      paths:
+        - path: /
+          pathType: Prefix
+        - path: /api
+          pathType: Prefix
+        - path: /actuator
+          pathType: Prefix
+        - path: /swagger-ui
+          pathType: Prefix
+
+  tls:
+    - secretName: bist-trading-tls
+      hosts:
+        - api.bisttrading.com
+
+# Application configuration
+config:
+  springProfiles: "prod"
+
+  algolab:
+    baseUrl: "https://api.algolab.com.tr"
+    apiVersion: "v2.0"
+    enabled: true
+    connectTimeout: 15000
+    readTimeout: 30000
+
+  security:
+    jwtSecret: ""  # Set via external secret
+    corsAllowedOrigins: "https://bisttrading.com,https://app.bisttrading.com"
+    rateLimiting:
+      enabled: true
+      rpm: 100
+
+  features:
+    twoFactorAuth: true
+    kycVerification: true
+    emailVerification: true
+
+  logging:
+    level: INFO
+
+# Secrets - Should be managed by External Secrets Operator or Sealed Secrets
+secrets:
+  algolab:
+    apiKey: ""  # Managed externally
+    apiSecret: ""
+    username: ""
+    password: ""
+
+  email:
+    fromAddress: "noreply@bisttrading.com"
+
+  sms:
+    senderName: "BISTRADE"
+
+# Service Account
+serviceAccount:
+  create: true
+  name: bist-trading-sa
+  annotations:
+    # For AWS IRSA
+    # eks.amazonaws.com/role-arn: arn:aws:iam::ACCOUNT_ID:role/bist-trading-role
+
+# Pod Security
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  fsGroup: 1000
+
+# Network Policy
+networkPolicy:
+  enabled: true
+
+# Monitoring - Enable in production
+monitoring:
+  enabled: true
+  serviceMonitor:
+    enabled: true
+    interval: 30s
+    path: /actuator/prometheus
+
+# Telegram Bot
+telegram:
+  enabled: true
+  botToken: ""  # Set via external secret

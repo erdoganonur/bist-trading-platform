@@ -1,0 +1,66 @@
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: bist-trading-ingress
+  namespace: bist-trading
+  annotations:
+    # Nginx Ingress Controller annotations
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/ssl-redirect: "false"
+    nginx.ingress.kubernetes.io/proxy-body-size: "50m"
+    nginx.ingress.kubernetes.io/proxy-connect-timeout: "60"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "60"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "60"
+
+    # CORS configuration
+    nginx.ingress.kubernetes.io/enable-cors: "true"
+    nginx.ingress.kubernetes.io/cors-allow-methods: "GET, POST, PUT, DELETE, OPTIONS, PATCH"
+    nginx.ingress.kubernetes.io/cors-allow-origin: "http://localhost:3000, https://bisttrading.com"
+    nginx.ingress.kubernetes.io/cors-allow-credentials: "true"
+
+    # Rate limiting
+    nginx.ingress.kubernetes.io/limit-rps: "60"
+
+    # WebSocket support
+    nginx.ingress.kubernetes.io/websocket-services: "bist-trading-backend-service"
+
+spec:
+  ingressClassName: nginx  # Or "traefik" for K3s default
+  rules:
+    - host: bist-trading.local  # Add to /etc/hosts: 127.0.0.1 bist-trading.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: bist-trading-backend-service
+                port:
+                  number: 8080
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: bist-trading-backend-service
+                port:
+                  number: 8080
+          - path: /actuator
+            pathType: Prefix
+            backend:
+              service:
+                name: bist-trading-backend-service
+                port:
+                  number: 8080
+          - path: /swagger-ui
+            pathType: Prefix
+            backend:
+              service:
+                name: bist-trading-backend-service
+                port:
+                  number: 8080
+  # TLS configuration (optional)
+  # tls:
+  #   - hosts:
+  #       - bist-trading.local
+  #     secretName: bist-trading-tls
