@@ -1,5 +1,6 @@
 package com.bisttrading.telegram.dto;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -16,6 +17,7 @@ import java.time.LocalDateTime;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class TelegramUserSession implements Serializable {
 
     private static final long serialVersionUID = 1L;
@@ -24,6 +26,11 @@ public class TelegramUserSession implements Serializable {
      * Telegram user ID
      */
     private Long telegramUserId;
+
+    /**
+     * Telegram chat ID (for sending messages)
+     */
+    private Long chatId;
 
     /**
      * Platform user ID (after login)
@@ -49,6 +56,16 @@ public class TelegramUserSession implements Serializable {
      * AlgoLab authentication status
      */
     private boolean algoLabAuthenticated;
+
+    /**
+     * AlgoLab authentication token
+     */
+    private String algoLabToken;
+
+    /**
+     * AlgoLab authentication hash
+     */
+    private String algoLabHash;
 
     /**
      * AlgoLab session expiration
@@ -88,6 +105,29 @@ public class TelegramUserSession implements Serializable {
         if (!algoLabAuthenticated || algoLabSessionExpires == null) {
             return false;
         }
+        if (algoLabToken == null || algoLabHash == null) {
+            return false;
+        }
         return LocalDateTime.now().isBefore(algoLabSessionExpires);
+    }
+
+    /**
+     * Set AlgoLab session data
+     */
+    public void setAlgoLabSession(String token, String hash, LocalDateTime expiresAt) {
+        this.algoLabToken = token;
+        this.algoLabHash = hash;
+        this.algoLabSessionExpires = expiresAt;
+        this.algoLabAuthenticated = true;
+    }
+
+    /**
+     * Clear AlgoLab session
+     */
+    public void clearAlgoLabSession() {
+        this.algoLabToken = null;
+        this.algoLabHash = null;
+        this.algoLabSessionExpires = null;
+        this.algoLabAuthenticated = false;
     }
 }

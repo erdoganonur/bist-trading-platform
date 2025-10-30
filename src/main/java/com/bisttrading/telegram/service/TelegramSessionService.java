@@ -3,6 +3,7 @@ package com.bisttrading.telegram.service;
 import com.bisttrading.telegram.config.TelegramBotProperties;
 import com.bisttrading.telegram.dto.ConversationState;
 import com.bisttrading.telegram.dto.TelegramUserSession;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.RedisTemplate;
@@ -24,6 +25,7 @@ public class TelegramSessionService {
 
     private final RedisTemplate<String, Object> telegramRedisTemplate;
     private final TelegramBotProperties properties;
+    private final ObjectMapper objectMapper;
 
     private static final String SESSION_PREFIX = "telegram:session:";
     private static final String CONVERSATION_PREFIX = "telegram:conversation:";
@@ -51,15 +53,37 @@ public class TelegramSessionService {
      */
     public Optional<TelegramUserSession> getSession(Long telegramUserId) {
         String key = SESSION_PREFIX + telegramUserId;
-        TelegramUserSession session = (TelegramUserSession) telegramRedisTemplate.opsForValue().get(key);
+        Object value = telegramRedisTemplate.opsForValue().get(key);
 
-        if (session != null) {
+        if (value == null) {
+            return Optional.empty();
+        }
+
+        try {
+            TelegramUserSession session;
+
+            // Handle both TelegramUserSession and LinkedHashMap (from JSON deserialization)
+            if (value instanceof TelegramUserSession) {
+                session = (TelegramUserSession) value;
+            } else if (value instanceof Map) {
+                // Convert LinkedHashMap to TelegramUserSession using ObjectMapper
+                session = objectMapper.convertValue(value, TelegramUserSession.class);
+            } else {
+                log.warn("Unexpected session type for user {}: {}", telegramUserId, value.getClass());
+                return Optional.empty();
+            }
+
             session.updateLastActivity();
             // Update session in Redis to refresh TTL
             saveSession(session);
-        }
 
-        return Optional.ofNullable(session);
+            return Optional.of(session);
+        } catch (Exception e) {
+            log.error("Failed to deserialize session for user {}: {}", telegramUserId, e.getMessage(), e);
+            // Clear corrupted session
+            telegramRedisTemplate.delete(key);
+            return Optional.empty();
+        }
     }
 
     /**
@@ -106,7 +130,8 @@ public class TelegramSessionService {
      */
     public void setConversationState(Long telegramUserId, ConversationState state) {
         String key = CONVERSATION_PREFIX + telegramUserId + ":state";
-        telegramRedisTemplate.opsForValue().set(key, state, 10, TimeUnit.MINUTES);
+        // Store as String to avoid deserialization issues
+        telegramRedisTemplate.opsForValue().set(key, state.name(), 10, TimeUnit.MINUTES);
         log.debug("Conversation state set for user {}: {}", telegramUserId, state);
     }
 
@@ -115,8 +140,20 @@ public class TelegramSessionService {
      */
     public ConversationState getConversationState(Long telegramUserId) {
         String key = CONVERSATION_PREFIX + telegramUserId + ":state";
-        ConversationState state = (ConversationState) telegramRedisTemplate.opsForValue().get(key);
-        return state != null ? state : ConversationState.NONE;
+        Object value = telegramRedisTemplate.opsForValue().get(key);
+
+        if (value == null) {
+            return ConversationState.NONE;
+        }
+
+        try {
+            // Handle both String and enum stored values
+            String stateName = value.toString();
+            return ConversationState.valueOf(stateName);
+        } catch (IllegalArgumentException e) {
+            log.warn("Invalid conversation state for user {}: {}", telegramUserId, value);
+            return ConversationState.NONE;
+        }
     }
 
     /**
@@ -229,5 +266,94 @@ public class TelegramSessionService {
      */
     public Optional<String> getPlatformUserId(Long telegramUserId) {
         return getSession(telegramUserId).map(TelegramUserSession::getPlatformUserId);
+    }
+
+    // =========================================================================
+    // Order Tracking (for notifications)
+    // =========================================================================
+
+    private static final String TRACKED_ORDERS_PREFIX = "telegram:tracked_orders:";
+
+    /**
+     * Set tracked order IDs for a user (for order status monitoring)
+     */
+    public void setTrackedOrderIds(Long telegramUserId, java.util.Set<String> orderIds) {
+        String key = TRACKED_ORDERS_PREFIX + telegramUserId;
+
+        // Clear existing tracked orders
+        telegramRedisTemplate.delete(key);
+
+        // Add new order IDs
+        if (orderIds != null && !orderIds.isEmpty()) {
+            telegramRedisTemplate.opsForSet().add(key, orderIds.toArray());
+            telegramRedisTemplate.expire(key, 24, TimeUnit.HOURS);
+            log.debug("Tracked orders updated for user {}: {} orders", telegramUserId, orderIds.size());
+        }
+    }
+
+    /**
+     * Get tracked order IDs for a user
+     */
+    public java.util.Set<String> getTrackedOrderIds(Long telegramUserId) {
+        String key = TRACKED_ORDERS_PREFIX + telegramUserId;
+        java.util.Set<Object> members = telegramRedisTemplate.opsForSet().members(key);
+
+        if (members == null || members.isEmpty()) {
+            return java.util.Collections.emptySet();
+        }
+
+        // Convert Object set to String set
+        return members.stream()
+            .map(Object::toString)
+            .collect(java.util.stream.Collectors.toSet());
+    }
+
+    /**
+     * Add an order ID to tracked orders
+     */
+    public void addTrackedOrderId(Long telegramUserId, String orderId) {
+        String key = TRACKED_ORDERS_PREFIX + telegramUserId;
+        telegramRedisTemplate.opsForSet().add(key, orderId);
+        telegramRedisTemplate.expire(key, 24, TimeUnit.HOURS);
+    }
+
+    /**
+     * Remove an order ID from tracked orders
+     */
+    public void removeTrackedOrderId(Long telegramUserId, String orderId) {
+        String key = TRACKED_ORDERS_PREFIX + telegramUserId;
+        telegramRedisTemplate.opsForSet().remove(key, orderId);
+    }
+
+    /**
+     * Get all active sessions (for background jobs)
+     */
+    public java.util.List<TelegramUserSession> getAllActiveSessions() {
+        String pattern = SESSION_PREFIX + "*";
+        java.util.Set<String> keys = telegramRedisTemplate.keys(pattern);
+
+        if (keys == null || keys.isEmpty()) {
+            return java.util.Collections.emptyList();
+        }
+
+        java.util.List<TelegramUserSession> sessions = new java.util.ArrayList<>();
+        for (String key : keys) {
+            try {
+                String userIdStr = key.substring(SESSION_PREFIX.length());
+                Long userId = Long.parseLong(userIdStr);
+                getSession(userId).ifPresent(sessions::add);
+            } catch (Exception e) {
+                log.warn("Failed to parse session key: {}", key, e);
+            }
+        }
+
+        return sessions;
+    }
+
+    /**
+     * Get chat ID for a Telegram user ID
+     */
+    public Optional<Long> getChatIdForUser(Long telegramUserId) {
+        return getSession(telegramUserId).map(TelegramUserSession::getChatId);
     }
 }
