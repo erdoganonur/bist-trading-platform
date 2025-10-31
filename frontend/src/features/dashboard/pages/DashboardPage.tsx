@@ -1,16 +1,20 @@
 import { useEffect } from 'react';
-import { Layout, Row, Col, Card, Statistic, Typography, Space, Button, Tag } from 'antd';
-import { ArrowUpOutlined, ArrowDownOutlined, WifiOutlined, DisconnectOutlined } from '@ant-design/icons';
-import { useMarketDataStore, useWebSocketStore } from '@/app/store';
+import { Layout, Row, Col, Card, Statistic, Typography, Space, Button, Tag, Divider } from 'antd';
+import { ArrowUpOutlined, ArrowDownOutlined, WifiOutlined, DisconnectOutlined, UnorderedListOutlined } from '@ant-design/icons';
+import { useNavigate } from 'react-router-dom';
+import { useMarketDataStore, useWebSocketStore, useAlgoLabStore } from '@/app/store';
 import { useAuth } from '@hooks/useAuth';
 import { useWebSocket } from '@hooks/useWebSocket';
+import { AlgoLabStatusButton } from '@features/broker/components';
 
 const { Header, Content } = Layout;
 const { Title, Text } = Typography;
 
 export const DashboardPage = () => {
+  const navigate = useNavigate();
   const { user, logout } = useAuth();
   const { isConnected } = useWebSocketStore();
+  const { isAuthenticated: algoLabAuthenticated } = useAlgoLabStore();
   const { watchlist, ticks } = useMarketDataStore();
   const { subscribeTick, unsubscribeTick } = useWebSocket();
 
@@ -46,6 +50,9 @@ export const DashboardPage = () => {
           >
             {isConnected ? 'Connected' : 'Disconnected'}
           </Tag>
+          <Divider type="vertical" style={{ borderColor: 'rgba(255, 255, 255, 0.3)', height: '32px' }} />
+          <AlgoLabStatusButton />
+          <Divider type="vertical" style={{ borderColor: 'rgba(255, 255, 255, 0.3)', height: '32px' }} />
           <Text style={{ color: 'white' }}>
             Welcome, {user?.username}
           </Text>
@@ -94,12 +101,30 @@ export const DashboardPage = () => {
               </Card>
             </Col>
             <Col span={6}>
-              <Card>
+              <Card
+                hoverable
+                onClick={() => algoLabAuthenticated && navigate('/broker/pending-orders')}
+                style={{ cursor: algoLabAuthenticated ? 'pointer' : 'default' }}
+              >
                 <Statistic
-                  title="Open Orders"
-                  value={5}
+                  title="Bekleyen Emirler"
+                  value={algoLabAuthenticated ? '?' : '-'}
                   valueStyle={{ color: '#1890ff' }}
+                  suffix={
+                    algoLabAuthenticated && (
+                      <UnorderedListOutlined style={{ fontSize: '16px' }} />
+                    )
+                  }
                 />
+                {algoLabAuthenticated && (
+                  <Button
+                    type="link"
+                    size="small"
+                    style={{ padding: 0, marginTop: 8 }}
+                  >
+                    Görüntüle →
+                  </Button>
+                )}
               </Card>
             </Col>
           </Row>

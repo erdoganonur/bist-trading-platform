@@ -1,6 +1,7 @@
 import { createBrowserRouter, Navigate } from 'react-router-dom';
 import { LoginPage } from '@features/auth/pages/LoginPage';
 import { DashboardPage } from '@features/dashboard/pages/DashboardPage';
+import { PendingOrdersPage } from '@features/broker/pages/PendingOrdersPage';
 import { useAuthStore } from './store';
 
 // Protected Route Component
@@ -43,6 +44,14 @@ export const router = createBrowserRouter([
     element: (
       <ProtectedRoute>
         <DashboardPage />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: '/broker/pending-orders',
+    element: (
+      <ProtectedRoute>
+        <PendingOrdersPage />
       </ProtectedRoute>
     ),
   },

@@ -143,3 +143,68 @@ export const useWebSocketStore = create<WebSocketState>()(
     setError: (error) => set({ error }),
   }))
 );
+
+// AlgoLab Broker Store
+interface AlgoLabState {
+  isAuthenticated: boolean;
+  isAuthenticating: boolean;
+  username: string | null;
+  sessionId: string | null;
+  sessionExpiresAt: string | null;
+  websocketConnected: boolean;
+  error: string | null;
+  setAuthenticated: (data: {
+    username: string;
+    sessionId?: string;
+    sessionExpiresAt?: string;
+  }) => void;
+  setAuthenticating: (authenticating: boolean) => void;
+  setWebSocketConnected: (connected: boolean) => void;
+  setError: (error: string | null) => void;
+  clearAlgoLabAuth: () => void;
+}
+
+export const useAlgoLabStore = create<AlgoLabState>()(
+  devtools(
+    persist(
+      (set) => ({
+        isAuthenticated: false,
+        isAuthenticating: false,
+        username: null,
+        sessionId: null,
+        sessionExpiresAt: null,
+        websocketConnected: false,
+        error: null,
+        setAuthenticated: (data) => set({
+          isAuthenticated: true,
+          isAuthenticating: false,
+          username: data.username,
+          sessionId: data.sessionId || null,
+          sessionExpiresAt: data.sessionExpiresAt || null,
+          error: null,
+        }),
+        setAuthenticating: (authenticating) => set({ isAuthenticating: authenticating }),
+        setWebSocketConnected: (connected) => set({ websocketConnected: connected }),
+        setError: (error) => set({ error, isAuthenticating: false }),
+        clearAlgoLabAuth: () => set({
+          isAuthenticated: false,
+          isAuthenticating: false,
+          username: null,
+          sessionId: null,
+          sessionExpiresAt: null,
+          websocketConnected: false,
+          error: null,
+        }),
+      }),
+      {
+        name: 'algolab-storage',
+        partialize: (state) => ({
+          isAuthenticated: state.isAuthenticated,
+          username: state.username,
+          sessionId: state.sessionId,
+          sessionExpiresAt: state.sessionExpiresAt,
+        }),
+      }
+    )
+  )
+);
