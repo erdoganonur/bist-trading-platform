@@ -6,7 +6,7 @@ import {
   ReloadOutlined,
 } from '@ant-design/icons';
 import type { MenuProps } from 'antd';
-import { GridLayout } from '@components/layout';
+import { DashboardLayout, GridLayout } from '@components/layout';
 import {
   PortfolioWidget,
   QuickTradeWidget,
@@ -100,81 +100,83 @@ export const CockpitPage: React.FC = () => {
   ];
 
   return (
-    <div className="h-full overflow-auto">
-      {/* Toolbar */}
-      <div className="sticky top-0 z-10 bg-white border-b border-gray-200 px-4 py-3 mb-4">
-        <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold text-gray-800 m-0">
-            Trading Cockpit
-          </h1>
+    <DashboardLayout>
+      <div className="h-full overflow-auto">
+        {/* Toolbar */}
+        <div className="sticky top-0 z-10 bg-white border-b border-gray-200 px-4 py-3 mb-4">
+          <div className="flex items-center justify-between">
+            <h1 className="text-2xl font-bold text-gray-800 m-0">
+              Trading Cockpit
+            </h1>
 
-          <Space>
-            <Button
-              type={isLocked ? 'default' : 'primary'}
-              icon={<LayoutOutlined />}
-              onClick={() => setIsLocked(!isLocked)}
-            >
-              {isLocked ? 'Unlock Layout' : 'Lock Layout'}
-            </Button>
-
-            <Dropdown menu={{ items: layoutMenuItems }} placement="bottomRight">
-              <Button icon={<LayoutOutlined />}>
-                Layout Presets
+            <Space>
+              <Button
+                type={isLocked ? 'default' : 'primary'}
+                icon={<LayoutOutlined />}
+                onClick={() => setIsLocked(!isLocked)}
+              >
+                {isLocked ? 'Unlock Layout' : 'Lock Layout'}
               </Button>
-            </Dropdown>
 
-            <Button
-              icon={<SaveOutlined />}
-              onClick={handleSaveLayout}
-              disabled={isLocked}
-            >
-              Save Layout
-            </Button>
+              <Dropdown menu={{ items: layoutMenuItems }} placement="bottomRight">
+                <Button icon={<LayoutOutlined />}>
+                  Layout Presets
+                </Button>
+              </Dropdown>
 
-            <Button
-              icon={<ReloadOutlined />}
-              onClick={handleResetLayout}
-            >
-              Reset
-            </Button>
-          </Space>
+              <Button
+                icon={<SaveOutlined />}
+                onClick={handleSaveLayout}
+                disabled={isLocked}
+              >
+                Save Layout
+              </Button>
+
+              <Button
+                icon={<ReloadOutlined />}
+                onClick={handleResetLayout}
+              >
+                Reset
+              </Button>
+            </Space>
+          </div>
+        </div>
+
+        {/* Dashboard Grid */}
+        <div className="px-4 pb-4">
+          <GridLayout
+            layout={layout}
+            onLayoutChange={handleLayoutChange}
+            isDraggable={!isLocked}
+            isResizable={!isLocked}
+          >
+            <div key="portfolio">
+              <PortfolioWidget />
+            </div>
+
+            <div key="chart">
+              <ChartWidget />
+            </div>
+
+            <div key="quickTrade">
+              <QuickTradeWidget />
+            </div>
+
+            <div key="positions">
+              <PositionsWidget />
+            </div>
+
+            <div key="pendingOrders">
+              <PendingOrdersWidget />
+            </div>
+
+            <div key="watchlist">
+              <WatchlistWidget />
+            </div>
+          </GridLayout>
         </div>
       </div>
-
-      {/* Dashboard Grid */}
-      <div className="px-4 pb-4">
-        <GridLayout
-          layout={layout}
-          onLayoutChange={handleLayoutChange}
-          isDraggable={!isLocked}
-          isResizable={!isLocked}
-        >
-          <div key="portfolio">
-            <PortfolioWidget />
-          </div>
-
-          <div key="chart">
-            <ChartWidget />
-          </div>
-
-          <div key="quickTrade">
-            <QuickTradeWidget />
-          </div>
-
-          <div key="positions">
-            <PositionsWidget />
-          </div>
-
-          <div key="pendingOrders">
-            <PendingOrdersWidget />
-          </div>
-
-          <div key="watchlist">
-            <WatchlistWidget />
-          </div>
-        </GridLayout>
-      </div>
-    </div>
+    </DashboardLayout>
   );
 };
 

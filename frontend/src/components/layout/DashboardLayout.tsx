@@ -11,6 +11,7 @@ import {
 import type { MenuProps } from 'antd';
 import { useAuthStore } from '@app/store';
 import { useNavigate } from 'react-router-dom';
+import { AlgoLabStatusButton } from '@features/broker/components';
 
 const { Header, Sider, Content } = Layout;
 
@@ -96,6 +97,9 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, side
 
         {/* Right Section */}
         <Space size="middle">
+          {/* AlgoLab Status */}
+          <AlgoLabStatusButton />
+
           {/* Notifications */}
           <Badge count={0} showZero={false}>
             <Button

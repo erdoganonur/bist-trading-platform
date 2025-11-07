@@ -13,6 +13,7 @@ import { Widget, TradingButton } from '@components/ui';
 import { calculateOrderCost, formatCurrency } from '@utils/formatters';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { brokerApi, symbolApi } from '@services/api';
+import { useAlgoLabStore } from '@app/store';
 
 interface QuickTradeForm {
   symbol: string;
@@ -23,6 +24,7 @@ interface QuickTradeForm {
 }
 
 export const QuickTradeWidget: React.FC = () => {
+  const { isAuthenticated } = useAlgoLabStore();
   const [form] = Form.useForm<QuickTradeForm>();
   const [searchValue, setSearchValue] = useState('');
   const [cost, setCost] = useState<ReturnType<typeof calculateOrderCost> | null>(null);
@@ -92,6 +94,16 @@ export const QuickTradeWidget: React.FC = () => {
       icon={<DollarOutlined />}
       className="h-full"
     >
+      {!isAuthenticated && (
+        <Alert
+          message="AlgoLab Login Required"
+          description="Please login to AlgoLab using the status button in the header to place orders."
+          type="warning"
+          showIcon
+          className="mb-4"
+        />
+      )}
+
       <Form
         form={form}
         layout="vertical"
@@ -101,6 +113,7 @@ export const QuickTradeWidget: React.FC = () => {
           priceType: 'LIMIT',
           lot: 1,
         }}
+        disabled={!isAuthenticated}
       >
         {/* Symbol Search */}
         <Form.Item
