@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { Button, Space, Dropdown } from 'antd';
 import {
   LayoutOutlined,
@@ -49,13 +49,14 @@ const layoutPresets = {
 };
 
 export const CockpitPage: React.FC = () => {
-  const [layout, setLayout] = useState<GridLayoutType[]>(() => {
-    // Clear old layout on component mount to fix overlap issues
-    localStorage.removeItem('cockpit-layout');
-    return defaultLayout;
-  });
-
+  const [layout, setLayout] = useState<GridLayoutType[]>(defaultLayout);
   const [isLocked, setIsLocked] = useState(false);
+
+  // Clear localStorage and force default layout on mount
+  useEffect(() => {
+    localStorage.removeItem('cockpit-layout');
+    setLayout(defaultLayout);
+  }, []);
 
   const handleLayoutChange = useCallback((newLayout: GridLayoutType[]) => {
     setLayout(newLayout);
