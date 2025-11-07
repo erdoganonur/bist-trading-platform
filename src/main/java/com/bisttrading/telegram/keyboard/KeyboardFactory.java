@@ -1,5 +1,6 @@
 package com.bisttrading.telegram.keyboard;
 
+import com.bisttrading.entity.trading.Order;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKeyboardButton;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKeyboardRow;
@@ -116,6 +117,116 @@ public class KeyboardFactory {
                 createButton("🔙 Geri", backTo)
             ))
             .build();
+    }
+
+    /**
+     * Orders menu keyboard
+     */
+    public static InlineKeyboardMarkup createOrdersMenuKeyboard() {
+        return InlineKeyboardMarkup.builder()
+            .keyboardRow(new InlineKeyboardRow(
+                createButton("📋 Bekleyen Emirler", "orders:pending"),
+                createButton("➕ Yeni Emir", "orders:create")
+            ))
+            .keyboardRow(new InlineKeyboardRow(
+                createButton("🔙 Ana Menü", "menu:main")
+            ))
+            .build();
+    }
+
+    /**
+     * Order list keyboard with cancel and modify buttons
+     */
+    public static InlineKeyboardMarkup createOrderListKeyboard(List<Order> orders) {
+        InlineKeyboardMarkup.InlineKeyboardMarkupBuilder builder = InlineKeyboardMarkup.builder();
+
+        for (int i = 0; i < orders.size(); i++) {
+            Order order = orders.get(i);
+            String symbolCode = order.getSymbol() != null ? order.getSymbol().getSymbol() : "N/A";
+
+            // Create two buttons per order: Modify and Cancel
+            builder.keyboardRow(new InlineKeyboardRow(
+                createButton(
+                    String.format("✏️ Düzenle #%d", i + 1),
+                    "orders:modify:" + order.getId()
+                ),
+                createButton(
+                    String.format("❌ İptal #%d", i + 1),
+                    "orders:cancel:" + order.getId()
+                )
+            ));
+        }
+
+        // Add back button
+        builder.keyboardRow(new InlineKeyboardRow(
+            createButton("🔙 Ana Menü", "menu:main")
+        ));
+
+        return builder.build();
+    }
+
+    /**
+     * Order side selection keyboard (Buy/Sell)
+     */
+    public static InlineKeyboardMarkup createOrderSideKeyboard() {
+        return InlineKeyboardMarkup.builder()
+            .keyboardRow(new InlineKeyboardRow(
+                createButton("🟢 ALIS (BUY)", "orders:side:BUY"),
+                createButton("🔴 SATIŞ (SELL)", "orders:side:SELL")
+            ))
+            .keyboardRow(new InlineKeyboardRow(
+                createButton("❌ İptal", "menu:orders")
+            ))
+            .build();
+    }
+
+    /**
+     * Order type selection keyboard (Market/Limit)
+     */
+    public static InlineKeyboardMarkup createOrderTypeKeyboard() {
+        return InlineKeyboardMarkup.builder()
+            .keyboardRow(new InlineKeyboardRow(
+                createButton("💰 PIYASA (MARKET)", "orders:type:MARKET"),
+                createButton("📊 LIMIT", "orders:type:LIMIT")
+            ))
+            .keyboardRow(new InlineKeyboardRow(
+                createButton("❌ İptal", "menu:orders")
+            ))
+            .build();
+    }
+
+    /**
+     * Position action keyboard (Buy/Sell buttons for a specific symbol)
+     */
+    public static InlineKeyboardMarkup createPositionActionKeyboard(String symbol) {
+        return InlineKeyboardMarkup.builder()
+            .keyboardRow(new InlineKeyboardRow(
+                createButton("🟢 AL", "position:buy:" + symbol),
+                createButton("🔴 SAT", "position:sell:" + symbol)
+            ))
+            .build();
+    }
+
+    /**
+     * Positions list keyboard with action buttons for each position
+     */
+    public static InlineKeyboardMarkup createPositionsKeyboard(java.util.List<String> symbols) {
+        InlineKeyboardMarkup.InlineKeyboardMarkupBuilder builder = InlineKeyboardMarkup.builder();
+
+        // Add buy/sell buttons for each symbol
+        for (String symbol : symbols) {
+            builder.keyboardRow(new InlineKeyboardRow(
+                createButton("🟢 AL " + symbol, "position:buy:" + symbol),
+                createButton("🔴 SAT " + symbol, "position:sell:" + symbol)
+            ));
+        }
+
+        // Add back button
+        builder.keyboardRow(new InlineKeyboardRow(
+            createButton("🔙 Broker Menüsü", "menu:broker")
+        ));
+
+        return builder.build();
     }
 
     /**

@@ -37,14 +37,31 @@ public abstract class BaseCommandHandler implements CommandHandler {
      * Send a message with inline keyboard
      */
     protected void sendMessage(Long chatId, String text, InlineKeyboardMarkup keyboard) throws TelegramApiException {
-        SendMessage message = SendMessage.builder()
+        log.debug("Sending message with keyboard - keyboard null: {}, keyboard rows: {}",
+            keyboard == null,
+            keyboard == null ? 0 : (keyboard.getKeyboard() == null ? 0 : keyboard.getKeyboard().size()));
+
+        if (keyboard != null && keyboard.getKeyboard() != null) {
+            for (int i = 0; i < keyboard.getKeyboard().size(); i++) {
+                var row = keyboard.getKeyboard().get(i);
+                log.debug("  Row {}: {} buttons", i, row.size());
+                for (var button : row) {
+                    log.debug("    Button: text='{}', callback='{}'", button.getText(), button.getCallbackData());
+                }
+            }
+        }
+
+        SendMessage.SendMessageBuilder messageBuilder = SendMessage.builder()
             .chatId(chatId.toString())
             .text(text)
-            .parseMode("Markdown")
-            .replyMarkup(keyboard)
-            .build();
+            .parseMode("Markdown");
 
-        telegramClient.execute(message);
+        if (keyboard != null) {
+            messageBuilder.replyMarkup(keyboard);
+        }
+
+        var result = telegramClient.execute(messageBuilder.build());
+        log.debug("Message sent successfully, messageId: {}", result.getMessageId());
     }
 
     /**

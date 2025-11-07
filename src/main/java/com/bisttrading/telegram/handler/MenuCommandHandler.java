@@ -39,8 +39,78 @@ public class MenuCommandHandler extends BaseCommandHandler {
 
         boolean isLoggedIn = isAuthenticated(userId);
 
+        // Handle callback query (button clicks)
+        if (update.hasCallbackQuery()) {
+            String callbackData = update.getCallbackQuery().getData();
+            String[] parts = callbackData.split(":");
+
+            if (parts.length > 1) {
+                String action = parts[1];
+                handleMenuAction(chatId, userId, action, isLoggedIn);
+                return;
+            }
+        }
+
+        // Show main menu (from /menu command)
         String menuMessage = buildMenuMessage(isLoggedIn);
         sendMessage(chatId, menuMessage, KeyboardFactory.createMainMenuKeyboard(isLoggedIn));
+    }
+
+    /**
+     * Handle menu action from callback query
+     */
+    private void handleMenuAction(Long chatId, Long userId, String action, boolean isLoggedIn)
+            throws TelegramApiException {
+
+        log.debug("Handling menu action: {} for user: {}", action, userId);
+
+        switch (action) {
+            case "main" -> {
+                // Show main menu
+                String menuMessage = buildMenuMessage(isLoggedIn);
+                sendMessage(chatId, menuMessage, KeyboardFactory.createMainMenuKeyboard(isLoggedIn));
+            }
+            case "market" -> {
+                // Show market data menu
+                sendMessage(chatId,
+                    "*📊 Piyasa Verileri*\n\nHisse bilgilerini görüntülemek için aşağıdaki seçeneklerden birini seçin:",
+                    KeyboardFactory.createMarketDataKeyboard());
+            }
+            case "broker" -> {
+                // Show broker menu
+                boolean algoLabConnected = sessionService.getSession(userId)
+                    .map(session -> session.isAlgoLabSessionValid())
+                    .orElse(false);
+
+                sendMessage(chatId,
+                    "*💼 Broker*\n\nBroker işlemleriniz için aşağıdaki seçenekleri kullanabilirsiniz:",
+                    KeyboardFactory.createBrokerKeyboard(algoLabConnected));
+            }
+            case "logout" -> {
+                // Handle logout
+                sessionService.logout(userId);
+                sendMessage(chatId,
+                    "*🚪 Çıkış Yapıldı*\n\nBaşarıyla çıkış yaptınız.\n\nTekrar giriş yapmak için /login komutunu kullanabilirsiniz.",
+                    KeyboardFactory.createMainMenuKeyboard(false));
+            }
+            case "orders" -> {
+                // Show orders menu with pending orders option
+                sendMessage(chatId,
+                    "*📋 Emirler*\n\nEmir işlemleri için aşağıdaki seçenekleri kullanabilirsiniz:",
+                    KeyboardFactory.createOrdersMenuKeyboard());
+            }
+            case "watchlist", "profile", "settings" -> {
+                // Not implemented yet
+                sendMessage(chatId,
+                    "*⚠️ Geliştirme Aşamasında*\n\nBu özellik henüz geliştirilmektedir. Lütfen daha sonra tekrar deneyin.",
+                    KeyboardFactory.createBackButton("menu:main"));
+            }
+            default -> {
+                log.warn("Unknown menu action: {}", action);
+                sendMessage(chatId, "Bilinmeyen işlem. Ana menüye dönülüyor...",
+                    KeyboardFactory.createMainMenuKeyboard(isLoggedIn));
+            }
+        }
     }
 
     /**

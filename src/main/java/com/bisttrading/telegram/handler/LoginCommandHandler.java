@@ -58,6 +58,14 @@ public class LoginCommandHandler extends BaseCommandHandler {
         // Check conversation state
         ConversationState state = sessionService.getConversationState(userId);
 
+        // Handle callback query (button click)
+        if (update.hasCallbackQuery()) {
+            log.debug("Login handler: Starting login flow from callback query for user: {}", userId);
+            startLoginFlow(chatId, userId);
+            return;
+        }
+
+        // Handle text messages
         if (update.hasMessage() && update.getMessage().hasText()) {
             String text = update.getMessage().getText();
 

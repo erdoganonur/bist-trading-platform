@@ -1,7 +1,9 @@
 package com.bisttrading.telegram.bot;
 
 import com.bisttrading.telegram.config.TelegramBotProperties;
+import com.bisttrading.telegram.dto.ConversationState;
 import com.bisttrading.telegram.handler.CommandHandler;
+import com.bisttrading.telegram.service.TelegramSessionService;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -32,6 +34,7 @@ public class BistTelegramBot implements LongPollingSingleThreadUpdateConsumer {
     private final TelegramClient telegramClient;
     private final TelegramBotProperties properties;
     private final List<CommandHandler> handlers;
+    private final TelegramSessionService sessionService;
 
     private Map<String, CommandHandler> commandHandlers;
 
@@ -114,14 +117,41 @@ public class BistTelegramBot implements LongPollingSingleThreadUpdateConsumer {
                     "Kullanılabilir komutları görmek için: /help");
             }
         } else {
-            // Handle non-command text (conversation flows are handled by individual handlers)
+            // Handle non-command text (conversation flows)
             log.debug("Non-command text received from user {}: {}", userId, text);
 
-            // Try to find handler that can process this text (for conversation flows)
-            // For now, we'll check if login handler wants to handle it
-            CommandHandler loginHandler = commandHandlers.get("login");
-            if (loginHandler != null) {
-                loginHandler.handle(update);
+            // Get user's conversation state to route to correct handler
+            ConversationState state = sessionService.getConversationState(userId);
+
+            // Route based on conversation state
+            CommandHandler targetHandler = null;
+
+            if (state == ConversationState.WAITING_ALGOLAB_USERNAME ||
+                state == ConversationState.WAITING_ALGOLAB_PASSWORD ||
+                state == ConversationState.WAITING_ALGOLAB_OTP) {
+                targetHandler = commandHandlers.get("broker");
+            } else if (state == ConversationState.WAITING_ORDER_SYMBOL ||
+                       state == ConversationState.WAITING_ORDER_SIDE ||
+                       state == ConversationState.WAITING_ORDER_PRICE_TYPE ||
+                       state == ConversationState.WAITING_ORDER_QUANTITY ||
+                       state == ConversationState.WAITING_ORDER_PRICE ||
+                       state == ConversationState.WAITING_MODIFY_PRICE ||
+                       state == ConversationState.WAITING_MODIFY_QUANTITY) {
+                targetHandler = commandHandlers.get("orders");
+            } else if (state == ConversationState.WAITING_USERNAME ||
+                       state == ConversationState.WAITING_PASSWORD) {
+                targetHandler = commandHandlers.get("login");
+            } else if (state == ConversationState.WAITING_SEARCH_QUERY) {
+                targetHandler = commandHandlers.get("market");
+            } else {
+                // No active conversation state - ignore or send help
+                log.debug("No active conversation state for user {}, ignoring text: {}", userId, text);
+                return;
+            }
+
+            if (targetHandler != null) {
+                log.info("Routing conversation message to handler: {}", targetHandler.getCommand());
+                targetHandler.handle(update);
             }
         }
     }

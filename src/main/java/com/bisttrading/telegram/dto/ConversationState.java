@@ -61,6 +61,16 @@ public enum ConversationState {
     WAITING_ORDER_QUANTITY,
 
     /**
+     * Order modification - waiting for new price
+     */
+    WAITING_MODIFY_PRICE,
+
+    /**
+     * Order modification - waiting for new quantity
+     */
+    WAITING_MODIFY_QUANTITY,
+
+    /**
      * Symbol search - waiting for search query
      */
     WAITING_SEARCH_QUERY,

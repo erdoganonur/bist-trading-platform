@@ -31,7 +31,7 @@ public class AlgoLabOrderService {
      * @param direction "BUY" veya "SELL"
      * @param priceType "limit" veya "piyasa"
      * @param price Fiyat (limit emri için)
-     * @param lot Lot miktarı (1 lot = 100 hisse)
+     * @param quantity Miktar (adet/hisse sayısı) - Borsa İstanbul pay piyasasında 1 adet = 1 lot
      * @param sms SMS bildirimi
      * @param email Email bildirimi
      * @param subAccount Alt hesap (boş gönderilirse aktif hesap)
@@ -42,12 +42,12 @@ public class AlgoLabOrderService {
         String direction,
         String priceType,
         BigDecimal price,
-        Integer lot,
+        Integer quantity,
         Boolean sms,
         Boolean email,
         String subAccount
     ) {
-        log.info("Sending order: {} {} lot={} price={}", direction, symbol, lot, price);
+        log.info("Sending order: {} {} quantity={} price={}", direction, symbol, quantity, price);
 
         // Convert direction: "0"/0/"BUY" -> "BUY", "1"/1/"SELL" -> "SELL"
         String algolabDirection = normalizeDirection(direction);
@@ -63,7 +63,8 @@ public class AlgoLabOrderService {
         payload.put("pricetype", algolabPriceType);
         // For market orders, price can be empty string or "0"
         payload.put("price", price != null ? price.toString() : "");
-        payload.put("lot", lot.toString());
+        // AlgoLab API expects "lot" key, value is quantity in adet (1 adet = 1 lot in equity market)
+        payload.put("lot", quantity.toString());
         payload.put("sms", sms != null ? sms : false);
         payload.put("email", email != null ? email : false);
         // CRITICAL: Key name is "subAccount" (lowercase 's', uppercase 'A') - matches Python exactly
@@ -86,7 +87,7 @@ public class AlgoLabOrderService {
             return body;
 
         } catch (Exception e) {
-            log.error("SendOrder failed for {} {}", direction, symbol, e);
+            log.error("SendOrder failed for {} {} (quantity: {})", direction, symbol, quantity, e);
             throw e;
         }
     }
@@ -96,7 +97,7 @@ public class AlgoLabOrderService {
      *
      * @param orderId Order ID
      * @param price New price
-     * @param lot New lot (for VIOP, 0 for equity)
+     * @param quantity New quantity (adet/hisse sayısı for equity, contract count for VIOP)
      * @param viop Is VIOP order?
      * @param subAccount Sub account
      * @return Response with modified order details
@@ -104,19 +105,20 @@ public class AlgoLabOrderService {
     public Map<String, Object> modifyOrder(
         String orderId,
         BigDecimal price,
-        Integer lot,
+        Integer quantity,
         Boolean viop,
         String subAccount
     ) {
-        log.info("Modifying order: {} price={} lot={}", orderId, price, lot);
+        log.info("Modifying order: {} price={} quantity={}", orderId, price, quantity);
 
         Map<String, Object> payload = new java.util.LinkedHashMap<>();
         payload.put("id", orderId);
         // Allow null price when only modifying quantity
         payload.put("price", price != null ? price.toString() : "");
-        payload.put("lot", lot != null ? lot.toString() : "0");
+        // AlgoLab API expects "lot" key, value is quantity in adet
+        payload.put("lot", quantity != null ? quantity.toString() : "0");
         payload.put("viop", viop != null ? viop : false);
-        payload.put("Subaccount", subAccount != null ? subAccount : "");
+        payload.put("subAccount", subAccount != null ? subAccount : "");
 
         try {
             ResponseEntity<Map> response = restClient.post(
@@ -152,7 +154,7 @@ public class AlgoLabOrderService {
 
         Map<String, Object> payload = new java.util.LinkedHashMap<>();
         payload.put("id", orderId);
-        payload.put("Subaccount", subAccount != null ? subAccount : "");
+        payload.put("subAccount", subAccount != null ? subAccount : "");
 
         try {
             ResponseEntity<Map> response = restClient.post(
@@ -199,6 +201,19 @@ public class AlgoLabOrderService {
             Map<String, Object> body = response.getBody();
             if (body == null) {
                 throw new AlgoLabApiException("Empty response from InstantPosition", 500);
+            }
+
+            // DEBUG: Log full response to understand structure
+            log.info("🔍 InstantPosition FULL RESPONSE: {}", body);
+            if (body.containsKey("content")) {
+                Object content = body.get("content");
+                if (content instanceof List) {
+                    List<?> contentList = (List<?>) content;
+                    log.info("🔍 Content list size: {}", contentList.size());
+                    if (!contentList.isEmpty()) {
+                        log.info("🔍 First position structure: {}", contentList.get(0));
+                    }
+                }
             }
 
             return body;
