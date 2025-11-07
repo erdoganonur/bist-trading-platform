@@ -66,17 +66,17 @@ export const Widget: React.FC<WidgetProps> = ({
     <Card
       title={
         title && (
-          <div className={`widget-drag-handle flex items-center gap-2 cursor-move ${headerClassName}`}>
+          <div className={`flex items-center gap-2 ${headerClassName}`}>
             {icon}
-            <span className="font-semibold text-base">{title}</span>
+            <span className="font-medium text-sm">{title}</span>
           </div>
         )
       }
       extra={widgetExtra}
       loading={loading}
-      className={`widget shadow-widget hover:shadow-widget-hover transition-shadow ${className}`}
+      className={`widget shadow-sm hover:shadow-md transition-shadow ${className}`}
       bodyStyle={{ padding: '16px' }}
-      headStyle={{ borderBottom: '1px solid var(--color-border-light)' }}
+      headStyle={{ borderBottom: '1px solid #f0f0f0', padding: '12px 16px' }}
     >
       <div className={bodyClassName}>{children}</div>
     </Card>
