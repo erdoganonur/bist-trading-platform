@@ -66,7 +66,7 @@ export const Widget: React.FC<WidgetProps> = ({
     <Card
       title={
         title && (
-          <div className={`flex items-center gap-2 ${headerClassName}`}>
+          <div className={`widget-drag-handle flex items-center gap-2 cursor-move ${headerClassName}`}>
             {icon}
             <span className="font-semibold text-base">{title}</span>
           </div>
