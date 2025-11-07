@@ -12,14 +12,14 @@ import {
 export const CockpitPage: React.FC = () => {
   return (
     <DashboardLayout>
-      <div className="h-full overflow-auto bg-gray-50">
+      <div className="min-h-screen bg-gray-50">
         {/* Header */}
-        <div className="bg-white border-b border-gray-200 px-6 py-4">
+        <div className="bg-white border-b border-gray-200 px-6 py-4 sticky top-0 z-10">
           <h1 className="text-xl font-semibold text-gray-900">Trading Cockpit</h1>
         </div>
 
         {/* Main Grid Layout */}
-        <div className="p-4 space-y-4">
+        <div className="p-4 space-y-4 pb-8">
           {/* Portfolio Summary - Full Width */}
           <div className="w-full">
             <PortfolioWidget />
