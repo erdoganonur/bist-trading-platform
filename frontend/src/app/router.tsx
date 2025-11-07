@@ -2,6 +2,8 @@ import { createBrowserRouter, Navigate } from 'react-router-dom';
 import { LoginPage } from '@features/auth/pages/LoginPage';
 import { DashboardPage } from '@features/dashboard/pages/DashboardPage';
 import { PendingOrdersPage } from '@features/broker/pages/PendingOrdersPage';
+import { CockpitPage } from '@features/cockpit/pages/CockpitPage';
+import { DashboardLayout } from '@components/layout';
 import { useAuthStore } from './store';
 
 // Protected Route Component
@@ -15,12 +17,12 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   return <>{children}</>;
 };
 
-// Public Route Component (redirect to dashboard if already authenticated)
+// Public Route Component (redirect to cockpit if already authenticated)
 const PublicRoute = ({ children }: { children: React.ReactNode }) => {
   const { isAuthenticated } = useAuthStore();
 
   if (isAuthenticated) {
-    return <Navigate to="/dashboard" replace />;
+    return <Navigate to="/cockpit" replace />;
   }
 
   return <>{children}</>;
@@ -29,7 +31,7 @@ const PublicRoute = ({ children }: { children: React.ReactNode }) => {
 export const router = createBrowserRouter([
   {
     path: '/',
-    element: <Navigate to="/dashboard" replace />,
+    element: <Navigate to="/cockpit" replace />,
   },
   {
     path: '/login',
@@ -40,10 +42,22 @@ export const router = createBrowserRouter([
     ),
   },
   {
+    path: '/cockpit',
+    element: (
+      <ProtectedRoute>
+        <DashboardLayout>
+          <CockpitPage />
+        </DashboardLayout>
+      </ProtectedRoute>
+    ),
+  },
+  {
     path: '/dashboard',
     element: (
       <ProtectedRoute>
-        <DashboardPage />
+        <DashboardLayout>
+          <DashboardPage />
+        </DashboardLayout>
       </ProtectedRoute>
     ),
   },
@@ -51,12 +65,14 @@ export const router = createBrowserRouter([
     path: '/broker/pending-orders',
     element: (
       <ProtectedRoute>
-        <PendingOrdersPage />
+        <DashboardLayout>
+          <PendingOrdersPage />
+        </DashboardLayout>
       </ProtectedRoute>
     ),
   },
   {
     path: '*',
-    element: <Navigate to="/dashboard" replace />,
+    element: <Navigate to="/cockpit" replace />,
   },
 ]);
