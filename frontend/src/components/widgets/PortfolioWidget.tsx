@@ -1,23 +1,43 @@
 import React from 'react';
-import { Row, Col, Spin } from 'antd';
+import { Row, Col, Spin, Alert } from 'antd';
 import { DollarOutlined, RiseOutlined, FallOutlined, WalletOutlined } from '@ant-design/icons';
 import { Widget, StatCard } from '@components/ui';
 import { formatCurrency, formatPercent } from '@utils/formatters';
 import { useQuery } from '@tanstack/react-query';
 import { brokerApi } from '@services/api';
+import { useAlgoLabStore } from '@app/store';
 
 export const PortfolioWidget: React.FC = () => {
-  const { data: portfolio, isLoading } = useQuery({
+  const { isAuthenticated } = useAlgoLabStore();
+
+  const { data: portfolio, isLoading, error } = useQuery({
     queryKey: ['portfolio'],
     queryFn: brokerApi.getPortfolio,
     refetchInterval: 5000, // Refresh every 5 seconds
+    enabled: isAuthenticated, // Only fetch when authenticated
+    retry: false,
   });
 
   const { data: account } = useQuery({
     queryKey: ['account'],
     queryFn: brokerApi.getAccountInfo,
     refetchInterval: 10000,
+    enabled: isAuthenticated,
+    retry: false,
   });
+
+  if (!isAuthenticated) {
+    return (
+      <Widget title="Portfolio Summary" icon={<DollarOutlined />}>
+        <Alert
+          message="AlgoLab Login Required"
+          description="Please login to AlgoLab to view your portfolio summary."
+          type="info"
+          showIcon
+        />
+      </Widget>
+    );
+  }
 
   if (isLoading) {
     return (
@@ -25,6 +45,19 @@ export const PortfolioWidget: React.FC = () => {
         <div className="flex justify-center items-center h-32">
           <Spin size="large" />
         </div>
+      </Widget>
+    );
+  }
+
+  if (error) {
+    return (
+      <Widget title="Portfolio Summary" icon={<DollarOutlined />}>
+        <Alert
+          message="Error Loading Portfolio"
+          description="Failed to load portfolio data. Please try again later."
+          type="error"
+          showIcon
+        />
       </Widget>
     );
   }
