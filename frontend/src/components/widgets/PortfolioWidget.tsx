@@ -12,7 +12,14 @@ export const PortfolioWidget: React.FC = () => {
 
   const { data: portfolio, isLoading, error } = useQuery({
     queryKey: ['portfolio'],
-    queryFn: brokerApi.getPortfolio,
+    queryFn: async () => {
+      try {
+        return await brokerApi.getPortfolio();
+      } catch (err: any) {
+        console.error('Portfolio fetch error:', err);
+        throw err;
+      }
+    },
     refetchInterval: 5000, // Refresh every 5 seconds
     enabled: isAuthenticated, // Only fetch when authenticated
     retry: false,
@@ -20,7 +27,14 @@ export const PortfolioWidget: React.FC = () => {
 
   const { data: account } = useQuery({
     queryKey: ['account'],
-    queryFn: brokerApi.getAccountInfo,
+    queryFn: async () => {
+      try {
+        return await brokerApi.getAccountInfo();
+      } catch (err: any) {
+        console.error('Account fetch error:', err);
+        throw err;
+      }
+    },
     refetchInterval: 10000,
     enabled: isAuthenticated,
     retry: false,
@@ -50,11 +64,14 @@ export const PortfolioWidget: React.FC = () => {
   }
 
   if (error) {
+    const errorMessage = (error as any)?.response?.data?.message ||
+                        (error as any)?.message ||
+                        'Failed to load portfolio data. Please try again later.';
     return (
       <Widget title="Portfolio Summary" icon={<DollarOutlined />}>
         <Alert
           message="Error Loading Portfolio"
-          description="Failed to load portfolio data. Please try again later."
+          description={errorMessage}
           type="error"
           showIcon
         />
