@@ -50,8 +50,9 @@ const layoutPresets = {
 
 export const CockpitPage: React.FC = () => {
   const [layout, setLayout] = useState<GridLayoutType[]>(() => {
-    const saved = localStorage.getItem('cockpit-layout');
-    return saved ? JSON.parse(saved) : defaultLayout;
+    // Clear old layout on component mount to fix overlap issues
+    localStorage.removeItem('cockpit-layout');
+    return defaultLayout;
   });
 
   const [isLocked, setIsLocked] = useState(false);
