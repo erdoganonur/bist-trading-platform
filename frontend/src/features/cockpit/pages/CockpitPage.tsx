@@ -1,4 +1,5 @@
 import React from 'react';
+import { CRow, CCol } from '@coreui/react';
 import { DashboardLayout } from '@components/layout';
 import {
   PortfolioWidget,
@@ -12,44 +13,40 @@ import {
 export const CockpitPage: React.FC = () => {
   return (
     <DashboardLayout>
-      <div className="min-h-screen bg-gray-50">
-        {/* Header */}
-        <div className="bg-white border-b border-gray-200 px-6 py-4 sticky top-0 z-10">
-          <h1 className="text-xl font-semibold text-gray-900">Trading Cockpit</h1>
-        </div>
-
-        {/* Main Grid Layout */}
-        <div className="p-4 space-y-4 pb-8">
-          {/* Portfolio Summary - Full Width */}
-          <div className="w-full">
+      <div className="min-vh-100">
+        {/* Portfolio Summary - Full Width */}
+        <CRow className="mb-4">
+          <CCol xs={12}>
             <PortfolioWidget />
-          </div>
+          </CCol>
+        </CRow>
 
-          {/* Chart and Quick Trade - Side by Side */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-            <div className="lg:col-span-2">
-              <ChartWidget />
-            </div>
-            <div className="lg:col-span-1">
-              <QuickTradeWidget />
-            </div>
-          </div>
+        {/* Chart and Quick Trade - Side by Side */}
+        <CRow className="mb-4">
+          <CCol xs={12} lg={8}>
+            <ChartWidget />
+          </CCol>
+          <CCol xs={12} lg={4}>
+            <QuickTradeWidget />
+          </CCol>
+        </CRow>
 
-          {/* Positions and Pending Orders - Side by Side */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <div>
-              <PositionsWidget />
-            </div>
-            <div>
-              <PendingOrdersWidget />
-            </div>
-          </div>
+        {/* Positions and Pending Orders - Side by Side */}
+        <CRow className="mb-4">
+          <CCol xs={12} lg={6}>
+            <PositionsWidget />
+          </CCol>
+          <CCol xs={12} lg={6}>
+            <PendingOrdersWidget />
+          </CCol>
+        </CRow>
 
-          {/* Watchlist - Full Width */}
-          <div className="w-full">
+        {/* Watchlist - Full Width */}
+        <CRow className="mb-4">
+          <CCol xs={12}>
             <WatchlistWidget />
-          </div>
-        </div>
+          </CCol>
+        </CRow>
       </div>
     </DashboardLayout>
   );

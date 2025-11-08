@@ -1,6 +1,7 @@
 import React from 'react';
-import { Row, Col, Spin, Alert } from 'antd';
-import { DollarOutlined, RiseOutlined, FallOutlined, WalletOutlined } from '@ant-design/icons';
+import { CRow, CCol, CAlert, CSpinner } from '@coreui/react';
+import { cilDollar, cilArrowTop, cilArrowBottom, cilWallet } from '@coreui/icons';
+import CIcon from '@coreui/icons-react';
 import { Widget, StatCard } from '@components/ui';
 import { formatCurrency, formatPercent } from '@utils/formatters';
 import { useQuery } from '@tanstack/react-query';
@@ -20,8 +21,8 @@ export const PortfolioWidget: React.FC = () => {
         throw err;
       }
     },
-    refetchInterval: 5000, // Refresh every 5 seconds
-    enabled: isAuthenticated, // Only fetch when authenticated
+    refetchInterval: 5000,
+    enabled: isAuthenticated,
     retry: false,
   });
 
@@ -42,13 +43,11 @@ export const PortfolioWidget: React.FC = () => {
 
   if (!isAuthenticated) {
     return (
-      <Widget title="Portfolio Summary" icon={<DollarOutlined />}>
-        <Alert
-          message="AlgoLab Login Required"
-          description="Please login to AlgoLab to view your portfolio summary."
-          type="info"
-          showIcon
-        />
+      <Widget title="Portfolio Summary" icon={<CIcon icon={cilDollar} />}>
+        <CAlert color="info">
+          <strong>AlgoLab Login Required</strong>
+          <p className="mb-0 mt-1">Please login to AlgoLab to view your portfolio summary.</p>
+        </CAlert>
       </Widget>
     );
   }
@@ -56,8 +55,8 @@ export const PortfolioWidget: React.FC = () => {
   if (isLoading) {
     return (
       <Widget title="Portfolio Summary">
-        <div className="flex justify-center items-center h-32">
-          <Spin size="large" />
+        <div className="d-flex justify-content-center align-items-center" style={{ minHeight: '128px' }}>
+          <CSpinner color="primary" />
         </div>
       </Widget>
     );
@@ -68,13 +67,11 @@ export const PortfolioWidget: React.FC = () => {
                         (error as any)?.message ||
                         'Failed to load portfolio data. Please try again later.';
     return (
-      <Widget title="Portfolio Summary" icon={<DollarOutlined />}>
-        <Alert
-          message="Error Loading Portfolio"
-          description={errorMessage}
-          type="error"
-          showIcon
-        />
+      <Widget title="Portfolio Summary" icon={<CIcon icon={cilDollar} />}>
+        <CAlert color="danger">
+          <strong>Error Loading Portfolio</strong>
+          <p className="mb-0 mt-1">{errorMessage}</p>
+        </CAlert>
       </Widget>
     );
   }
@@ -85,46 +82,46 @@ export const PortfolioWidget: React.FC = () => {
   const buyingPower = account?.availableBalance || 0;
 
   return (
-    <Widget title="Portfolio Summary" icon={<DollarOutlined />}>
-      <Row gutter={[16, 16]}>
-        <Col xs={24} sm={12} lg={6}>
+    <Widget title="Portfolio Summary" icon={<CIcon icon={cilDollar} />}>
+      <CRow className="g-3">
+        <CCol xs={12} sm={6} lg={3}>
           <StatCard
             title="Portfolio Value"
             value={formatCurrency(totalValue)}
-            icon={<WalletOutlined />}
+            icon={<CIcon icon={cilWallet} />}
             valueStyle={{ color: '#667eea' }}
           />
-        </Col>
+        </CCol>
 
-        <Col xs={24} sm={12} lg={6}>
+        <CCol xs={12} sm={6} lg={3}>
           <StatCard
             title="Day P&L"
             value={formatCurrency(dayPL)}
             trend={dayPL >= 0 ? 'up' : 'down'}
             trendValue={formatPercent(dayPLPercent)}
-            icon={dayPL >= 0 ? <RiseOutlined /> : <FallOutlined />}
+            icon={dayPL >= 0 ? <CIcon icon={cilArrowTop} /> : <CIcon icon={cilArrowBottom} />}
             valueStyle={{ color: dayPL >= 0 ? '#52c41a' : '#ff4d4f' }}
           />
-        </Col>
+        </CCol>
 
-        <Col xs={24} sm={12} lg={6}>
+        <CCol xs={12} sm={6} lg={3}>
           <StatCard
             title="Day P&L %"
             value={formatPercent(dayPLPercent)}
             trend={dayPLPercent >= 0 ? 'up' : 'down'}
             valueStyle={{ color: dayPLPercent >= 0 ? '#52c41a' : '#ff4d4f' }}
           />
-        </Col>
+        </CCol>
 
-        <Col xs={24} sm={12} lg={6}>
+        <CCol xs={12} sm={6} lg={3}>
           <StatCard
             title="Buying Power"
             value={formatCurrency(buyingPower)}
-            icon={<DollarOutlined />}
+            icon={<CIcon icon={cilDollar} />}
             valueStyle={{ color: '#52c41a' }}
           />
-        </Col>
-      </Row>
+        </CCol>
+      </CRow>
     </Widget>
   );
 };

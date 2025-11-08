@@ -1,4 +1,5 @@
 @import 'tailwindcss';
+@import '@coreui/coreui/dist/css/coreui.min.css';
 
 /* Custom CSS Variables */
 :root {
