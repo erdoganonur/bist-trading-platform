@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Select, Space } from 'antd';
-import { LineChartOutlined } from '@ant-design/icons';
+import { CFormSelect } from '@coreui/react';
+import { cilChart } from '@coreui/icons';
+import CIcon from '@coreui/icons-react';
 import { createChart, type IChartApi, type CandlestickData } from 'lightweight-charts';
 import { Widget } from '@components/ui';
 import { useQuery } from '@tanstack/react-query';
@@ -98,38 +99,40 @@ export const ChartWidget: React.FC = () => {
   return (
     <Widget
       title="Price Chart"
-      icon={<LineChartOutlined />}
+      icon={<CIcon icon={cilChart} />}
       extra={
-        <Space>
-          <Select
+        <div className="d-flex gap-2">
+          <CFormSelect
+            size="sm"
             value={timeframe}
-            onChange={setTimeframe}
-            options={timeframes}
-            size="small"
+            onChange={(e) => setTimeframe(e.target.value)}
             style={{ width: 100 }}
-          />
-          <Select
+          >
+            {timeframes.map((tf) => (
+              <option key={tf.value} value={tf.value}>
+                {tf.label}
+              </option>
+            ))}
+          </CFormSelect>
+          <CFormSelect
+            size="sm"
             value={symbol}
-            onChange={setSymbol}
-            size="small"
+            onChange={(e) => setSymbol(e.target.value)}
             style={{ width: 120 }}
-            showSearch
-            placeholder="Symbol"
-            options={[
-              { value: 'AKBNK', label: 'AKBNK' },
-              { value: 'THYAO', label: 'THYAO' },
-              { value: 'GARAN', label: 'GARAN' },
-              { value: 'ISCTR', label: 'ISCTR' },
-              { value: 'EREGL', label: 'EREGL' },
-            ]}
-          />
-        </Space>
+          >
+            <option value="AKBNK">AKBNK</option>
+            <option value="THYAO">THYAO</option>
+            <option value="GARAN">GARAN</option>
+            <option value="ISCTR">ISCTR</option>
+            <option value="EREGL">EREGL</option>
+          </CFormSelect>
+        </div>
       }
       loading={isLoading}
     >
       <div
         ref={chartContainerRef}
-        className="w-full"
+        className="w-100"
         style={{ minHeight: 400 }}
       />
     </Widget>
