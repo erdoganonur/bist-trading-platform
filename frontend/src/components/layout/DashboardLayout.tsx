@@ -70,14 +70,16 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, side
         {/* Header */}
         <CHeader position="sticky" className="mb-4">
           <CContainer fluid>
-            <CHeaderToggler
-              className="ps-1"
-              onClick={() => setSidebarVisible(!sidebarVisible)}
-            >
-              <CIcon icon={cilMenu} size="lg" />
-            </CHeaderToggler>
+            {sider && (
+              <CHeaderToggler
+                className="ps-1"
+                onClick={() => setSidebarVisible(!sidebarVisible)}
+              >
+                <CIcon icon={cilMenu} size="lg" />
+              </CHeaderToggler>
+            )}
 
-            <CHeaderBrand className="mx-auto d-md-none">
+            <CHeaderBrand className={sider ? "mx-auto d-md-none" : "me-auto"}>
               <span className="fw-bold">BIST Trading</span>
             </CHeaderBrand>
 
