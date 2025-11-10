@@ -1,18 +1,29 @@
 import React, { type ReactNode, useState } from 'react';
-import { Layout, Button, Space, Avatar, Dropdown, Badge, theme } from 'antd';
 import {
-  MenuFoldOutlined,
-  MenuUnfoldOutlined,
-  BellOutlined,
-  UserOutlined,
-  LogoutOutlined,
-  SettingOutlined,
-} from '@ant-design/icons';
-import type { MenuProps } from 'antd';
+  CContainer,
+  CHeader,
+  CHeaderBrand,
+  CHeaderNav,
+  CHeaderToggler,
+  CNavbarNav,
+  CNavItem,
+  CDropdown,
+  CDropdownToggle,
+  CDropdownMenu,
+  CDropdownItem,
+  CDropdownDivider,
+  CBadge,
+  CAvatar,
+  CSidebar,
+  CSidebarBrand,
+  CSidebarNav,
+  CSidebarToggler,
+} from '@coreui/react';
+import { cilBell, cilMenu, cilAccountLogout, cilSettings, cilUser } from '@coreui/icons';
+import CIcon from '@coreui/icons-react';
 import { useAuthStore } from '@app/store';
 import { useNavigate } from 'react-router-dom';
-
-const { Header, Sider, Content } = Layout;
+import { AlgoLabStatusButton } from '@features/broker/components';
 
 export interface DashboardLayoutProps {
   children: ReactNode;
@@ -20,8 +31,7 @@ export interface DashboardLayoutProps {
 }
 
 export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, sider }) => {
-  const [collapsed, setCollapsed] = useState(false);
-  const { token } = theme.useToken();
+  const [sidebarVisible, setSidebarVisible] = useState(true);
   const { user, clearAuth } = useAuthStore();
   const navigate = useNavigate();
 
@@ -30,129 +40,114 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, side
     navigate('/login');
   };
 
-  const userMenuItems: MenuProps['items'] = [
-    {
-      key: 'profile',
-      label: 'Profile',
-      icon: <UserOutlined />,
-      onClick: () => navigate('/profile'),
-    },
-    {
-      key: 'settings',
-      label: 'Settings',
-      icon: <SettingOutlined />,
-      onClick: () => navigate('/settings'),
-    },
-    {
-      type: 'divider',
-    },
-    {
-      key: 'logout',
-      label: 'Logout',
-      icon: <LogoutOutlined />,
-      danger: true,
-      onClick: handleLogout,
-    },
-  ];
-
   return (
-    <Layout className="min-h-screen">
-      {/* Header */}
-      <Header
-        style={{
-          position: 'fixed',
-          top: 0,
-          zIndex: 1000,
-          width: '100%',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          padding: '0 24px',
-          background: token.colorBgContainer,
-          borderBottom: `1px solid ${token.colorBorderSecondary}`,
-          height: 'var(--header-height)',
-        }}
-      >
-        {/* Left Section */}
-        <div className="flex items-center gap-4">
-          {sider && (
-            <Button
-              type="text"
-              icon={collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
-              onClick={() => setCollapsed(!collapsed)}
-              style={{
-                fontSize: '16px',
-                width: 40,
-                height: 40,
-              }}
-            />
-          )}
-          <div className="flex items-center gap-2">
-            <div className="text-xl font-bold bg-gradient-to-r from-primary-500 to-secondary-500 bg-clip-text text-transparent">
-              BIST Trading
+    <div className="min-vh-100">
+      {/* Sidebar */}
+      {sider && (
+        <CSidebar
+          position="fixed"
+          visible={sidebarVisible}
+          onVisibleChange={(visible) => setSidebarVisible(visible)}
+        >
+          <CSidebarBrand className="d-none d-md-flex">
+            <div className="sidebar-brand-full">
+              <span className="fw-bold">BIST Trading</span>
             </div>
-          </div>
-        </div>
-
-        {/* Right Section */}
-        <Space size="middle">
-          {/* Notifications */}
-          <Badge count={0} showZero={false}>
-            <Button
-              type="text"
-              icon={<BellOutlined style={{ fontSize: '18px' }} />}
-              className="flex items-center justify-center"
-            />
-          </Badge>
-
-          {/* User Menu */}
-          <Dropdown menu={{ items: userMenuItems }} placement="bottomRight" trigger={['click']}>
-            <div className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity">
-              <Avatar size="default" icon={<UserOutlined />} />
-              <span className="font-medium">{user?.username || 'User'}</span>
+            <div className="sidebar-brand-narrow">
+              <span className="fw-bold">BT</span>
             </div>
-          </Dropdown>
-        </Space>
-      </Header>
+          </CSidebarBrand>
+          <CSidebarNav>{sider}</CSidebarNav>
+          <CSidebarToggler
+            className="d-none d-lg-flex"
+            onClick={() => setSidebarVisible(!sidebarVisible)}
+          />
+        </CSidebar>
+      )}
 
-      <Layout style={{ marginTop: 'var(--header-height)' }}>
-        {/* Sidebar */}
-        {sider && (
-          <Sider
-            trigger={null}
-            collapsible
-            collapsed={collapsed}
-            width={240}
-            collapsedWidth={80}
-            style={{
-              overflow: 'auto',
-              height: 'calc(100vh - var(--header-height))',
-              position: 'fixed',
-              left: 0,
-              top: 'var(--header-height)',
-              bottom: 0,
-              background: token.colorBgContainer,
-              borderRight: `1px solid ${token.colorBorderSecondary}`,
-            }}
-          >
-            {sider}
-          </Sider>
-        )}
+      {/* Wrapper */}
+      <div className="wrapper d-flex flex-column min-vh-100">
+        {/* Header */}
+        <CHeader position="sticky" className="mb-4">
+          <CContainer fluid>
+            {sider && (
+              <CHeaderToggler
+                className="ps-1"
+                onClick={() => setSidebarVisible(!sidebarVisible)}
+              >
+                <CIcon icon={cilMenu} size="lg" />
+              </CHeaderToggler>
+            )}
+
+            <CHeaderBrand className={sider ? "mx-auto d-md-none" : "me-auto"}>
+              <span className="fw-bold">BIST Trading</span>
+            </CHeaderBrand>
+
+            <CHeaderNav className="d-none d-md-flex me-auto">
+              <CNavItem>
+                <span className="nav-link fw-bold text-primary">Trading Cockpit</span>
+              </CNavItem>
+            </CHeaderNav>
+
+            <CHeaderNav>
+              {/* AlgoLab Status */}
+              <CNavItem>
+                <AlgoLabStatusButton />
+              </CNavItem>
+
+              {/* Notifications */}
+              <CNavItem>
+                <div className="nav-link position-relative">
+                  <CIcon icon={cilBell} size="lg" />
+                  <CBadge
+                    color="danger"
+                    position="top-end"
+                    shape="rounded-pill"
+                    className="position-absolute top-0 start-100 translate-middle"
+                  >
+                    0
+                  </CBadge>
+                </div>
+              </CNavItem>
+
+              {/* User Dropdown */}
+              <CNavItem>
+                <CDropdown variant="nav-item" alignment="end">
+                  <CDropdownToggle className="py-0" caret={false}>
+                    <CAvatar color="primary" textColor="white" size="md">
+                      {user?.username?.[0]?.toUpperCase() || 'U'}
+                    </CAvatar>
+                  </CDropdownToggle>
+                  <CDropdownMenu className="pt-0">
+                    <CDropdownItem className="bg-light fw-semibold py-2" disabled>
+                      Account
+                    </CDropdownItem>
+                    <CDropdownItem onClick={() => navigate('/profile')}>
+                      <CIcon icon={cilUser} className="me-2" />
+                      Profile
+                    </CDropdownItem>
+                    <CDropdownItem onClick={() => navigate('/settings')}>
+                      <CIcon icon={cilSettings} className="me-2" />
+                      Settings
+                    </CDropdownItem>
+                    <CDropdownDivider />
+                    <CDropdownItem onClick={handleLogout}>
+                      <CIcon icon={cilAccountLogout} className="me-2" />
+                      Logout
+                    </CDropdownItem>
+                  </CDropdownMenu>
+                </CDropdown>
+              </CNavItem>
+            </CHeaderNav>
+          </CContainer>
+        </CHeader>
 
         {/* Main Content */}
-        <Content
-          style={{
-            marginLeft: sider ? (collapsed ? 80 : 240) : 0,
-            padding: '16px',
-            minHeight: 'calc(100vh - var(--header-height))',
-            background: token.colorBgLayout,
-            transition: 'margin-left 0.2s',
-          }}
-        >
-          {children}
-        </Content>
-      </Layout>
-    </Layout>
+        <div className="body flex-grow-1 px-3">
+          <CContainer fluid>{children}</CContainer>
+        </div>
+      </div>
+    </div>
   );
 };
 

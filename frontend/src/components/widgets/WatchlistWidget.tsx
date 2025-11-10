@@ -1,12 +1,27 @@
 import React, { useState } from 'react';
-import { Table, Button, Input, Space, Tag, Empty, Modal, Form } from 'antd';
 import {
-  StarFilled,
-  PlusOutlined,
-  DeleteOutlined,
-  SearchOutlined,
-} from '@ant-design/icons';
-import type { ColumnsType } from 'antd/es/table';
+  CTable,
+  CTableHead,
+  CTableBody,
+  CTableRow,
+  CTableHeaderCell,
+  CTableDataCell,
+  CBadge,
+  CButton,
+  CSpinner,
+  CModal,
+  CModalHeader,
+  CModalTitle,
+  CModalBody,
+  CModalFooter,
+  CForm,
+  CFormLabel,
+  CFormInput,
+  CInputGroup,
+  CInputGroupText,
+} from '@coreui/react';
+import { cilStar, cilPlus, cilTrash, cilMagnifyingGlass } from '@coreui/icons';
+import CIcon from '@coreui/icons-react';
 import { Widget, PriceDisplay } from '@components/ui';
 import { formatCurrency, formatPercent, formatCompactNumber } from '@utils/formatters';
 import { useMarketDataStore } from '@app/store';
@@ -51,7 +66,6 @@ export const WatchlistWidget: React.FC = () => {
     },
   });
 
-  // Enhance watchlist with real-time tick data
   const enhancedWatchlist = React.useMemo(() => {
     if (!watchlist) return [];
 
@@ -72,186 +86,170 @@ export const WatchlistWidget: React.FC = () => {
     });
   }, [watchlist, ticks]);
 
-  const columns: ColumnsType<WatchlistItem> = [
-    {
-      title: 'Symbol',
-      dataIndex: 'symbol',
-      key: 'symbol',
-      fixed: 'left',
-      width: 100,
-      render: (symbol: string, record) => (
-        <div>
-          <div className="font-semibold text-primary-600">{symbol}</div>
-          {record.name && (
-            <div className="text-xs text-gray-500 truncate">{record.name}</div>
-          )}
-        </div>
-      ),
-    },
-    {
-      title: 'Last Price',
-      dataIndex: 'lastPrice',
-      key: 'lastPrice',
-      width: 120,
-      align: 'right',
-      render: (price: number) => (
-        <PriceDisplay value={price} suffix=" ₺" animated />
-      ),
-    },
-    {
-      title: 'Change',
-      dataIndex: 'change',
-      key: 'change',
-      width: 100,
-      align: 'right',
-      render: (change: number) => (
-        <span className={`font-mono ${change >= 0 ? 'text-trading-profit' : 'text-trading-loss'}`}>
-          {change >= 0 ? '+' : ''}{formatCurrency(change)}
-        </span>
-      ),
-    },
-    {
-      title: 'Change %',
-      dataIndex: 'changePercent',
-      key: 'changePercent',
-      width: 100,
-      align: 'right',
-      render: (percent: number) => (
-        <Tag color={percent >= 0 ? 'success' : 'error'} className="font-mono">
-          {formatPercent(percent)}
-        </Tag>
-      ),
-      sorter: (a, b) => a.changePercent - b.changePercent,
-    },
-    {
-      title: 'Volume',
-      dataIndex: 'volume',
-      key: 'volume',
-      width: 100,
-      align: 'right',
-      render: (volume: number) => (
-        <span className="text-gray-600">{formatCompactNumber(volume)}</span>
-      ),
-    },
-    {
-      title: 'Bid',
-      dataIndex: 'bid',
-      key: 'bid',
-      width: 100,
-      align: 'right',
-      render: (bid: number) => (
-        <span className="font-mono text-xs">{formatCurrency(bid)}</span>
-      ),
-    },
-    {
-      title: 'Ask',
-      dataIndex: 'ask',
-      key: 'ask',
-      width: 100,
-      align: 'right',
-      render: (ask: number) => (
-        <span className="font-mono text-xs">{formatCurrency(ask)}</span>
-      ),
-    },
-    {
-      title: 'Actions',
-      key: 'actions',
-      fixed: 'right',
-      width: 80,
-      render: (_, record) => (
-        <Button
-          type="text"
-          size="small"
-          icon={<DeleteOutlined />}
-          danger
-          onClick={() => removeFromWatchlistMutation.mutate(record.symbol)}
-          title="Remove from watchlist"
-        />
-      ),
-    },
-  ];
+  const handleAddSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (searchSymbol.trim()) {
+      addToWatchlistMutation.mutate(searchSymbol.toUpperCase());
+    }
+  };
 
   return (
     <>
       <Widget
         title="Watchlist"
-        icon={<StarFilled className="text-yellow-500" />}
+        icon={<CIcon icon={cilStar} className="text-warning" />}
         extra={
-          <Button
-            type="primary"
-            size="small"
-            icon={<PlusOutlined />}
+          <CButton
+            color="primary"
+            size="sm"
             onClick={() => setAddModalOpen(true)}
           >
+            <CIcon icon={cilPlus} className="me-1" />
             Add Symbol
-          </Button>
+          </CButton>
         }
       >
-        <Table
-          columns={columns}
-          dataSource={enhancedWatchlist}
-          loading={isLoading}
-          rowKey="symbol"
-          size="small"
-          scroll={{ x: 800 }}
-          pagination={false}
-          locale={{
-            emptyText: (
-              <Empty
-                description="No symbols in watchlist"
-                image={Empty.PRESENTED_IMAGE_SIMPLE}
-              >
-                <Button
-                  type="primary"
-                  icon={<PlusOutlined />}
-                  onClick={() => setAddModalOpen(true)}
-                >
-                  Add First Symbol
-                </Button>
-              </Empty>
-            ),
-          }}
-        />
+        {isLoading ? (
+          <div className="text-center py-4">
+            <CSpinner color="primary" />
+          </div>
+        ) : !enhancedWatchlist || enhancedWatchlist.length === 0 ? (
+          <div className="text-center py-4 text-muted">
+            <CIcon icon={cilStar} size="3xl" className="mb-3 opacity-25" />
+            <p className="mb-3">No symbols in watchlist</p>
+            <CButton
+              color="primary"
+              onClick={() => setAddModalOpen(true)}
+            >
+              <CIcon icon={cilPlus} className="me-1" />
+              Add First Symbol
+            </CButton>
+          </div>
+        ) : (
+          <div className="table-responsive">
+            <CTable small hover className="mb-0">
+              <CTableHead>
+                <CTableRow>
+                  <CTableHeaderCell>Symbol</CTableHeaderCell>
+                  <CTableHeaderCell className="text-end">Last Price</CTableHeaderCell>
+                  <CTableHeaderCell className="text-end">Change</CTableHeaderCell>
+                  <CTableHeaderCell className="text-end">Change %</CTableHeaderCell>
+                  <CTableHeaderCell className="text-end">Volume</CTableHeaderCell>
+                  <CTableHeaderCell className="text-end">Bid</CTableHeaderCell>
+                  <CTableHeaderCell className="text-end">Ask</CTableHeaderCell>
+                  <CTableHeaderCell className="text-end">Actions</CTableHeaderCell>
+                </CTableRow>
+              </CTableHead>
+              <CTableBody>
+                {enhancedWatchlist.map((item: WatchlistItem) => (
+                  <CTableRow key={item.symbol}>
+                    <CTableDataCell>
+                      <div>
+                        <div className="fw-semibold text-primary">{item.symbol}</div>
+                        {item.name && (
+                          <div className="small text-muted text-truncate" style={{ maxWidth: 150 }}>
+                            {item.name}
+                          </div>
+                        )}
+                      </div>
+                    </CTableDataCell>
+                    <CTableDataCell className="text-end">
+                      <PriceDisplay value={item.lastPrice} suffix=" ₺" animated />
+                    </CTableDataCell>
+                    <CTableDataCell className="text-end">
+                      <span className={`font-monospace ${item.change >= 0 ? 'text-success' : 'text-danger'}`}>
+                        {item.change >= 0 ? '+' : ''}{formatCurrency(item.change)}
+                      </span>
+                    </CTableDataCell>
+                    <CTableDataCell className="text-end">
+                      <CBadge color={item.changePercent >= 0 ? 'success' : 'danger'} className="font-monospace">
+                        {formatPercent(item.changePercent)}
+                      </CBadge>
+                    </CTableDataCell>
+                    <CTableDataCell className="text-end">
+                      <span className="text-muted small">{formatCompactNumber(item.volume)}</span>
+                    </CTableDataCell>
+                    <CTableDataCell className="text-end">
+                      <span className="font-monospace small">{formatCurrency(item.bid)}</span>
+                    </CTableDataCell>
+                    <CTableDataCell className="text-end">
+                      <span className="font-monospace small">{formatCurrency(item.ask)}</span>
+                    </CTableDataCell>
+                    <CTableDataCell className="text-end">
+                      <CButton
+                        color="danger"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => removeFromWatchlistMutation.mutate(item.symbol)}
+                        title="Remove from watchlist"
+                      >
+                        <CIcon icon={cilTrash} size="sm" />
+                      </CButton>
+                    </CTableDataCell>
+                  </CTableRow>
+                ))}
+              </CTableBody>
+            </CTable>
+          </div>
+        )}
       </Widget>
 
       {/* Add Symbol Modal */}
-      <Modal
-        title="Add Symbol to Watchlist"
-        open={addModalOpen}
-        onCancel={() => {
+      <CModal
+        visible={addModalOpen}
+        onClose={() => {
           setAddModalOpen(false);
           setSearchSymbol('');
         }}
-        footer={null}
       >
-        <Form
-          onFinish={() => addToWatchlistMutation.mutate(searchSymbol.toUpperCase())}
-        >
-          <Form.Item label="Symbol" required>
-            <Input
-              size="large"
-              placeholder="Enter symbol (e.g., AKBNK)"
-              value={searchSymbol}
-              onChange={(e) => setSearchSymbol(e.target.value)}
-              suffix={<SearchOutlined />}
-              onPressEnter={() => addToWatchlistMutation.mutate(searchSymbol.toUpperCase())}
-            />
-          </Form.Item>
-
-          <Form.Item>
-            <Space className="w-full justify-end">
-              <Button onClick={() => setAddModalOpen(false)}>Cancel</Button>
-              <Button
-                type="primary"
-                htmlType="submit"
-                loading={addToWatchlistMutation.isPending}
-              >
-                Add to Watchlist
-              </Button>
-            </Space>
-          </Form.Item>
-        </Form>
-      </Modal>
+        <CModalHeader>
+          <CModalTitle>Add Symbol to Watchlist</CModalTitle>
+        </CModalHeader>
+        <CForm onSubmit={handleAddSubmit}>
+          <CModalBody>
+            <div className="mb-3">
+              <CFormLabel>Symbol</CFormLabel>
+              <CInputGroup>
+                <CFormInput
+                  type="text"
+                  placeholder="Enter symbol (e.g., AKBNK)"
+                  value={searchSymbol}
+                  onChange={(e) => setSearchSymbol(e.target.value)}
+                  required
+                />
+                <CInputGroupText>
+                  <CIcon icon={cilMagnifyingGlass} />
+                </CInputGroupText>
+              </CInputGroup>
+            </div>
+          </CModalBody>
+          <CModalFooter>
+            <CButton
+              color="secondary"
+              onClick={() => {
+                setAddModalOpen(false);
+                setSearchSymbol('');
+              }}
+            >
+              Cancel
+            </CButton>
+            <CButton
+              color="primary"
+              type="submit"
+              disabled={addToWatchlistMutation.isPending}
+            >
+              {addToWatchlistMutation.isPending ? (
+                <>
+                  <CSpinner size="sm" className="me-2" />
+                  Adding...
+                </>
+              ) : (
+                'Add to Watchlist'
+              )}
+            </CButton>
+          </CModalFooter>
+        </CForm>
+      </CModal>
     </>
   );
 };

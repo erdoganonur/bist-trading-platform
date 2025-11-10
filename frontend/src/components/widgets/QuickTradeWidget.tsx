@@ -1,18 +1,21 @@
 import React, { useState, useEffect } from 'react';
 import {
-  Form,
-  InputNumber,
-  Radio,
-  Divider,
-  Alert,
-  AutoComplete,
-  message,
-} from 'antd';
-import { SearchOutlined, DollarOutlined } from '@ant-design/icons';
+  CForm,
+  CFormInput,
+  CFormLabel,
+  CAlert,
+  CButton,
+  CButtonGroup,
+  CInputGroup,
+  CInputGroupText,
+} from '@coreui/react';
+import { cilDollar, cilMagnifyingGlass } from '@coreui/icons';
+import CIcon from '@coreui/icons-react';
 import { Widget, TradingButton } from '@components/ui';
 import { calculateOrderCost, formatCurrency } from '@utils/formatters';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { brokerApi, symbolApi } from '@services/api';
+import { useAlgoLabStore } from '@app/store';
 
 interface QuickTradeForm {
   symbol: string;
@@ -23,14 +26,15 @@ interface QuickTradeForm {
 }
 
 export const QuickTradeWidget: React.FC = () => {
-  const [form] = Form.useForm<QuickTradeForm>();
+  const { isAuthenticated } = useAlgoLabStore();
   const [searchValue, setSearchValue] = useState('');
+  const [symbol, setSymbol] = useState('');
+  const [side, setSide] = useState<'BUY' | 'SELL'>('BUY');
+  const [priceType, setPriceType] = useState<'LIMIT' | 'MARKET'>('LIMIT');
+  const [price, setPrice] = useState<number>(0);
+  const [lot, setLot] = useState<number>(1);
   const [cost, setCost] = useState<ReturnType<typeof calculateOrderCost> | null>(null);
-
-  const side = Form.useWatch('side', form) || 'BUY';
-  const priceType = Form.useWatch('priceType', form) || 'LIMIT';
-  const price = Form.useWatch('price', form) || 0;
-  const lot = Form.useWatch('lot', form) || 0;
+  const [toast, setToast] = useState<{ type: 'success' | 'danger'; message: string } | null>(null);
 
   // Search symbols
   const { data: symbols } = useQuery({
@@ -43,12 +47,14 @@ export const QuickTradeWidget: React.FC = () => {
   const placeOrderMutation = useMutation({
     mutationFn: brokerApi.placeOrder,
     onSuccess: () => {
-      message.success('Order placed successfully!');
-      form.resetFields();
+      setToast({ type: 'success', message: 'Order placed successfully!' });
+      setSymbol('');
+      setPrice(0);
+      setLot(1);
       setCost(null);
     },
     onError: (error: any) => {
-      message.error(error.message || 'Failed to place order');
+      setToast({ type: 'danger', message: error.message || 'Failed to place order' });
     },
   });
 
@@ -63,148 +69,191 @@ export const QuickTradeWidget: React.FC = () => {
     }
   }, [price, lot, side]);
 
-  const handleSubmit = (values: QuickTradeForm) => {
-    const quantity = values.lot * 100;
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!symbol || lot <= 0 || (priceType === 'LIMIT' && price <= 0)) {
+      setToast({ type: 'danger', message: 'Please fill in all required fields' });
+      return;
+    }
+
+    const quantity = lot * 100;
     placeOrderMutation.mutate({
-      symbol: values.symbol,
-      direction: values.side === 'BUY' ? '0' : '1',
-      priceType: values.priceType === 'LIMIT' ? 'L' : 'P',
-      price: values.priceType === 'LIMIT' ? values.price : undefined,
+      symbol,
+      direction: side === 'BUY' ? '0' : '1',
+      priceType: priceType === 'LIMIT' ? 'L' : 'P',
+      price: priceType === 'LIMIT' ? price : undefined,
       lot: quantity,
       smsNotification: 'H',
       emailNotification: 'H',
     });
   };
 
-  const symbolOptions = symbols?.map((symbol: any) => ({
-    value: symbol.symbol,
-    label: (
-      <div className="flex justify-between">
-        <span className="font-semibold">{symbol.symbol}</span>
-        <span className="text-gray-500">{symbol.name}</span>
-      </div>
-    ),
-  })) || [];
-
   return (
     <Widget
       title="Quick Trade"
-      icon={<DollarOutlined />}
+      icon={<CIcon icon={cilDollar} />}
       className="h-full"
     >
-      <Form
-        form={form}
-        layout="vertical"
-        onFinish={handleSubmit}
-        initialValues={{
-          side: 'BUY',
-          priceType: 'LIMIT',
-          lot: 1,
-        }}
-      >
-        {/* Symbol Search */}
-        <Form.Item
-          label="Symbol"
-          name="symbol"
-          rules={[{ required: true, message: 'Please select a symbol' }]}
+      {!isAuthenticated && (
+        <CAlert color="warning" className="mb-3 d-flex align-items-center">
+          <div>
+            <strong>AlgoLab Login Required</strong>
+            <div className="small">Please login to AlgoLab using the status button in the header to place orders.</div>
+          </div>
+        </CAlert>
+      )}
+
+      {toast && (
+        <CAlert
+          color={toast.type}
+          dismissible
+          onClose={() => setToast(null)}
+          className="mb-3"
         >
-          <AutoComplete
-            options={symbolOptions}
-            onSearch={setSearchValue}
-            placeholder="Search symbol (e.g., AKBNK)"
-            size="large"
-            suffixIcon={<SearchOutlined />}
-            filterOption={false}
-          />
-        </Form.Item>
+          {toast.message}
+        </CAlert>
+      )}
+
+      <CForm onSubmit={handleSubmit}>
+        {/* Symbol Search */}
+        <div className="mb-3">
+          <CFormLabel>Symbol</CFormLabel>
+          <CInputGroup>
+            <CFormInput
+              type="text"
+              placeholder="Search symbol (e.g., AKBNK)"
+              value={symbol}
+              onChange={(e) => {
+                setSymbol(e.target.value);
+                setSearchValue(e.target.value);
+              }}
+              list="symbols-datalist"
+              disabled={!isAuthenticated}
+              required
+            />
+            <CInputGroupText>
+              <CIcon icon={cilMagnifyingGlass} />
+            </CInputGroupText>
+          </CInputGroup>
+          <datalist id="symbols-datalist">
+            {symbols?.map((s: any) => (
+              <option key={s.symbol} value={s.symbol}>
+                {s.name}
+              </option>
+            ))}
+          </datalist>
+        </div>
 
         {/* Buy/Sell Toggle */}
-        <Form.Item name="side" label="Side">
-          <Radio.Group
-            buttonStyle="solid"
-            size="large"
-            className="w-full grid grid-cols-2 gap-2"
-          >
-            <Radio.Button value="BUY" className="text-center">
-              <span className="text-trading-profit font-semibold">BUY</span>
-            </Radio.Button>
-            <Radio.Button value="SELL" className="text-center">
-              <span className="text-trading-loss font-semibold">SELL</span>
-            </Radio.Button>
-          </Radio.Group>
-        </Form.Item>
+        <div className="mb-3">
+          <CFormLabel>Side</CFormLabel>
+          <CButtonGroup role="group" className="w-100">
+            <CButton
+              color={side === 'BUY' ? 'success' : 'secondary'}
+              variant={side === 'BUY' ? 'outline' : 'ghost'}
+              onClick={() => setSide('BUY')}
+              disabled={!isAuthenticated}
+              className="fw-semibold"
+            >
+              BUY
+            </CButton>
+            <CButton
+              color={side === 'SELL' ? 'danger' : 'secondary'}
+              variant={side === 'SELL' ? 'outline' : 'ghost'}
+              onClick={() => setSide('SELL')}
+              disabled={!isAuthenticated}
+              className="fw-semibold"
+            >
+              SELL
+            </CButton>
+          </CButtonGroup>
+        </div>
 
         {/* Price Type */}
-        <Form.Item name="priceType" label="Order Type">
-          <Radio.Group buttonStyle="solid" size="middle" className="w-full">
-            <Radio.Button value="LIMIT" className="flex-1 text-center">
+        <div className="mb-3">
+          <CFormLabel>Order Type</CFormLabel>
+          <CButtonGroup role="group" className="w-100">
+            <CButton
+              color={priceType === 'LIMIT' ? 'primary' : 'secondary'}
+              variant={priceType === 'LIMIT' ? 'outline' : 'ghost'}
+              onClick={() => setPriceType('LIMIT')}
+              disabled={!isAuthenticated}
+            >
               Limit
-            </Radio.Button>
-            <Radio.Button value="MARKET" className="flex-1 text-center">
+            </CButton>
+            <CButton
+              color={priceType === 'MARKET' ? 'primary' : 'secondary'}
+              variant={priceType === 'MARKET' ? 'outline' : 'ghost'}
+              onClick={() => setPriceType('MARKET')}
+              disabled={!isAuthenticated}
+            >
               Market
-            </Radio.Button>
-          </Radio.Group>
-        </Form.Item>
+            </CButton>
+          </CButtonGroup>
+        </div>
 
         {/* Price Input (only for LIMIT) */}
         {priceType === 'LIMIT' && (
-          <Form.Item
-            label="Price (₺)"
-            name="price"
-            rules={[{ required: true, message: 'Please enter price' }]}
-          >
-            <InputNumber
-              size="large"
-              className="w-full"
-              min={0}
-              step={0.01}
-              precision={2}
+          <div className="mb-3">
+            <CFormLabel>Price (₺)</CFormLabel>
+            <CFormInput
+              type="number"
+              step="0.01"
+              min="0"
               placeholder="0.00"
+              value={price || ''}
+              onChange={(e) => setPrice(parseFloat(e.target.value) || 0)}
+              disabled={!isAuthenticated}
+              required
             />
-          </Form.Item>
+          </div>
         )}
 
         {/* Quantity (Lot) */}
-        <Form.Item
-          label="Quantity (Lot)"
-          name="lot"
-          rules={[{ required: true, message: 'Please enter quantity' }]}
-          tooltip="1 lot = 100 shares"
-        >
-          <InputNumber
-            size="large"
-            className="w-full"
-            min={1}
-            step={1}
-            placeholder="1"
-            addonAfter="lot"
-          />
-        </Form.Item>
+        <div className="mb-3">
+          <CFormLabel>
+            Quantity (Lot)
+            <small className="text-muted ms-2">1 lot = 100 shares</small>
+          </CFormLabel>
+          <CInputGroup>
+            <CFormInput
+              type="number"
+              step="1"
+              min="1"
+              placeholder="1"
+              value={lot || ''}
+              onChange={(e) => setLot(parseInt(e.target.value) || 1)}
+              disabled={!isAuthenticated}
+              required
+            />
+            <CInputGroupText>lot</CInputGroupText>
+          </CInputGroup>
+        </div>
 
         {/* Cost Calculation */}
         {cost && (
-          <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg mb-4">
-            <div className="space-y-2 text-sm">
-              <div className="flex justify-between">
-                <span className="text-gray-600">Base Value:</span>
-                <span className="font-mono">{formatCurrency(cost.baseValue)}</span>
+          <div className="bg-light p-3 rounded mb-3">
+            <div className="small">
+              <div className="d-flex justify-content-between mb-1">
+                <span className="text-muted">Base Value:</span>
+                <span className="font-monospace">{formatCurrency(cost.baseValue)}</span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600">Commission (0.2%):</span>
-                <span className="font-mono">{formatCurrency(cost.commission)}</span>
+              <div className="d-flex justify-content-between mb-1">
+                <span className="text-muted">Commission (0.2%):</span>
+                <span className="font-monospace">{formatCurrency(cost.commission)}</span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600">BSMV Tax:</span>
-                <span className="font-mono">{formatCurrency(cost.bsmv)}</span>
+              <div className="d-flex justify-content-between mb-1">
+                <span className="text-muted">BSMV Tax:</span>
+                <span className="font-monospace">{formatCurrency(cost.bsmv)}</span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600">BIST Fee:</span>
-                <span className="font-mono">{formatCurrency(cost.bistFee)}</span>
+              <div className="d-flex justify-content-between mb-2">
+                <span className="text-muted">BIST Fee:</span>
+                <span className="font-monospace">{formatCurrency(cost.bistFee)}</span>
               </div>
-              <Divider style={{ margin: '8px 0' }} />
-              <div className="flex justify-between text-base font-semibold">
+              <hr className="my-2" />
+              <div className="d-flex justify-content-between fw-semibold">
                 <span>Total {side === 'BUY' ? 'Cost' : 'Proceeds'}:</span>
-                <span className={`font-mono ${side === 'BUY' ? 'text-trading-loss' : 'text-trading-profit'}`}>
+                <span className={`font-monospace ${side === 'BUY' ? 'text-danger' : 'text-success'}`}>
                   {formatCurrency(cost.total)}
                 </span>
               </div>
@@ -213,28 +262,19 @@ export const QuickTradeWidget: React.FC = () => {
         )}
 
         {/* Submit Button */}
-        <Form.Item>
+        <div className="d-grid">
           <TradingButton
             action={side.toLowerCase() as 'buy' | 'sell'}
             htmlType="submit"
             size="large"
             block
             loading={placeOrderMutation.isPending}
+            disabled={!isAuthenticated}
           >
             {side === 'BUY' ? 'Place Buy Order' : 'Place Sell Order'}
           </TradingButton>
-        </Form.Item>
-
-        {placeOrderMutation.isError && (
-          <Alert
-            type="error"
-            message="Order Failed"
-            description={placeOrderMutation.error?.message}
-            showIcon
-            closable
-          />
-        )}
-      </Form>
+        </div>
+      </CForm>
     </Widget>
   );
 };

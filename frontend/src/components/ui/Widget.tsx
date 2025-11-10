@@ -1,7 +1,24 @@
 import React, { type ReactNode } from 'react';
-import { Card, Space, Button, Dropdown } from 'antd';
-import { MoreOutlined, ExpandOutlined, SyncOutlined } from '@ant-design/icons';
-import type { MenuProps } from 'antd';
+import {
+  CCard,
+  CCardBody,
+  CCardHeader,
+  CDropdown,
+  CDropdownToggle,
+  CDropdownMenu,
+  CDropdownItem,
+  CButton,
+  CSpinner,
+} from '@coreui/react';
+import { cilOptions, cilReload, cilFullscreen } from '@coreui/icons';
+import CIcon from '@coreui/icons-react';
+
+export interface WidgetMenuItem {
+  key: string;
+  label: string;
+  onClick?: () => void;
+  icon?: ReactNode;
+}
 
 export interface WidgetProps {
   title?: string;
@@ -12,7 +29,7 @@ export interface WidgetProps {
   className?: string;
   onRefresh?: () => void;
   onExpand?: () => void;
-  menuItems?: MenuProps['items'];
+  menuItems?: WidgetMenuItem[];
   bodyClassName?: string;
   headerClassName?: string;
 }
@@ -30,56 +47,66 @@ export const Widget: React.FC<WidgetProps> = ({
   bodyClassName = '',
   headerClassName = '',
 }) => {
-  const actionItems = [
-    ...(menuItems || []),
-    onRefresh && {
-      key: 'refresh',
-      label: 'Refresh',
-      icon: <SyncOutlined />,
-      onClick: onRefresh,
-    },
-    onExpand && {
-      key: 'expand',
-      label: 'Expand',
-      icon: <ExpandOutlined />,
-      onClick: onExpand,
-    },
-  ].filter(Boolean) as MenuProps['items'];
-
-  const widgetExtra = (
-    <Space size="small">
-      {extra}
-      {actionItems && actionItems.length > 0 && (
-        <Dropdown menu={{ items: actionItems }} trigger={['click']}>
-          <Button
-            type="text"
-            icon={<MoreOutlined />}
-            size="small"
-            className="opacity-60 hover:opacity-100"
-          />
-        </Dropdown>
-      )}
-    </Space>
-  );
+  const hasActions = onRefresh || onExpand || (menuItems && menuItems.length > 0);
 
   return (
-    <Card
-      title={
-        title && (
-          <div className={`flex items-center gap-2 ${headerClassName}`}>
-            {icon}
-            <span className="font-semibold text-base">{title}</span>
+    <CCard className={`shadow-sm ${className}`}>
+      {title && (
+        <CCardHeader className={`d-flex align-items-center justify-content-between ${headerClassName}`}>
+          <div className="d-flex align-items-center gap-2">
+            {icon && <span className="text-primary">{icon}</span>}
+            <span className="fw-semibold small">{title}</span>
           </div>
-        )
-      }
-      extra={widgetExtra}
-      loading={loading}
-      className={`widget shadow-widget hover:shadow-widget-hover transition-shadow ${className}`}
-      bodyStyle={{ padding: '16px' }}
-      headStyle={{ borderBottom: '1px solid var(--color-border-light)' }}
-    >
-      <div className={bodyClassName}>{children}</div>
-    </Card>
+
+          <div className="d-flex align-items-center gap-2">
+            {extra}
+
+            {hasActions && (
+              <CDropdown variant="btn-group">
+                <CDropdownToggle
+                  color="light"
+                  size="sm"
+                  className="border-0 opacity-75"
+                  caret={false}
+                >
+                  <CIcon icon={cilOptions} size="sm" />
+                </CDropdownToggle>
+                <CDropdownMenu>
+                  {onRefresh && (
+                    <CDropdownItem onClick={onRefresh}>
+                      <CIcon icon={cilReload} className="me-2" size="sm" />
+                      Refresh
+                    </CDropdownItem>
+                  )}
+                  {onExpand && (
+                    <CDropdownItem onClick={onExpand}>
+                      <CIcon icon={cilFullscreen} className="me-2" size="sm" />
+                      Expand
+                    </CDropdownItem>
+                  )}
+                  {menuItems?.map((item) => (
+                    <CDropdownItem key={item.key} onClick={item.onClick}>
+                      {item.icon && <span className="me-2">{item.icon}</span>}
+                      {item.label}
+                    </CDropdownItem>
+                  ))}
+                </CDropdownMenu>
+              </CDropdown>
+            )}
+          </div>
+        </CCardHeader>
+      )}
+
+      <CCardBody className={bodyClassName}>
+        {loading ? (
+          <div className="d-flex justify-content-center align-items-center" style={{ minHeight: '200px' }}>
+            <CSpinner color="primary" />
+          </div>
+        ) : (
+          children
+        )}
+      </CCardBody>
+    </CCard>
   );
 };
 

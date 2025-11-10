@@ -36,10 +36,11 @@ export const GridLayout: React.FC<GridLayoutProps> = ({
       isDraggable={isDraggable}
       isResizable={isResizable}
       draggableHandle=".widget-drag-handle"
-      compactType="vertical"
+      compactType={null}
       preventCollision={false}
       margin={[16, 16]}
       containerPadding={[0, 0]}
+      useCSSTransforms={true}
     >
       {children}
     </ReactGridLayout>
