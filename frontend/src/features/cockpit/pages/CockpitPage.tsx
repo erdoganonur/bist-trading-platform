@@ -13,7 +13,7 @@ import {
 export const CockpitPage: React.FC = () => {
   return (
     <DashboardLayout>
-      <div className="min-vh-100">
+      <div>
         {/* Portfolio Summary - Full Width */}
         <CRow className="mb-4">
           <CCol xs={12}>

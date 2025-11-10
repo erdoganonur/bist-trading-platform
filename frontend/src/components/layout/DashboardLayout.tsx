@@ -113,13 +113,13 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, side
               {/* User Dropdown */}
               <CNavItem>
                 <CDropdown variant="nav-item" alignment="end">
-                  <CDropdownToggle placement="bottom-end" className="py-0" caret={false}>
+                  <CDropdownToggle className="py-0" caret={false}>
                     <CAvatar color="primary" textColor="white" size="md">
                       {user?.username?.[0]?.toUpperCase() || 'U'}
                     </CAvatar>
                   </CDropdownToggle>
                   <CDropdownMenu className="pt-0">
-                    <CDropdownItem header className="bg-light fw-semibold py-2">
+                    <CDropdownItem className="bg-light fw-semibold py-2" disabled>
                       Account
                     </CDropdownItem>
                     <CDropdownItem onClick={() => navigate('/profile')}>
