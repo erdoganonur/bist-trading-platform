@@ -1,12 +1,25 @@
 import React, { useState } from 'react';
-import { Table, Tag, Button, Space, Empty, Modal, message, InputNumber, Form } from 'antd';
 import {
-  EditOutlined,
-  DeleteOutlined,
-  ClockCircleOutlined,
-  ExclamationCircleOutlined,
-} from '@ant-design/icons';
-import type { ColumnsType } from 'antd/es/table';
+  CTable,
+  CTableHead,
+  CTableBody,
+  CTableRow,
+  CTableHeaderCell,
+  CTableDataCell,
+  CBadge,
+  CButton,
+  CSpinner,
+  CModal,
+  CModalHeader,
+  CModalTitle,
+  CModalBody,
+  CModalFooter,
+  CForm,
+  CFormLabel,
+  CFormInput,
+} from '@coreui/react';
+import { cilPencil, cilTrash, cilClock, cilX } from '@coreui/icons';
+import CIcon from '@coreui/icons-react';
 import { Widget, OrderSideBadge, TradingButton } from '@components/ui';
 import { formatCurrency, formatNumber } from '@utils/formatters';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -27,276 +40,232 @@ interface PendingOrder {
 export const PendingOrdersWidget: React.FC = () => {
   const [modifyModalOpen, setModifyModalOpen] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<PendingOrder | null>(null);
-  const [form] = Form.useForm();
+  const [modifyPrice, setModifyPrice] = useState<number>(0);
+  const [modifyLot, setModifyLot] = useState<number>(0);
+  const [toast, setToast] = useState<{ type: 'success' | 'danger'; message: string } | null>(null);
   const queryClient = useQueryClient();
 
   const { data: orders, isLoading, refetch } = useQuery({
     queryKey: ['pendingOrders'],
     queryFn: brokerApi.getPendingOrders,
-    refetchInterval: 3000, // Refresh every 3 seconds
+    refetchInterval: 3000,
   });
 
-  // Cancel order mutation
   const cancelMutation = useMutation({
     mutationFn: (orderId: string) => brokerApi.cancelOrder(orderId),
     onSuccess: () => {
-      message.success('Order cancelled successfully');
+      setToast({ type: 'success', message: 'Order cancelled successfully' });
       queryClient.invalidateQueries({ queryKey: ['pendingOrders'] });
     },
     onError: (error: any) => {
-      message.error(error.message || 'Failed to cancel order');
+      setToast({ type: 'danger', message: error.message || 'Failed to cancel order' });
     },
   });
 
-  // Modify order mutation
   const modifyMutation = useMutation({
     mutationFn: ({ orderId, price, lot }: { orderId: string; price: number; lot: number }) =>
       brokerApi.modifyOrder(orderId, { price, lot }),
     onSuccess: () => {
-      message.success('Order modified successfully');
+      setToast({ type: 'success', message: 'Order modified successfully' });
       setModifyModalOpen(false);
       setSelectedOrder(null);
-      form.resetFields();
       queryClient.invalidateQueries({ queryKey: ['pendingOrders'] });
     },
     onError: (error: any) => {
-      message.error(error.message || 'Failed to modify order');
+      setToast({ type: 'danger', message: error.message || 'Failed to modify order' });
     },
   });
 
   const handleCancel = (order: PendingOrder) => {
-    Modal.confirm({
-      title: 'Cancel Order',
-      icon: <ExclamationCircleOutlined />,
-      content: `Are you sure you want to cancel this ${order.side} order for ${order.symbol}?`,
-      okText: 'Yes, Cancel',
-      okType: 'danger',
-      onOk: () => cancelMutation.mutate(order.id),
-    });
+    if (window.confirm(`Are you sure you want to cancel this ${order.side} order for ${order.symbol}?`)) {
+      cancelMutation.mutate(order.id);
+    }
   };
 
   const handleModify = (order: PendingOrder) => {
     setSelectedOrder(order);
-    form.setFieldsValue({
-      price: order.price,
-      lot: order.quantity / 100, // Convert to lots
-    });
+    setModifyPrice(order.price);
+    setModifyLot(order.quantity / 100);
     setModifyModalOpen(true);
   };
 
-  const handleModifySubmit = (values: { price: number; lot: number }) => {
+  const handleModifySubmit = (e: React.FormEvent) => {
+    e.preventDefault();
     if (!selectedOrder) return;
     modifyMutation.mutate({
       orderId: selectedOrder.id,
-      price: values.price,
-      lot: values.lot * 100, // Convert to shares
+      price: modifyPrice,
+      lot: modifyLot * 100,
     });
   };
-
-  const columns: any = [
-    {
-      title: 'Time',
-      dataIndex: 'createdAt',
-      key: 'createdAt',
-      width: 100,
-      render: (date: string) => (
-        <span className="text-xs text-gray-500">
-          {dayjs(date).format('HH:mm:ss')}
-        </span>
-      ),
-    },
-    {
-      title: 'Symbol',
-      dataIndex: 'symbol',
-      key: 'symbol',
-      width: 100,
-      render: (symbol: string) => (
-        <span className="font-semibold text-primary-600">{symbol}</span>
-      ),
-    },
-    {
-      title: 'Side',
-      dataIndex: 'side',
-      key: 'side',
-      width: 100,
-      render: (side: 'BUY' | 'SELL') => <OrderSideBadge side={side} />,
-    },
-    {
-      title: 'Type',
-      dataIndex: 'type',
-      key: 'type',
-      width: 80,
-      render: (type: string) => (
-        <Tag color={type === 'LIMIT' ? 'blue' : 'orange'}>{type}</Tag>
-      ),
-    },
-    {
-      title: 'Price',
-      dataIndex: 'price',
-      key: 'price',
-      width: 100,
-      align: 'right',
-      render: (price: number, record) =>
-        record.type === 'LIMIT' ? (
-          <span className="font-mono">{formatCurrency(price)}</span>
-        ) : (
-          <span className="text-gray-400">Market</span>
-        ),
-    },
-    {
-      title: 'Quantity',
-      dataIndex: 'quantity',
-      key: 'quantity',
-      width: 100,
-      align: 'right',
-      render: (qty: number) => formatNumber(qty),
-    },
-    {
-      title: 'Value',
-      key: 'value',
-      width: 120,
-      align: 'right',
-      render: (_, record) => {
-        const value = record.type === 'LIMIT' ? record.price * record.quantity : 0;
-        return value > 0 ? (
-          <span className="font-mono">{formatCurrency(value)}</span>
-        ) : (
-          <span className="text-gray-400">-</span>
-        );
-      },
-    },
-    {
-      title: 'Status',
-      dataIndex: 'status',
-      key: 'status',
-      width: 100,
-      render: (status: string) => (
-        <Tag color="processing" icon={<ClockCircleOutlined />}>
-          {status}
-        </Tag>
-      ),
-    },
-    {
-      title: 'Actions',
-      key: 'actions',
-      fixed: 'right',
-      width: 120,
-      render: (_, record) => (
-        <Space size="small">
-          <Button
-            type="text"
-            size="small"
-            icon={<EditOutlined />}
-            onClick={() => handleModify(record)}
-            disabled={record.type === 'MARKET'}
-            title="Modify Order"
-          />
-          <Button
-            type="text"
-            size="small"
-            icon={<DeleteOutlined />}
-            danger
-            onClick={() => handleCancel(record)}
-            loading={cancelMutation.isPending}
-            title="Cancel Order"
-          />
-        </Space>
-      ),
-    },
-  ];
 
   return (
     <>
       <Widget
         title="Pending Orders"
-        icon={<ClockCircleOutlined />}
+        icon={<CIcon icon={cilClock} />}
         onRefresh={refetch}
         extra={
-          <Tag color="orange">
+          <CBadge color="warning">
             {orders?.length || 0} Order{orders?.length !== 1 ? 's' : ''}
-          </Tag>
+          </CBadge>
         }
       >
-        <Table
-          columns={columns}
-          dataSource={orders}
-          loading={isLoading}
-          rowKey="id"
-          size="small"
-          scroll={{ x: 800 }}
-          pagination={false}
-          locale={{
-            emptyText: (
-              <Empty
-                description="No pending orders"
-                image={Empty.PRESENTED_IMAGE_SIMPLE}
-              />
-            ),
-          }}
-        />
+        {isLoading ? (
+          <div className="text-center py-4">
+            <CSpinner color="primary" />
+          </div>
+        ) : !orders || orders.length === 0 ? (
+          <div className="text-center py-4 text-muted">
+            <CIcon icon={cilClock} size="3xl" className="mb-3 opacity-25" />
+            <p>No pending orders</p>
+          </div>
+        ) : (
+          <div className="table-responsive">
+            <CTable small hover className="mb-0">
+              <CTableHead>
+                <CTableRow>
+                  <CTableHeaderCell>Time</CTableHeaderCell>
+                  <CTableHeaderCell>Symbol</CTableHeaderCell>
+                  <CTableHeaderCell>Side</CTableHeaderCell>
+                  <CTableHeaderCell>Type</CTableHeaderCell>
+                  <CTableHeaderCell className="text-end">Price</CTableHeaderCell>
+                  <CTableHeaderCell className="text-end">Quantity</CTableHeaderCell>
+                  <CTableHeaderCell className="text-end">Value</CTableHeaderCell>
+                  <CTableHeaderCell>Status</CTableHeaderCell>
+                  <CTableHeaderCell className="text-end">Actions</CTableHeaderCell>
+                </CTableRow>
+              </CTableHead>
+              <CTableBody>
+                {orders.map((order: PendingOrder) => (
+                  <CTableRow key={order.id}>
+                    <CTableDataCell>
+                      <span className="small text-muted">
+                        {dayjs(order.createdAt).format('HH:mm:ss')}
+                      </span>
+                    </CTableDataCell>
+                    <CTableDataCell>
+                      <span className="fw-semibold text-primary">{order.symbol}</span>
+                    </CTableDataCell>
+                    <CTableDataCell>
+                      <OrderSideBadge side={order.side} />
+                    </CTableDataCell>
+                    <CTableDataCell>
+                      <CBadge color={order.type === 'LIMIT' ? 'info' : 'warning'}>
+                        {order.type}
+                      </CBadge>
+                    </CTableDataCell>
+                    <CTableDataCell className="text-end">
+                      {order.type === 'LIMIT' ? (
+                        <span className="font-monospace">{formatCurrency(order.price)}</span>
+                      ) : (
+                        <span className="text-muted">Market</span>
+                      )}
+                    </CTableDataCell>
+                    <CTableDataCell className="text-end">
+                      {formatNumber(order.quantity)}
+                    </CTableDataCell>
+                    <CTableDataCell className="text-end">
+                      {order.type === 'LIMIT' && order.price > 0 ? (
+                        <span className="font-monospace">{formatCurrency(order.price * order.quantity)}</span>
+                      ) : (
+                        <span className="text-muted">-</span>
+                      )}
+                    </CTableDataCell>
+                    <CTableDataCell>
+                      <CBadge color="warning">
+                        <CIcon icon={cilClock} size="sm" className="me-1" />
+                        {order.status}
+                      </CBadge>
+                    </CTableDataCell>
+                    <CTableDataCell className="text-end">
+                      <div className="d-flex gap-1 justify-content-end">
+                        <CButton
+                          color="primary"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleModify(order)}
+                          disabled={order.type === 'MARKET'}
+                          title="Modify Order"
+                        >
+                          <CIcon icon={cilPencil} size="sm" />
+                        </CButton>
+                        <CButton
+                          color="danger"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleCancel(order)}
+                          disabled={cancelMutation.isPending}
+                          title="Cancel Order"
+                        >
+                          <CIcon icon={cilTrash} size="sm" />
+                        </CButton>
+                      </div>
+                    </CTableDataCell>
+                  </CTableRow>
+                ))}
+              </CTableBody>
+            </CTable>
+          </div>
+        )}
       </Widget>
 
       {/* Modify Order Modal */}
-      <Modal
-        title={`Modify Order - ${selectedOrder?.symbol}`}
-        open={modifyModalOpen}
-        onCancel={() => {
+      <CModal
+        visible={modifyModalOpen}
+        onClose={() => {
           setModifyModalOpen(false);
           setSelectedOrder(null);
-          form.resetFields();
         }}
-        footer={null}
       >
-        <Form
-          form={form}
-          layout="vertical"
-          onFinish={handleModifySubmit}
-        >
-          <Form.Item
-            label="Price (₺)"
-            name="price"
-            rules={[{ required: true, message: 'Please enter price' }]}
-          >
-            <InputNumber
-              size="large"
-              className="w-full"
-              min={0}
-              step={0.01}
-              precision={2}
-            />
-          </Form.Item>
-
-          <Form.Item
-            label="Quantity (Lot)"
-            name="lot"
-            rules={[{ required: true, message: 'Please enter quantity' }]}
-            tooltip="1 lot = 100 shares"
-          >
-            <InputNumber
-              size="large"
-              className="w-full"
-              min={1}
-              step={1}
-              addonAfter="lot"
-            />
-          </Form.Item>
-
-          <Form.Item>
-            <Space className="w-full justify-end">
-              <Button onClick={() => setModifyModalOpen(false)}>
-                Cancel
-              </Button>
-              <TradingButton
-                action="modify"
-                htmlType="submit"
-                loading={modifyMutation.isPending}
-              >
-                Modify Order
-              </TradingButton>
-            </Space>
-          </Form.Item>
-        </Form>
-      </Modal>
+        <CModalHeader>
+          <CModalTitle>Modify Order - {selectedOrder?.symbol}</CModalTitle>
+        </CModalHeader>
+        <CForm onSubmit={handleModifySubmit}>
+          <CModalBody>
+            <div className="mb-3">
+              <CFormLabel>Price (₺)</CFormLabel>
+              <CFormInput
+                type="number"
+                step="0.01"
+                min="0"
+                value={modifyPrice || ''}
+                onChange={(e) => setModifyPrice(parseFloat(e.target.value) || 0)}
+                required
+              />
+            </div>
+            <div className="mb-3">
+              <CFormLabel>
+                Quantity (Lot)
+                <small className="text-muted ms-2">1 lot = 100 shares</small>
+              </CFormLabel>
+              <CFormInput
+                type="number"
+                step="1"
+                min="1"
+                value={modifyLot || ''}
+                onChange={(e) => setModifyLot(parseInt(e.target.value) || 0)}
+                required
+              />
+            </div>
+          </CModalBody>
+          <CModalFooter>
+            <CButton
+              color="secondary"
+              onClick={() => setModifyModalOpen(false)}
+            >
+              Cancel
+            </CButton>
+            <TradingButton
+              action="modify"
+              htmlType="submit"
+              loading={modifyMutation.isPending}
+            >
+              Modify Order
+            </TradingButton>
+          </CModalFooter>
+        </CForm>
+      </CModal>
     </>
   );
 };
